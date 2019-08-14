@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module org.jetbrains.idea.maven.project.MavenProjectsManager.isMavenModule="true" type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_5">
+    <output url="file://$MODULE_DIR$/dev/audit-release/blank_maven_build/target/classes" />
+    <output-test url="file://$MODULE_DIR$/dev/audit-release/blank_maven_build/target/test-classes" />
+    <content url="file://$MODULE_DIR$/dev/audit-release/blank_maven_build">
+      <excludeFolder url="file://$MODULE_DIR$/dev/audit-release/blank_maven_build/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Maven: org.apache.spark:${spark.module}:unknown" level="project" />
+  </component>
+</module>

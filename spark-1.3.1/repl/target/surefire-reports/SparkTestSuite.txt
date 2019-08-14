@@ -1,0 +1,12 @@
+[36mDiscovery starting.[0m
+[36mDiscovery completed in 767 milliseconds.[0m
+[36mRun starting. Expected test count is: 20[0m
+[32mReplSuite:[0m
+[32m- propagation of local properties[0m
+[32m- simple foreach with accumulator[0m
+[32m- external vars[0m
+[32m- external classes[0m
+[32m- external functions[0m
+[32m- external functions that access vars[0m
+[32m- broadcast vars[0m
+[32m- interacting with files[0m

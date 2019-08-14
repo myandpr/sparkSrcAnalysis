@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="MavenProjectsManager">
+    <option name="originalFiles">
+      <list>
+        <option value="$PROJECT_DIR$/dev/audit-release/blank_maven_build/pom.xml" />
+        <option value="$PROJECT_DIR$/sql/hive-thriftserver/pom.xml" />
+        <option value="$PROJECT_DIR$/yarn/pom.xml" />
+        <option value="$PROJECT_DIR$/extras/java8-tests/pom.xml" />
+        <option value="$PROJECT_DIR$/extras/kinesis-asl/pom.xml" />
+        <option value="$PROJECT_DIR$/extras/spark-ganglia-lgpl/pom.xml" />
+        <option value="$PROJECT_DIR$/network/yarn/pom.xml" />
+        <option value="$PROJECT_DIR$/pom.xml" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" project-jdk-name="1.8" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
+</project>
