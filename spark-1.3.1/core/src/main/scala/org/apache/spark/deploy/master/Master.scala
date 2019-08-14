@@ -551,11 +551,14 @@ private[spark] class Master(
     workers.count(_.state == WorkerState.UNKNOWN) == 0 &&
       apps.count(_.state == ApplicationState.UNKNOWN) == 0
 
+  //分别恢复application、driver、worker
+  //恢复，也是重新注册，维护这三者的数据结构而已
   def beginRecovery(storedApps: Seq[ApplicationInfo], storedDrivers: Seq[DriverInfo],
       storedWorkers: Seq[WorkerInfo]) {
     for (app <- storedApps) {
       logInfo("Trying to recover app: " + app.id)
       try {
+        //所谓恢复，就是重新注册，保存变量到apps变量里
         registerApplication(app)
         app.state = ApplicationState.UNKNOWN
         app.driver ! MasterChanged(masterUrl, masterWebUiUrl)
@@ -582,6 +585,7 @@ private[spark] class Master(
     }
   }
 
+  //加锁，更新数据结构，移除恢复过程中发现的有问题的组件
   def completeRecovery() {
     // Ensure "only-once" recovery semantics using a short synchronization period.
     synchronized {
@@ -618,6 +622,7 @@ private[spark] class Master(
    * launched an executor for the app on it (right now the standalone backend doesn't like having
    * two executors on the same worker).
    */
+  //如果该worker上的资源大于该applicationDescription资源，则true，可以使用
   def canUse(app: ApplicationInfo, worker: WorkerInfo): Boolean = {
     worker.memoryFree >= app.desc.memoryPerSlave && !worker.hasExecutor(app)
   }
@@ -626,6 +631,9 @@ private[spark] class Master(
    * Schedule the currently available resources among waiting apps. This method will be called
    * every time a new app joins or resource availability changes.
    */
+  //根据分配方式，如spreadOutApps，给新app调度资源，
+  // 给app分配worker和executor,启动对应的Executor，launchExecutor(usableWorkers(pos), exec)
+  /********************这个函数非常重要*********************************/
   private def schedule() {
     if (state != RecoveryState.ALIVE) { return }
 
@@ -645,6 +653,9 @@ private[spark] class Master(
         val worker = shuffledAliveWorkers(curPos)
         numWorkersVisited += 1
         if (worker.memoryFree >= driver.desc.mem && worker.coresFree >= driver.desc.cores) {
+          /*
+          * 启动driver线程
+          * */
           launchDriver(worker, driver)
           waitingDrivers -= driver
           launched = true
@@ -658,6 +669,8 @@ private[spark] class Master(
     if (spreadOutApps) {
       // Try to spread out each app among all the nodes, until it has all its cores
       for (app <- waitingApps if app.coresLeft > 0) {
+        //从保存的数据结构workers中，找到资源从多少的worker排序
+        //其实所有的操作，都是在维护这些数据结构！！！各种信息，也都可以从数据结构里获得
         val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE)
           .filter(canUse(app, _)).sortBy(_.coresFree).reverse
         val numUsable = usableWorkers.length
@@ -688,6 +701,7 @@ private[spark] class Master(
             val coresToUse = math.min(worker.coresFree, app.coresLeft)
             if (coresToUse > 0) {
               val exec = app.addExecutor(worker, coresToUse)
+              //分配worker和executor
               launchExecutor(worker, exec)
               app.state = ApplicationState.RUNNING
             }
@@ -697,9 +711,18 @@ private[spark] class Master(
     }
   }
 
+  /*
+  * 启动某个worker上的某个executor
+  * */
   def launchExecutor(worker: WorkerInfo, exec: ExecutorDesc) {
     logInfo("Launching executor " + exec.fullId + " on worker " + worker.id)
+    /*
+    * 给该worker的executors数据结构添加executor
+    * */
     worker.addExecutor(exec)
+    /*
+    * 给worker发送启动Executor的命令
+    * */
     worker.actor ! LaunchExecutor(masterUrl,
       exec.application.id, exec.id, exec.application.desc, exec.cores, exec.memory)
     exec.application.driver ! ExecutorAdded(
@@ -740,6 +763,9 @@ private[spark] class Master(
     * 标记当前work的状态为“dead”
     * */
     worker.setState(WorkerState.DEAD)
+    /*
+    * 都是把信息从自己维护的数据结构中删除
+    * */
     idToWorker -= worker.id
     addressToWorker -= worker.actor.path.address
     for (exec <- worker.executors.values) {
@@ -899,6 +925,9 @@ private[spark] class Master(
   }
 
   /** Generate a new app ID given a app's submission date */
+  /*
+  * applicationID都是根据时间和application顺序号编码的
+  * */
   def newApplicationId(submitDate: Date): String = {
     val appId = "app-%s-%04d".format(createDateFormat.format(submitDate), nextAppNumber)
     nextAppNumber += 1
@@ -935,12 +964,19 @@ private[spark] class Master(
     appId
   }
 
+  /*
+  * 所谓的createDriver或者createApplication等，都是构造一个DriverInfo、ApplicationInfo等类似的数据结构，保存起来而已
+  * 启动Driver才是启动线程，DriverRunner这种
+  * */
   def createDriver(desc: DriverDescription): DriverInfo = {
     val now = System.currentTimeMillis()
     val date = new Date(now)
     new DriverInfo(now, newDriverId(date), desc, date)
   }
 
+  /*
+  * 维护数据结构，然后给worker发消息，启动DriverRunner线程
+  * */
   def launchDriver(worker: WorkerInfo, driver: DriverInfo) {
     logInfo("Launching driver " + driver.id + " on worker " + worker.id)
     worker.addDriver(driver)
@@ -953,6 +989,9 @@ private[spark] class Master(
     drivers.find(d => d.id == driverId) match {
       case Some(driver) =>
         logInfo(s"Removing driver: $driverId")
+        /*
+        * 所谓的删除，也是维护数据结构
+        * */
         drivers -= driver
         if (completedDrivers.size >= RETAINED_DRIVERS) {
           val toRemove = math.max(RETAINED_DRIVERS / 10, 1)
@@ -963,6 +1002,12 @@ private[spark] class Master(
         driver.state = finalState
         driver.exception = exception
         driver.worker.foreach(w => w.removeDriver(driver))
+        /*
+        * 而具体操作，都是在schedule()中实现的
+        ***********************************************************************************************************
+        * 该函数，先DriverRunner这个application对应的driver，然后spreadout分配该application对应的worker和executor *
+        * *********************************************************************************************************
+        * */
         schedule()
       case None =>
         logWarning(s"Asked to remove unknown driver: $driverId")
@@ -974,11 +1019,15 @@ private[spark] object Master extends Logging {
   val systemName = "sparkMaster"
   private val actorName = "Master"
 
+  /*
+  * 主函数还是和worker一样，启动自己的actor，开始提供服务
+  * */
   def main(argStrings: Array[String]) {
     SignalLogger.register(log)
     val conf = new SparkConf
     val args = new MasterArguments(argStrings, conf)
     val (actorSystem, _, _, _) = startSystemAndActor(args.host, args.port, args.webUiPort, conf)
+    //长期运行，除非shutdown
     actorSystem.awaitTermination()
   }
 
@@ -1015,6 +1064,9 @@ private[spark] object Master extends Logging {
       webUiPort: Int,
       conf: SparkConf): (ActorSystem, Int, Int, Option[Int]) = {
     val securityMgr = new SecurityManager(conf)
+    /*
+    * 说白了，就是调用了actor的ActorSystem
+    * */
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port, conf = conf,
       securityManager = securityMgr)
     val actor = actorSystem.actorOf(
