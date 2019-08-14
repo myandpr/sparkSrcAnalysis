@@ -503,6 +503,9 @@ private[spark] class Worker(
                 }
             }
 
+            /*
+            * worker上不仅可以启动Executor，也可以启动Driver（在cluster模式下的情况）
+            * */
         case LaunchDriver(driverId, driverDesc) => {
             logInfo(s"Asked to launch driver $driverId")
             val driver = new DriverRunner(
@@ -607,6 +610,7 @@ private[spark] object Worker extends Logging {
         SignalLogger.register(log)
         val conf = new SparkConf
         val args = new WorkerArguments(argStrings, conf)
+        //启动actor，createActorSystem()->doCreateActorSystem()->ActorSystem()
         val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort, args.cores,
             args.memory, args.masters, args.workDir)
         actorSystem.awaitTermination()
@@ -627,6 +631,7 @@ private[spark] object Worker extends Logging {
         val systemName = "sparkWorker" + workerNumber.map(_.toString).getOrElse("")
         val actorName = "Worker"
         val securityMgr = new SecurityManager(conf)
+
         val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port,
             conf = conf, securityManager = securityMgr)
         val masterAkkaUrls = masterUrls.map(Master.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
