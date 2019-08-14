@@ -79,6 +79,7 @@ private[spark] class AppClient(
     def tryRegisterAllMasters() {
       for (masterAkkaUrl <- masterAkkaUrls) {
         logInfo("Connecting to master " + masterAkkaUrl + "...")
+        //引用master actor发送注册application信息
         val actor = context.actorSelection(masterAkkaUrl)
         actor ! RegisterApplication(appDescription)
       }

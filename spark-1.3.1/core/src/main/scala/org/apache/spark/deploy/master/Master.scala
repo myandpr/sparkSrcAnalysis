@@ -233,10 +233,11 @@ private[spark] class Master(
     leaderElectionAgent.stop()
   }
 
+  //向master这个actor发送竞选命令，这个message在receiveWithLogging中有处理过程，250行，该方法只是继承了leaderagent相关的trait
   override def electedLeader() {
     self ! ElectedLeader
   }
-
+  //向master这个actor发送移除leader的命令，移除master的leader
   override def revokedLeadership() {
     self ! RevokedLeadership
   }
@@ -247,6 +248,11 @@ private[spark] class Master(
   * */
   override def receiveWithLogging = {
     case ElectedLeader => {
+      /*
+      * 所谓的竞选leader，就是从持久化的数据中恢复数据？？？？竞选过程在哪里？
+      * 貌似，这仅仅就是主备切换
+      * 这个属于，master被选举为leader后发送的electedLeader消息，表示已经选举完成，所以这里需要从持久化数据中恢复数据
+      * */
       val (storedApps, storedDrivers, storedWorkers) = persistenceEngine.readPersistedData()
       state = if (storedApps.isEmpty && storedDrivers.isEmpty && storedWorkers.isEmpty) {
         RecoveryState.ALIVE
@@ -254,6 +260,7 @@ private[spark] class Master(
         RecoveryState.RECOVERING
       }
       logInfo("I have been elected leader! New state: " + state)
+      //竞选完后要像master发送恢复完成的消息
       if (state == RecoveryState.RECOVERING) {
         beginRecovery(storedApps, storedDrivers, storedWorkers)
         recoveryCompletionTask = context.system.scheduler.scheduleOnce(WORKER_TIMEOUT millis, self,
@@ -272,16 +279,35 @@ private[spark] class Master(
     {
       logInfo("Registering worker %s:%d with %d cores, %s RAM".format(
         workerHost, workerPort, cores, Utils.megabytesToString(memory)))
+      /*
+      * 如果该master处于standby模式，则不回应
+      * */
       if (state == RecoveryState.STANDBY) {
         // ignore, don't send response
       } else if (idToWorker.contains(id)) {
+        /*
+        * 如果该worker已经在master的内存里，则不允许重复注册
+        * */
         sender ! RegisterWorkerFailed("Duplicate worker ID")
       } else {
+        /*
+        * 否则，才正常注册
+        * 所谓注册就是，将worker信息封装成workerInfo
+        * */
         val worker = new WorkerInfo(id, workerHost, workerPort, cores, memory,
           sender, workerUiPort, publicAddress)
         if (registerWorker(worker)) {
+          //addWorker调用了persist()方法，将worker信息持久化写入XXXX
           persistenceEngine.addWorker(worker)
+          /*
+          * 发送已注册消息
+          * 由于59行该Worker继承了Actor，所以可以直接调用Actor的sender方法
+          * 研究一下sender到底是worker还是master的actor！！！！！
+          * */
           sender ! RegisteredWorker(masterUrl, masterWebUiUrl)
+          /*
+          * 每次资源改变或者新APP加入时候，就会调用这个schedule()方法
+          * */
           schedule()
         } else {
           val workerAddress = worker.actor.path.address
@@ -293,15 +319,25 @@ private[spark] class Master(
       }
     }
 
+      //description就是DriverDescription，创建driver
+      //该消息是由Client.class文件中的CLientActor类提交的，通过引用master actor提交给master的actor的
+      //DriverClient->master
     case RequestSubmitDriver(description) => {
+      //master的固定逻辑，首先检查自己这个maser有没有活着
       if (state != RecoveryState.ALIVE) {
         val msg = s"Can only accept driver submissions in ALIVE state. Current state: $state."
         sender ! SubmitDriverResponse(false, None, msg)
       } else {
         logInfo("Driver submitted " + description.command.mainClass)
+        /*
+        * 这里开始创建Driver
+        * */
         val driver = createDriver(description)
         persistenceEngine.addDriver(driver)
         waitingDrivers += driver
+        /*
+        * drivers数据结构里，增加了一个新的driver
+        * */
         drivers.add(driver)
         schedule()
 
@@ -319,17 +355,27 @@ private[spark] class Master(
         sender ! KillDriverResponse(driverId, success = false, msg)
       } else {
         logInfo("Asked to kill driver " + driverId)
+        /*
+        * 在自己的drivers数据结构中查找需要删除的driver
+        * val drivers = new HashSet[DriverInfo]
+        * */
         val driver = drivers.find(_.id == driverId)
         driver match {
+                //如果存在
           case Some(d) =>
+            //如果在等待运行的序列，那么直接在val waitingDrivers = new ArrayBuffer[DriverInfo] // Drivers currently spooled for scheduling中删除即可，
+            // 再通知一下driver状态改变
             if (waitingDrivers.contains(d)) {
               waitingDrivers -= d
               self ! DriverStateChanged(driverId, DriverState.KILLED, None)
             } else {
+              //如果该driver正在运行中
               // We just notify the worker to kill the driver here. The final bookkeeping occurs
               // on the return path when the worker submits a state change back to the master
               // to notify it that the driver was successfully killed.
               d.worker.foreach { w =>
+                      //向每个worker的actor发KillDriver消息，
+                      //让Worker去杀死Driver
                 w.actor ! KillDriver(driverId)
               }
             }
@@ -337,6 +383,7 @@ private[spark] class Master(
             val msg = s"Kill request for $driverId submitted"
             logInfo(msg)
             sender ! KillDriverResponse(driverId, success = true, msg)
+            //如果不存在，说明该准备删除的driver意思运行结束退出或者不存在
           case None =>
             val msg = s"Driver $driverId has already finished or does not exist"
             logWarning(msg)
@@ -348,6 +395,7 @@ private[spark] class Master(
     case RequestDriverStatus(driverId) => {
       (drivers ++ completedDrivers).find(_.id == driverId) match {
         case Some(driver) =>
+          //直接调用driver数据结构里的state，封装在消息中发送出去
           sender ! DriverStatusResponse(found = true, Some(driver.state),
             driver.worker.map(_.id), driver.worker.map(_.hostPort), driver.exception)
         case None =>
@@ -355,6 +403,7 @@ private[spark] class Master(
       }
     }
 
+    // AppClient to Master
     case RegisterApplication(description) => {
       if (state == RecoveryState.STANDBY) {
         // ignore, don't send response
@@ -404,6 +453,10 @@ private[spark] class Master(
       }
     }
 
+      /*
+      * 总结一下：一旦收到stateChange相关消息，只有两种方案：
+      * 1、如果在队列里，还没运行，则直接把存储的数据结构中该Driver等删除，通知；2、如果已经运行了，kill线程，清除目录，通知
+      * */
     case DriverStateChanged(driverId, state, exception) => {
       state match {
         case DriverState.ERROR | DriverState.FINISHED | DriverState.KILLED | DriverState.FAILED =>
@@ -416,6 +469,7 @@ private[spark] class Master(
     case Heartbeat(workerId) => {
       idToWorker.get(workerId) match {
         case Some(workerInfo) =>
+          //记录该worker最新心跳
           workerInfo.lastHeartbeat = System.currentTimeMillis()
         case None =>
           if (workers.map(_.id).contains(workerId)) {
@@ -535,6 +589,9 @@ private[spark] class Master(
       state = RecoveryState.COMPLETING_RECOVERY
     }
 
+    /*
+    * 移除了那些有问题，超时的worker 、driver 、apps
+    * */
     // Kill off any workers and apps that didn't respond to us.
     workers.filter(_.state == WorkerState.UNKNOWN).foreach(removeWorker)
     apps.filter(_.state == ApplicationState.UNKNOWN).foreach(finishApplication)
@@ -716,6 +773,8 @@ private[spark] class Master(
     new ApplicationInfo(now, newApplicationId(date), desc, date, driver, defaultCores)
   }
 
+  //所谓的注册application，就是把APP的信息保存在自己的apps内存变量里而已
+  //val apps = new HashSet[ApplicationInfo]
   def registerApplication(app: ApplicationInfo): Unit = {
     val appAddress = app.driver.path.address
     if (addressToApp.contains(appAddress)) {
