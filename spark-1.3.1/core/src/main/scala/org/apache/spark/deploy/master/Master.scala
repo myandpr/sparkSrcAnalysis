@@ -68,6 +68,11 @@ private[spark] class Master(
   val RETAINED_APPLICATIONS = conf.getInt("spark.deploy.retainedApplications", 200)
   val RETAINED_DRIVERS = conf.getInt("spark.deploy.retainedDrivers", 200)
   val REAPER_ITERATIONS = conf.getInt("spark.dead.worker.persistence", 15)
+
+  /*
+  * master的高可用恢复模式：1、zookeeper；2、filesystem；3、custom
+  * 可以将master相关数据保存用于某个master失效后其余master的恢复
+  * */
   val RECOVERY_MODE = conf.get("spark.deploy.recoveryMode", "NONE")
 
 
@@ -115,9 +120,11 @@ private[spark] class Master(
 
   //不知道持久化的引擎是什么东西？？？？
   //度量系统，用来恢复master的
+  //一个操作持久化的变量
   var persistenceEngine: PersistenceEngine = _
 
   //多master的leader竞选
+  //一个操作竞选机制的变量
   var leaderElectionAgent: LeaderElectionAgent = _
 
   private var recoveryCompletionTask: Cancellable = _
@@ -152,6 +159,11 @@ private[spark] class Master(
   private val restServerBoundPort = restServer.map(_.start())
 
   //依然是actor的三个重写方法
+  /*
+  * 1、注册相关系统，如metrics、web等；
+  * 2、检查worker是否超时；
+  * 3、创建两个变量：（1）persistenceEngine变量用来持久化恢复（2）leaderElectionAgent变量用来竞选新的master
+  * */
   override def preStart() {
     logInfo("Starting Spark master at " + masterUrl)
     logInfo(s"Running Spark version ${org.apache.spark.SPARK_VERSION}")
@@ -162,6 +174,9 @@ private[spark] class Master(
     //每隔WORKER_TIMEOUT时间向master发送CheckForWorkerTimeOut消息检查worker是否超时
     context.system.scheduler.schedule(0 millis, WORKER_TIMEOUT millis, self, CheckForWorkerTimeOut)
 
+    /*
+    * 向监控系统注册master资源并启动监控，开始监控master和application相关信息
+    * */
     masterMetricsSystem.registerSource(masterSource)
     masterMetricsSystem.start()
     applicationMetricsSystem.start()
@@ -170,11 +185,16 @@ private[spark] class Master(
     masterMetricsSystem.getServletHandlers.foreach(webUi.attachHandler)
     applicationMetricsSystem.getServletHandlers.foreach(webUi.attachHandler)
 
+
+    //仅仅是根据持久化的模式，构建了（1）持久化和（2）竞选机制的一个对象，并没有真正的开始持久化或恢复操作
+    //1、zookeeper；2、filesystem；3、custom
+    //持久化都需要序列化
     val (persistenceEngine_, leaderElectionAgent_) = RECOVERY_MODE match {
       case "ZOOKEEPER" =>
         logInfo("Persisting recovery state to ZooKeeper")
         val zkFactory =
           new ZooKeeperRecoveryModeFactory(conf, SerializationExtension(context.system))
+        //仅仅是构建了持久化的一个对象，并没有真正的开始持久化或恢复操作
         (zkFactory.createPersistenceEngine(), zkFactory.createLeaderElectionAgent(this))
       case "FILESYSTEM" =>
         val fsFactory =
@@ -221,6 +241,10 @@ private[spark] class Master(
     self ! RevokedLeadership
   }
 
+
+  /*
+  * 核心函数：消息处理机制
+  * */
   override def receiveWithLogging = {
     case ElectedLeader => {
       val (storedApps, storedDrivers, storedWorkers) = persistenceEngine.readPersistedData()
@@ -655,6 +679,9 @@ private[spark] class Master(
 
   def removeWorker(worker: WorkerInfo) {
     logInfo("Removing worker " + worker.id + " on " + worker.host + ":" + worker.port)
+    /*
+    * 标记当前work的状态为“dead”
+    * */
     worker.setState(WorkerState.DEAD)
     idToWorker -= worker.id
     addressToWorker -= worker.actor.path.address
@@ -826,6 +853,9 @@ private[spark] class Master(
   def timeOutDeadWorkers() {
     // Copy the workers into an array so we don't modify the hashset while iterating through it
     val currentTime = System.currentTimeMillis()
+    /*
+    * 上一次心跳距离当前时间超过WORKER_TIMEOUT，则超时
+    * */
     val toRemove = workers.filter(_.lastHeartbeat < currentTime - WORKER_TIMEOUT).toArray
     for (worker <- toRemove) {
       if (worker.state != WorkerState.DEAD) {
