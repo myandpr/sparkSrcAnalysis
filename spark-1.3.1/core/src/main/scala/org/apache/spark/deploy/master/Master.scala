@@ -49,6 +49,7 @@ import org.apache.spark.scheduler.{EventLoggingListener, ReplayListenerBus}
 import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.{ActorLogReceive, AkkaUtils, SignalLogger, Utils}
 
+//master和worker一样，是个actor，并且继承了多master选举的trait
 private[spark] class Master(
     host: String,
     port: Int,
@@ -57,6 +58,7 @@ private[spark] class Master(
     val conf: SparkConf)
   extends Actor with ActorLogReceive with Logging with LeaderElectable {
 
+  //这里直接调用actor trait中的变量
   import context.dispatcher   // to use Akka's scheduler.schedule()
 
   val hadoopConf = SparkHadoopUtil.get.newConfiguration(conf)
@@ -68,6 +70,9 @@ private[spark] class Master(
   val REAPER_ITERATIONS = conf.getInt("spark.dead.worker.persistence", 15)
   val RECOVERY_MODE = conf.get("spark.deploy.recoveryMode", "NONE")
 
+
+  //两个数据结构：WorkerInfo和ApplicationInfo
+  //主要三类：worker、app、driver
   val workers = new HashSet[WorkerInfo]
   val idToWorker = new HashMap[String, WorkerInfo]
   val addressToWorker = new HashMap[Address, WorkerInfo]
@@ -88,13 +93,16 @@ private[spark] class Master(
 
   Utils.checkHost(host, "Expected hostname")
 
+  //创建统计系统，统计相关的略过，监控的东西不一样，一个是监控master，一个是监控application
   val masterMetricsSystem = MetricsSystem.createMetricsSystem("master", conf, securityMgr)
   val applicationMetricsSystem = MetricsSystem.createMetricsSystem("applications", conf,
     securityMgr)
+  //监控三种：worker数量、application数量、等待application数量
   val masterSource = new MasterSource(this)
 
   val webUi = new MasterWebUI(this, webUiPort)
 
+  //从sparkConf中获取master主IP
   val masterPublicAddress = {
     val envVar = conf.getenv("SPARK_PUBLIC_DNS")
     if (envVar != null) envVar else host
@@ -105,8 +113,11 @@ private[spark] class Master(
 
   var state = RecoveryState.STANDBY
 
+  //不知道持久化的引擎是什么东西？？？？
+  //度量系统，用来恢复master的
   var persistenceEngine: PersistenceEngine = _
 
+  //多master的leader竞选
   var leaderElectionAgent: LeaderElectionAgent = _
 
   private var recoveryCompletionTask: Cancellable = _
@@ -114,6 +125,13 @@ private[spark] class Master(
   // As a temporary workaround before better ways of configuring memory, we allow users to set
   // a flag that will perform round-robin scheduling across the nodes (spreading out each app
   // among all the nodes) instead of trying to consolidate each app onto a small # of nodes.
+
+
+  /*
+  *默认application资源分配是均匀打散到各个node上，round-robin模式，这些都可以在sparkConf中配置，或者submit提交时修改
+  * round-robin是每个node顺序分配一个core，多次轮训
+  * consolidate是依次打满每个node的core
+  * */
   val spreadOutApps = conf.getBoolean("spark.deploy.spreadOut", true)
 
   // Default maxCores for applications that don't specify it (i.e. pass Int.MaxValue)
@@ -133,6 +151,7 @@ private[spark] class Master(
     }
   private val restServerBoundPort = restServer.map(_.start())
 
+  //依然是actor的三个重写方法
   override def preStart() {
     logInfo("Starting Spark master at " + masterUrl)
     logInfo(s"Running Spark version ${org.apache.spark.SPARK_VERSION}")
@@ -140,6 +159,7 @@ private[spark] class Master(
     context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
     webUi.bind()
     masterWebUiUrl = "http://" + masterPublicAddress + ":" + webUi.boundPort
+    //每隔WORKER_TIMEOUT时间向master发送CheckForWorkerTimeOut消息检查worker是否超时
     context.system.scheduler.schedule(0 millis, WORKER_TIMEOUT millis, self, CheckForWorkerTimeOut)
 
     masterMetricsSystem.registerSource(masterSource)
@@ -800,6 +820,9 @@ private[spark] class Master(
   }
 
   /** Check for, and remove, any timed-out workers */
+  /*
+  * 遍历所有worker，判断超时，并删除
+  * */
   def timeOutDeadWorkers() {
     // Copy the workers into an array so we don't modify the hashset while iterating through it
     val currentTime = System.currentTimeMillis()

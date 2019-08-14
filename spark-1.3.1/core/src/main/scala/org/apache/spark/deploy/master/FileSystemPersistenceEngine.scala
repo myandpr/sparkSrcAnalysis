@@ -33,6 +33,8 @@ import org.apache.spark.Logging
  * @param dir Directory to store files. Created if non-existent (but not recursively).
  * @param serialization Used to serialize our objects.
  */
+
+//序列化并持久化到文件File中
 private[spark] class FileSystemPersistenceEngine(
     val dir: String,
     val serialization: Serialization)
