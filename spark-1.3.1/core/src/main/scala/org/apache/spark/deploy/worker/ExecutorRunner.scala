@@ -34,6 +34,7 @@ import org.apache.spark.util.logging.FileAppender
  * Manages the execution of one executor process.
  * This is currently only used in standalone mode.
  */
+//其实是封装了thread线程的各种操作
 private[spark] class ExecutorRunner(
     val appId: String,
     val execId: Int,
@@ -53,6 +54,7 @@ private[spark] class ExecutorRunner(
     var state: ExecutorState.Value)
   extends Logging {
 
+  //fullId就是Worker.scala中executor的key,128行
   val fullId = appId + "/" + execId
   var workerThread: Thread = null
   var process: Process = null
@@ -63,6 +65,7 @@ private[spark] class ExecutorRunner(
   // make sense to remove this in the future.
   var shutdownHook: Thread = null
 
+  //核心：定义并且start()开启ExecutorRunner线程，实现fetchAndRunExecutor()
   def start() {
     workerThread = new Thread("ExecutorRunner for " + fullId) {
       override def run() { fetchAndRunExecutor() }
@@ -95,10 +98,12 @@ private[spark] class ExecutorRunner(
       process.destroy()
       exitCode = Some(process.waitFor())
     }
+    //发送更新Executor更新消息
     worker ! ExecutorStateChanged(appId, execId, state, message, exitCode)
   }
 
   /** Stop this executor runner, including killing the process it launched */
+  //沙雕workerThread线程
   def kill() {
     if (workerThread != null) {
       // the workerThread will kill the child process when interrupted
