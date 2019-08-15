@@ -1316,11 +1316,13 @@ class DAGScheduler(
       return Nil
     }
     // If the partition is cached, return the cache locations
+    //优先查询缓存地址，如果该partition缓存过，直接返回cache locations
     val cached = getCacheLocs(rdd)(partition)
     if (!cached.isEmpty) {
       return cached
     }
     // If the RDD has some placement preferences (as is the case for input RDDs), get those
+    //然后才是RDD本身的preferredLocations
     val rddPrefs = rdd.preferredLocations(rdd.partitions(partition)).toList
     if (!rddPrefs.isEmpty) {
       return rddPrefs.map(TaskLocation(_))

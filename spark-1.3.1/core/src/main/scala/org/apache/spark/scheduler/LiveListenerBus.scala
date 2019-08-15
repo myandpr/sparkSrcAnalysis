@@ -28,6 +28,9 @@ import org.apache.spark.util.AsynchronousListenerBus
  * has started will events be actually propagated to all attached listeners. This listener bus
  * is stopped when it receives a SparkListenerShutdown event, which is posted using stop().
  */
+/*
+* 即所有spark消息SparkListenerEvents 被异步的发送给已经注册过的SparkListeners.
+* */
 private[spark] class LiveListenerBus
   extends AsynchronousListenerBus[SparkListener, SparkListenerEvent]("SparkListenerBus")
   with SparkListenerBus {
