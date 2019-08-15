@@ -74,27 +74,45 @@ import org.apache.spark.util._
  * @param config a Spark Config object describing the application configuration. Any settings in
  *   this config overrides the default configs as well as system properties.
  */
+/*
+* 1、SparkContext是负责连接Spark cluster的；
+* 2、SparkContext可以创建RDD、计算、广播变量到集群；
+* 3、一个JVM只能有一个SparkContext，创建新的，就得停止旧的，但是可以设置参数允许多个SparkContext；
+* 4、config对象配置了application配置，覆盖系统默认配置
+* */
 class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationClient {
 
   // The call site where this SparkContext was constructed.
   private val creationSite: CallSite = Utils.getCallSite()
 
   // If true, log warnings instead of throwing exceptions when multiple SparkContexts are active
+  /*
+  *  获得是否允许多个SparkContext
+  *  但是在SparkConf中没找到spark.driver.allowMultipleContexts的设置项
+  * */
   private val allowMultipleContexts: Boolean =
     config.getBoolean("spark.driver.allowMultipleContexts", false)
 
   // In order to prevent multiple SparkContexts from being active at the same time, mark this
   // context as having started construction.
   // NOTE: this must be placed at the beginning of the SparkContext constructor.
+  /*
+  * 创建SparkContext首先设置这个，防止多个SparkContext启动
+  * */
   SparkContext.markPartiallyConstructed(this, allowMultipleContexts)
 
   // This is used only by YARN for now, but should be relevant to other cluster types (Mesos,
   // etc) too. This is typically generated from InputFormatInfo.computePreferredLocations. It
   // contains a map from hostname to a list of input format splits on the host.
+  /*
+  * 在Yarn中才使用，选择启动container的node
+  * */
   private[spark] var preferredNodeLocationData: Map[String, Set[SplitInfo]] = Map()
 
   val startTime = System.currentTimeMillis()
 
+  //一种比sychronized关键字更轻量级的弱同步机制，每次调用返回的肯定是最新的值
+  //该变量为true表示一个SparkContext已经stop了，不能再调用他的方法；false表示alive
   @volatile private var stopped: Boolean = false
 
   private def assertNotStopped(): Unit = {
@@ -107,12 +125,14 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
    * Create a SparkContext that loads settings from system properties (for instance, when
    * launching with ./bin/spark-submit).
    */
+  /*用系统默认的SparkConf构造一个SparkContext
+  * */
   def this() = this(new SparkConf())
 
   /**
    * :: DeveloperApi ::
    * Alternative constructor for setting preferred locations where Spark will create executors.
-   *
+   * 可选构造器，设置container最近的Node节点
    * @param preferredNodeLocationData used in YARN mode to select nodes to launch containers on.
    * Can be generated using [[org.apache.spark.scheduler.InputFormatInfo.computePreferredLocations]]
    * from a list of input files or InputFormats for the application.
@@ -130,6 +150,10 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
    * @param appName A name for your application, to display on the cluster web UI
    * @param conf a [[org.apache.spark.SparkConf]] object specifying other Spark parameters
    */
+  /*
+  * 不通过SparkConf，通过各个sparkConf属性（master、appName）直接构造SparkContext
+  * 其实内部调用的还是SparkConf
+  * */
   def this(master: String, appName: String, conf: SparkConf) =
     this(SparkContext.updatedConf(conf, master, appName))
 
@@ -140,9 +164,13 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
    * @param appName A name for your application, to display on the cluster web UI.
    * @param sparkHome Location where Spark is installed on cluster nodes.
    * @param jars Collection of JARs to send to the cluster. These can be paths on the local file
-   *             system or HDFS, HTTP, HTTPS, or FTP URLs.
-   * @param environment Environment variables to set on worker nodes.
+   *             system or HDFS, HTTP, HTTPS, or FTP URLs.////////////////////////////////////可以是HDFS等云盘路径
+   * @param environment Environment variables to set on worker nodes./////////////worker节点上设置的环境变量，比如什么呢？？？
    */
+  /*
+  * 其实内部还是调用的sparkConf
+  * Jar包路径可以HDFS、HTTPS、FTP的URLs，意味着可以远程服务器上下载这些依赖，在远程服务器上专门构建一个配置中心这样部署我们的spark架构
+  * */
   def this(
       master: String,
       appName: String,
@@ -189,7 +217,9 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
    */
   private[spark] def this(master: String, appName: String, sparkHome: String, jars: Seq[String]) =
     this(master, appName, sparkHome, jars, Map(), Map())
+/*****************************************以上this()形式的SparkContext构造函数结束***********************************/
 
+  
   // log out Spark Version in Spark driver log
   logInfo(s"Running Spark version $SPARK_VERSION")
 
