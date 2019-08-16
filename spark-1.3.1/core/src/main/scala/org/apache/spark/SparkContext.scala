@@ -532,11 +532,22 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
 
 
 
+  /*
+  *
+  * TaskScheduler.applicationId()->backend.applicationId()
+  * */
   val applicationId: String = taskScheduler.applicationId()
   conf.set("spark.app.id", applicationId)
 
+  /*
+  * 初始化BlockManager
+  * */
   env.blockManager.initialize(applicationId)
 
+  /*
+  *
+  * 监控系统启动
+  * */
   val metricsSystem = env.metricsSystem
 
   // The metrics system for Driver need to be set spark.app.id to app ID.
@@ -546,6 +557,9 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
   metricsSystem.getServletHandlers.foreach(handler => ui.foreach(_.attachHandler(handler)))
 
   // Optionally log Spark events
+  /*
+  * 向总线注册日志事件
+  * */
   private[spark] val eventLogger: Option[EventLoggingListener] = {
     if (isEventLogEnabled) {
       val logger =
@@ -557,6 +571,9 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
   }
 
   // Optionally scale number of executors dynamically based on workload. Exposed for testing.
+  /*
+  * 动态分配资源，仅仅yarn模式下可以用
+  * */
   private val dynamicAllocationEnabled = conf.getBoolean("spark.dynamicAllocation.enabled", false)
   private val dynamicAllocationTesting = conf.getBoolean("spark.dynamicAllocation.testing", false)
   private[spark] val executorAllocationManager: Option[ExecutorAllocationManager] =
@@ -672,6 +689,10 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
    * that the tasks are actually stopped in a timely manner, but is off by default due to HDFS-1208,
    * where HDFS may respond to Thread.interrupt() by marking nodes as dead.
    */
+  /*
+  *
+  * 使用一个SparkContext时，可以针对不同搞得Job进行分组提交和取消
+  * */
   def setJobGroup(groupId: String, description: String, interruptOnCancel: Boolean = false) {
     setLocalProperty(SparkContext.SPARK_JOB_DESCRIPTION, description)
     setLocalProperty(SparkContext.SPARK_JOB_GROUP_ID, groupId)
@@ -689,6 +710,10 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     setLocalProperty(SparkContext.SPARK_JOB_INTERRUPT_ON_CANCEL, null)
   }
 
+  /*
+  *
+  * 监控
+  * */
   // Post init
   taskScheduler.postStartHook()
 
@@ -736,6 +761,14 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
    * Read a text file from HDFS, a local file system (available on all nodes), or any
    * Hadoop-supported file system URI, and return it as an RDD of Strings.
    */
+  /*
+  *
+  * textFile和wholeTextFiles的区别：
+  * 都可以读取目录下的所有文件，但是
+  * 1、textFile形成的RDD是文件的每一行；
+  * 2、wholeTextFiles形成的RDD是每个文件，格式为key-valu(key:文件路径；value:文件整体内容)
+  *
+  * */
   def textFile(path: String, minPartitions: Int = defaultMinPartitions): RDD[String] = {
     assertNotStopped()
     hadoopFile(path, classOf[TextInputFormat], classOf[LongWritable], classOf[Text],
