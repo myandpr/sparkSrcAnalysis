@@ -26,37 +26,38 @@ import org.apache.spark.sql.catalyst.dsl.plans._
 import org.apache.spark.sql.catalyst.dsl.expressions._
 
 class UnionPushdownSuite extends PlanTest {
-  object Optimize extends RuleExecutor[LogicalPlan] {
-    val batches =
-      Batch("Subqueries", Once,
-        EliminateSubQueries) ::
-      Batch("Union Pushdown", Once,
-        UnionPushdown) :: Nil
-  }
 
-  val testRelation =  LocalRelation('a.int, 'b.int, 'c.int)
-  val testRelation2 =  LocalRelation('d.int, 'e.int, 'f.int)
-  val testUnion = Union(testRelation, testRelation2)
+    object Optimize extends RuleExecutor[LogicalPlan] {
+        val batches =
+            Batch("Subqueries", Once,
+                EliminateSubQueries) ::
+                    Batch("Union Pushdown", Once,
+                        UnionPushdown) :: Nil
+    }
 
-  test("union: filter to each side") {
-    val query = testUnion.where('a === 1)
+    val testRelation = LocalRelation('a.int, 'b.int, 'c.int)
+    val testRelation2 = LocalRelation('d.int, 'e.int, 'f.int)
+    val testUnion = Union(testRelation, testRelation2)
 
-    val optimized = Optimize(query.analyze)
+    test("union: filter to each side") {
+        val query = testUnion.where('a === 1)
 
-    val correctAnswer =
-      Union(testRelation.where('a === 1), testRelation2.where('d === 1)).analyze
+        val optimized = Optimize(query.analyze)
 
-    comparePlans(optimized, correctAnswer)
-  }
+        val correctAnswer =
+            Union(testRelation.where('a === 1), testRelation2.where('d === 1)).analyze
 
-  test("union: project to each side") {
-    val query = testUnion.select('b)
+        comparePlans(optimized, correctAnswer)
+    }
 
-    val optimized = Optimize(query.analyze)
+    test("union: project to each side") {
+        val query = testUnion.select('b)
 
-    val correctAnswer =
-      Union(testRelation.select('b), testRelation2.select('e)).analyze
+        val optimized = Optimize(query.analyze)
 
-    comparePlans(optimized, correctAnswer)
-  }
+        val correctAnswer =
+            Union(testRelation.select('b), testRelation2.select('e)).analyze
+
+        comparePlans(optimized, correctAnswer)
+    }
 }

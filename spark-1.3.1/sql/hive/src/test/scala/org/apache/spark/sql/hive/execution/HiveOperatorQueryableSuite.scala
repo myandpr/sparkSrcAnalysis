@@ -21,31 +21,31 @@ import org.apache.spark.sql.{Row, QueryTest}
 import org.apache.spark.sql.hive.test.TestHive._
 
 /**
- * A set of tests that validates commands can also be queried by like a table
- */
+  * A set of tests that validates commands can also be queried by like a table
+  */
 class HiveOperatorQueryableSuite extends QueryTest {
-  test("SPARK-5324 query result of describe command") {
-    loadTestTable("src")
+    test("SPARK-5324 query result of describe command") {
+        loadTestTable("src")
 
-    // register a describe command to be a temp table
-    sql("desc src").registerTempTable("mydesc")
-    checkAnswer(
-      sql("desc mydesc"),
-      Seq(
-        Row("col_name", "string", "name of the column"),
-        Row("data_type", "string", "data type of the column"),
-        Row("comment", "string", "comment of the column")))
+        // register a describe command to be a temp table
+        sql("desc src").registerTempTable("mydesc")
+        checkAnswer(
+            sql("desc mydesc"),
+            Seq(
+                Row("col_name", "string", "name of the column"),
+                Row("data_type", "string", "data type of the column"),
+                Row("comment", "string", "comment of the column")))
 
-    checkAnswer(
-      sql("select * from mydesc"),
-      Seq(
-        Row("key", "int", null),
-        Row("value", "string", null)))
+        checkAnswer(
+            sql("select * from mydesc"),
+            Seq(
+                Row("key", "int", null),
+                Row("value", "string", null)))
 
-    checkAnswer(
-      sql("select col_name, data_type, comment from mydesc"),
-      Seq(
-        Row("key", "int", null),
-        Row("value", "string", null)))
-  }
+        checkAnswer(
+            sql("select col_name, data_type, comment from mydesc"),
+            Seq(
+                Row("key", "int", null),
+                Row("value", "string", null)))
+    }
 }

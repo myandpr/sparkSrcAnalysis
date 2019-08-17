@@ -35,44 +35,44 @@ import org.apache.spark.mllib.fpm.FPGrowthModel;
  */
 public class JavaFPGrowthExample {
 
-  public static void main(String[] args) {
-    String inputFile;
-    double minSupport = 0.3;
-    int numPartition = -1;
-    if (args.length < 1) {
-      System.err.println(
-        "Usage: JavaFPGrowth <input_file> [minSupport] [numPartition]");
-      System.exit(1);
-    }
-    inputFile = args[0];
-    if (args.length >= 2) {
-      minSupport = Double.parseDouble(args[1]);
-    }
-    if (args.length >= 3) {
-      numPartition = Integer.parseInt(args[2]);
-    }
-
-    SparkConf sparkConf = new SparkConf().setAppName("JavaFPGrowthExample");
-    JavaSparkContext sc = new JavaSparkContext(sparkConf);
-
-    JavaRDD<ArrayList<String>> transactions = sc.textFile(inputFile).map(
-      new Function<String, ArrayList<String>>() {
-        @Override
-        public ArrayList<String> call(String s) {
-          return Lists.newArrayList(s.split(" "));
+    public static void main(String[] args) {
+        String inputFile;
+        double minSupport = 0.3;
+        int numPartition = -1;
+        if (args.length < 1) {
+            System.err.println(
+                    "Usage: JavaFPGrowth <input_file> [minSupport] [numPartition]");
+            System.exit(1);
         }
-      }
-    );
+        inputFile = args[0];
+        if (args.length >= 2) {
+            minSupport = Double.parseDouble(args[1]);
+        }
+        if (args.length >= 3) {
+            numPartition = Integer.parseInt(args[2]);
+        }
 
-    FPGrowthModel<String> model = new FPGrowth()
-      .setMinSupport(minSupport)
-      .setNumPartitions(numPartition)
-      .run(transactions);
+        SparkConf sparkConf = new SparkConf().setAppName("JavaFPGrowthExample");
+        JavaSparkContext sc = new JavaSparkContext(sparkConf);
 
-    for (FPGrowth.FreqItemset<String> s: model.freqItemsets().toJavaRDD().collect()) {
-      System.out.println("[" + Joiner.on(",").join(s.javaItems()) + "], " + s.freq());
+        JavaRDD<ArrayList<String>> transactions = sc.textFile(inputFile).map(
+                new Function<String, ArrayList<String>>() {
+                    @Override
+                    public ArrayList<String> call(String s) {
+                        return Lists.newArrayList(s.split(" "));
+                    }
+                }
+        );
+
+        FPGrowthModel<String> model = new FPGrowth()
+                .setMinSupport(minSupport)
+                .setNumPartitions(numPartition)
+                .run(transactions);
+
+        for (FPGrowth.FreqItemset<String> s : model.freqItemsets().toJavaRDD().collect()) {
+            System.out.println("[" + Joiner.on(",").join(s.javaItems()) + "], " + s.freq());
+        }
+
+        sc.stop();
     }
-
-    sc.stop();
-  }
 }

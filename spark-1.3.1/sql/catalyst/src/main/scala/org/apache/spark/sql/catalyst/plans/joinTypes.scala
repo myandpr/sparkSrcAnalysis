@@ -18,13 +18,13 @@
 package org.apache.spark.sql.catalyst.plans
 
 object JoinType {
-  def apply(typ: String): JoinType = typ.toLowerCase.replace("_", "") match {
-    case "inner" => Inner
-    case "outer" | "full" | "fullouter" => FullOuter
-    case "leftouter" | "left" => LeftOuter
-    case "rightouter" | "right" => RightOuter
-    case "leftsemi" => LeftSemi
-  }
+    def apply(typ: String): JoinType = typ.toLowerCase.replace("_", "") match {
+        case "inner" => Inner
+        case "outer" | "full" | "fullouter" => FullOuter
+        case "leftouter" | "left" => LeftOuter
+        case "rightouter" | "right" => RightOuter
+        case "leftsemi" => LeftSemi
+    }
 }
 
 sealed abstract class JoinType

@@ -18,33 +18,37 @@
 package org.apache.spark
 
 /**
- * A client that communicates with the cluster manager to request or kill executors.
- * This is currently supported only in YARN mode.
- */
+  * A client that communicates with the cluster manager to request or kill executors.
+  * This is currently supported only in YARN mode.
+  */
 private[spark] trait ExecutorAllocationClient {
 
-  /**
-   * Express a preference to the cluster manager for a given total number of executors.
-   * This can result in canceling pending requests or filing additional requests.
-   * @return whether the request is acknowledged by the cluster manager.
-   */
-  private[spark] def requestTotalExecutors(numExecutors: Int): Boolean
+    /**
+      * Express a preference to the cluster manager for a given total number of executors.
+      * This can result in canceling pending requests or filing additional requests.
+      *
+      * @return whether the request is acknowledged by the cluster manager.
+      */
+    private[spark] def requestTotalExecutors(numExecutors: Int): Boolean
 
-  /**
-   * Request an additional number of executors from the cluster manager.
-   * @return whether the request is acknowledged by the cluster manager.
-   */
-  def requestExecutors(numAdditionalExecutors: Int): Boolean
+    /**
+      * Request an additional number of executors from the cluster manager.
+      *
+      * @return whether the request is acknowledged by the cluster manager.
+      */
+    def requestExecutors(numAdditionalExecutors: Int): Boolean
 
-  /**
-   * Request that the cluster manager kill the specified executors.
-   * @return whether the request is acknowledged by the cluster manager.
-   */
-  def killExecutors(executorIds: Seq[String]): Boolean
+    /**
+      * Request that the cluster manager kill the specified executors.
+      *
+      * @return whether the request is acknowledged by the cluster manager.
+      */
+    def killExecutors(executorIds: Seq[String]): Boolean
 
-  /**
-   * Request that the cluster manager kill the specified executor.
-   * @return whether the request is acknowledged by the cluster manager.
-   */
-  def killExecutor(executorId: String): Boolean = killExecutors(Seq(executorId))
+    /**
+      * Request that the cluster manager kill the specified executor.
+      *
+      * @return whether the request is acknowledged by the cluster manager.
+      */
+    def killExecutor(executorId: String): Boolean = killExecutors(Seq(executorId))
 }

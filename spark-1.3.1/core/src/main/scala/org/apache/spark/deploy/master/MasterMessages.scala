@@ -22,21 +22,22 @@ sealed trait MasterMessages extends Serializable
 /** Contains messages seen only by the Master and its associated entities. */
 private[master] object MasterMessages {
 
-  // LeaderElectionAgent to Master
+    // LeaderElectionAgent to Master
 
-  case object ElectedLeader
+    case object ElectedLeader
 
-  case object RevokedLeadership
+    case object RevokedLeadership
 
-  // Actor System to Master
+    // Actor System to Master
 
-  case object CheckForWorkerTimeOut
+    case object CheckForWorkerTimeOut
 
-  case class BeginRecovery(storedApps: Seq[ApplicationInfo], storedWorkers: Seq[WorkerInfo])
+    case class BeginRecovery(storedApps: Seq[ApplicationInfo], storedWorkers: Seq[WorkerInfo])
 
-  case object CompleteRecovery
+    case object CompleteRecovery
 
-  case object BoundPortsRequest
+    case object BoundPortsRequest
 
-  case class BoundPortsResponse(actorPort: Int, webUIPort: Int, restPort: Option[Int])
+    case class BoundPortsResponse(actorPort: Int, webUIPort: Int, restPort: Option[Int])
+
 }

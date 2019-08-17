@@ -21,8 +21,8 @@ import org.apache.spark.streaming.receiver.ReceivedBlockStoreResult
 
 /** Information about blocks received by the receiver */
 private[streaming] case class ReceivedBlockInfo(
-    streamId: Int,
-    numRecords: Long,
-    blockStoreResult: ReceivedBlockStoreResult
-  )
+                                                       streamId: Int,
+                                                       numRecords: Long,
+                                                       blockStoreResult: ReceivedBlockStoreResult
+                                               )
 

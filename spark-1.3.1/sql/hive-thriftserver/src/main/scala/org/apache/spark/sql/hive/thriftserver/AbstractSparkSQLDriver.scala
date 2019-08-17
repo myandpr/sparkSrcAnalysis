@@ -28,54 +28,54 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.hive.{HiveContext, HiveMetastoreTypes}
 
 private[hive] abstract class AbstractSparkSQLDriver(
-    val context: HiveContext = SparkSQLEnv.hiveContext) extends Driver with Logging {
+                                                           val context: HiveContext = SparkSQLEnv.hiveContext) extends Driver with Logging {
 
-  private[hive] var tableSchema: Schema = _
-  private[hive] var hiveResponse: Seq[String] = _
+    private[hive] var tableSchema: Schema = _
+    private[hive] var hiveResponse: Seq[String] = _
 
-  override def init(): Unit = {
-  }
-
-  private def getResultSetSchema(query: context.QueryExecution): Schema = {
-    val analyzed = query.analyzed
-    logDebug(s"Result Schema: ${analyzed.output}")
-    if (analyzed.output.size == 0) {
-      new Schema(new FieldSchema("Response code", "string", "") :: Nil, null)
-    } else {
-      val fieldSchemas = analyzed.output.map { attr =>
-        new FieldSchema(attr.name, HiveMetastoreTypes.toMetastoreType(attr.dataType), "")
-      }
-
-      new Schema(fieldSchemas, null)
+    override def init(): Unit = {
     }
-  }
 
-  override def run(command: String): CommandProcessorResponse = {
-    // TODO unify the error code
-    try {
-      context.sparkContext.setJobDescription(command)
-      val execution = context.executePlan(context.sql(command).logicalPlan)
-      hiveResponse = execution.stringResult()
-      tableSchema = getResultSetSchema(execution)
-      new CommandProcessorResponse(0)
-    } catch {
-      case cause: Throwable =>
-        logError(s"Failed in [$command]", cause)
-        new CommandProcessorResponse(1, ExceptionUtils.getFullStackTrace(cause), null)
+    private def getResultSetSchema(query: context.QueryExecution): Schema = {
+        val analyzed = query.analyzed
+        logDebug(s"Result Schema: ${analyzed.output}")
+        if (analyzed.output.size == 0) {
+            new Schema(new FieldSchema("Response code", "string", "") :: Nil, null)
+        } else {
+            val fieldSchemas = analyzed.output.map { attr =>
+                new FieldSchema(attr.name, HiveMetastoreTypes.toMetastoreType(attr.dataType), "")
+            }
+
+            new Schema(fieldSchemas, null)
+        }
     }
-  }
 
-  override def close(): Int = {
-    hiveResponse = null
-    tableSchema = null
-    0
-  }
+    override def run(command: String): CommandProcessorResponse = {
+        // TODO unify the error code
+        try {
+            context.sparkContext.setJobDescription(command)
+            val execution = context.executePlan(context.sql(command).logicalPlan)
+            hiveResponse = execution.stringResult()
+            tableSchema = getResultSetSchema(execution)
+            new CommandProcessorResponse(0)
+        } catch {
+            case cause: Throwable =>
+                logError(s"Failed in [$command]", cause)
+                new CommandProcessorResponse(1, ExceptionUtils.getFullStackTrace(cause), null)
+        }
+    }
 
-  override def getSchema: Schema = tableSchema
+    override def close(): Int = {
+        hiveResponse = null
+        tableSchema = null
+        0
+    }
 
-  override def destroy() {
-    super.destroy()
-    hiveResponse = null
-    tableSchema = null
-  }
+    override def getSchema: Schema = tableSchema
+
+    override def destroy() {
+        super.destroy()
+        hiveResponse = null
+        tableSchema = null
+    }
 }

@@ -25,47 +25,47 @@ import org.apache.hadoop.fs.FileSystem
 import org.apache.spark.metrics.source.Source
 
 private[spark] class ExecutorSource(val executor: Executor, executorId: String) extends Source {
-  private def fileStats(scheme: String) : Option[FileSystem.Statistics] =
-    FileSystem.getAllStatistics().filter(s => s.getScheme.equals(scheme)).headOption
+    private def fileStats(scheme: String): Option[FileSystem.Statistics] =
+        FileSystem.getAllStatistics().filter(s => s.getScheme.equals(scheme)).headOption
 
-  private def registerFileSystemStat[T](
-        scheme: String, name: String, f: FileSystem.Statistics => T, defaultValue: T) = {
-    metricRegistry.register(MetricRegistry.name("filesystem", scheme, name), new Gauge[T] {
-      override def getValue: T = fileStats(scheme).map(f).getOrElse(defaultValue)
+    private def registerFileSystemStat[T](
+                                                 scheme: String, name: String, f: FileSystem.Statistics => T, defaultValue: T) = {
+        metricRegistry.register(MetricRegistry.name("filesystem", scheme, name), new Gauge[T] {
+            override def getValue: T = fileStats(scheme).map(f).getOrElse(defaultValue)
+        })
+    }
+
+    override val metricRegistry = new MetricRegistry()
+
+    override val sourceName = "executor"
+
+    // Gauge for executor thread pool's actively executing task counts
+    metricRegistry.register(MetricRegistry.name("threadpool", "activeTasks"), new Gauge[Int] {
+        override def getValue: Int = executor.threadPool.getActiveCount()
     })
-  }
 
-  override val metricRegistry = new MetricRegistry()
+    // Gauge for executor thread pool's approximate total number of tasks that have been completed
+    metricRegistry.register(MetricRegistry.name("threadpool", "completeTasks"), new Gauge[Long] {
+        override def getValue: Long = executor.threadPool.getCompletedTaskCount()
+    })
 
-  override val sourceName = "executor"
+    // Gauge for executor thread pool's current number of threads
+    metricRegistry.register(MetricRegistry.name("threadpool", "currentPool_size"), new Gauge[Int] {
+        override def getValue: Int = executor.threadPool.getPoolSize()
+    })
 
-  // Gauge for executor thread pool's actively executing task counts
-  metricRegistry.register(MetricRegistry.name("threadpool", "activeTasks"), new Gauge[Int] {
-    override def getValue: Int = executor.threadPool.getActiveCount()
-  })
+    // Gauge got executor thread pool's largest number of threads that have ever simultaneously
+    // been in th pool
+    metricRegistry.register(MetricRegistry.name("threadpool", "maxPool_size"), new Gauge[Int] {
+        override def getValue: Int = executor.threadPool.getMaximumPoolSize()
+    })
 
-  // Gauge for executor thread pool's approximate total number of tasks that have been completed
-  metricRegistry.register(MetricRegistry.name("threadpool", "completeTasks"), new Gauge[Long] {
-    override def getValue: Long = executor.threadPool.getCompletedTaskCount()
-  })
-
-  // Gauge for executor thread pool's current number of threads
-  metricRegistry.register(MetricRegistry.name("threadpool", "currentPool_size"), new Gauge[Int] {
-    override def getValue: Int = executor.threadPool.getPoolSize()
-  })
-
-  // Gauge got executor thread pool's largest number of threads that have ever simultaneously
-  // been in th pool
-  metricRegistry.register(MetricRegistry.name("threadpool", "maxPool_size"), new Gauge[Int] {
-    override def getValue: Int = executor.threadPool.getMaximumPoolSize()
-  })
-
-  // Gauge for file system stats of this executor
-  for (scheme <- Array("hdfs", "file")) {
-    registerFileSystemStat(scheme, "read_bytes", _.getBytesRead(), 0L)
-    registerFileSystemStat(scheme, "write_bytes", _.getBytesWritten(), 0L)
-    registerFileSystemStat(scheme, "read_ops", _.getReadOps(), 0)
-    registerFileSystemStat(scheme, "largeRead_ops", _.getLargeReadOps(), 0)
-    registerFileSystemStat(scheme, "write_ops", _.getWriteOps(), 0)
-  }
+    // Gauge for file system stats of this executor
+    for (scheme <- Array("hdfs", "file")) {
+        registerFileSystemStat(scheme, "read_bytes", _.getBytesRead(), 0L)
+        registerFileSystemStat(scheme, "write_bytes", _.getBytesWritten(), 0L)
+        registerFileSystemStat(scheme, "read_ops", _.getReadOps(), 0)
+        registerFileSystemStat(scheme, "largeRead_ops", _.getLargeReadOps(), 0)
+        registerFileSystemStat(scheme, "write_ops", _.getWriteOps(), 0)
+    }
 }

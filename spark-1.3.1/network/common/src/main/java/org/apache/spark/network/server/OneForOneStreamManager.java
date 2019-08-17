@@ -33,72 +33,74 @@ import org.apache.spark.network.buffer.ManagedBuffer;
  * fetched as chunks by the client. Each registered buffer is one chunk.
  */
 public class OneForOneStreamManager extends StreamManager {
-  private final Logger logger = LoggerFactory.getLogger(OneForOneStreamManager.class);
+    private final Logger logger = LoggerFactory.getLogger(OneForOneStreamManager.class);
 
-  private final AtomicLong nextStreamId;
-  private final Map<Long, StreamState> streams;
+    private final AtomicLong nextStreamId;
+    private final Map<Long, StreamState> streams;
 
-  /** State of a single stream. */
-  private static class StreamState {
-    final Iterator<ManagedBuffer> buffers;
+    /**
+     * State of a single stream.
+     */
+    private static class StreamState {
+        final Iterator<ManagedBuffer> buffers;
 
-    // Used to keep track of the index of the buffer that the user has retrieved, just to ensure
-    // that the caller only requests each chunk one at a time, in order.
-    int curChunk = 0;
+        // Used to keep track of the index of the buffer that the user has retrieved, just to ensure
+        // that the caller only requests each chunk one at a time, in order.
+        int curChunk = 0;
 
-    StreamState(Iterator<ManagedBuffer> buffers) {
-      this.buffers = buffers;
-    }
-  }
-
-  public OneForOneStreamManager() {
-    // For debugging purposes, start with a random stream id to help identifying different streams.
-    // This does not need to be globally unique, only unique to this class.
-    nextStreamId = new AtomicLong((long) new Random().nextInt(Integer.MAX_VALUE) * 1000);
-    streams = new ConcurrentHashMap<Long, StreamState>();
-  }
-
-  @Override
-  public ManagedBuffer getChunk(long streamId, int chunkIndex) {
-    StreamState state = streams.get(streamId);
-    if (chunkIndex != state.curChunk) {
-      throw new IllegalStateException(String.format(
-        "Received out-of-order chunk index %s (expected %s)", chunkIndex, state.curChunk));
-    } else if (!state.buffers.hasNext()) {
-      throw new IllegalStateException(String.format(
-        "Requested chunk index beyond end %s", chunkIndex));
-    }
-    state.curChunk += 1;
-    ManagedBuffer nextChunk = state.buffers.next();
-
-    if (!state.buffers.hasNext()) {
-      logger.trace("Removing stream id {}", streamId);
-      streams.remove(streamId);
+        StreamState(Iterator<ManagedBuffer> buffers) {
+            this.buffers = buffers;
+        }
     }
 
-    return nextChunk;
-  }
-
-  @Override
-  public void connectionTerminated(long streamId) {
-    // Release all remaining buffers.
-    StreamState state = streams.remove(streamId);
-    if (state != null && state.buffers != null) {
-      while (state.buffers.hasNext()) {
-        state.buffers.next().release();
-      }
+    public OneForOneStreamManager() {
+        // For debugging purposes, start with a random stream id to help identifying different streams.
+        // This does not need to be globally unique, only unique to this class.
+        nextStreamId = new AtomicLong((long) new Random().nextInt(Integer.MAX_VALUE) * 1000);
+        streams = new ConcurrentHashMap<Long, StreamState>();
     }
-  }
 
-  /**
-   * Registers a stream of ManagedBuffers which are served as individual chunks one at a time to
-   * callers. Each ManagedBuffer will be release()'d after it is transferred on the wire. If a
-   * client connection is closed before the iterator is fully drained, then the remaining buffers
-   * will all be release()'d.
-   */
-  public long registerStream(Iterator<ManagedBuffer> buffers) {
-    long myStreamId = nextStreamId.getAndIncrement();
-    streams.put(myStreamId, new StreamState(buffers));
-    return myStreamId;
-  }
+    @Override
+    public ManagedBuffer getChunk(long streamId, int chunkIndex) {
+        StreamState state = streams.get(streamId);
+        if (chunkIndex != state.curChunk) {
+            throw new IllegalStateException(String.format(
+                    "Received out-of-order chunk index %s (expected %s)", chunkIndex, state.curChunk));
+        } else if (!state.buffers.hasNext()) {
+            throw new IllegalStateException(String.format(
+                    "Requested chunk index beyond end %s", chunkIndex));
+        }
+        state.curChunk += 1;
+        ManagedBuffer nextChunk = state.buffers.next();
+
+        if (!state.buffers.hasNext()) {
+            logger.trace("Removing stream id {}", streamId);
+            streams.remove(streamId);
+        }
+
+        return nextChunk;
+    }
+
+    @Override
+    public void connectionTerminated(long streamId) {
+        // Release all remaining buffers.
+        StreamState state = streams.remove(streamId);
+        if (state != null && state.buffers != null) {
+            while (state.buffers.hasNext()) {
+                state.buffers.next().release();
+            }
+        }
+    }
+
+    /**
+     * Registers a stream of ManagedBuffers which are served as individual chunks one at a time to
+     * callers. Each ManagedBuffer will be release()'d after it is transferred on the wire. If a
+     * client connection is closed before the iterator is fully drained, then the remaining buffers
+     * will all be release()'d.
+     */
+    public long registerStream(Iterator<ManagedBuffer> buffers) {
+        long myStreamId = nextStreamId.getAndIncrement();
+        streams.put(myStreamId, new StreamState(buffers));
+        return myStreamId;
+    }
 }

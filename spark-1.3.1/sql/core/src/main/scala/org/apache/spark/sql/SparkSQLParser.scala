@@ -28,72 +28,72 @@ import org.apache.spark.sql.types.StringType
 
 
 /**
- * The top level Spark SQL parser. This parser recognizes syntaxes that are available for all SQL
- * dialects supported by Spark SQL, and delegates all the other syntaxes to the `fallback` parser.
- *
- * @param fallback A function that parses an input string to a logical plan
- */
+  * The top level Spark SQL parser. This parser recognizes syntaxes that are available for all SQL
+  * dialects supported by Spark SQL, and delegates all the other syntaxes to the `fallback` parser.
+  *
+  * @param fallback A function that parses an input string to a logical plan
+  */
 private[sql] class SparkSQLParser(fallback: String => LogicalPlan) extends AbstractSparkSQLParser {
 
-  // A parser for the key-value part of the "SET [key = [value ]]" syntax
-  private object SetCommandParser extends RegexParsers {
-    private val key: Parser[String] = "(?m)[^=]+".r
+    // A parser for the key-value part of the "SET [key = [value ]]" syntax
+    private object SetCommandParser extends RegexParsers {
+        private val key: Parser[String] = "(?m)[^=]+".r
 
-    private val value: Parser[String] = "(?m).*$".r
+        private val value: Parser[String] = "(?m).*$".r
 
-    private val output: Seq[Attribute] = Seq(AttributeReference("", StringType, nullable = false)())
+        private val output: Seq[Attribute] = Seq(AttributeReference("", StringType, nullable = false)())
 
-    private val pair: Parser[LogicalPlan] =
-      (key ~ ("=".r ~> value).?).? ^^ {
-        case None => SetCommand(None, output)
-        case Some(k ~ v) => SetCommand(Some(k.trim -> v.map(_.trim)), output)
-      }
+        private val pair: Parser[LogicalPlan] =
+            (key ~ ("=".r ~> value).?).? ^^ {
+                case None => SetCommand(None, output)
+                case Some(k ~ v) => SetCommand(Some(k.trim -> v.map(_.trim)), output)
+            }
 
-    def apply(input: String): LogicalPlan = parseAll(pair, input) match {
-      case Success(plan, _) => plan
-      case x => sys.error(x.toString)
-    }
-  }
-
-  protected val AS      = Keyword("AS")
-  protected val CACHE   = Keyword("CACHE")
-  protected val CLEAR   = Keyword("CLEAR")
-  protected val IN      = Keyword("IN")
-  protected val LAZY    = Keyword("LAZY")
-  protected val SET     = Keyword("SET")
-  protected val SHOW    = Keyword("SHOW")
-  protected val TABLE   = Keyword("TABLE")
-  protected val TABLES  = Keyword("TABLES")
-  protected val UNCACHE = Keyword("UNCACHE")
-
-  override protected lazy val start: Parser[LogicalPlan] = cache | uncache | set | show | others
-
-  private lazy val cache: Parser[LogicalPlan] =
-    CACHE ~> LAZY.? ~ (TABLE ~> ident) ~ (AS ~> restInput).? ^^ {
-      case isLazy ~ tableName ~ plan =>
-        CacheTableCommand(tableName, plan.map(fallback), isLazy.isDefined)
+        def apply(input: String): LogicalPlan = parseAll(pair, input) match {
+            case Success(plan, _) => plan
+            case x => sys.error(x.toString)
+        }
     }
 
-  private lazy val uncache: Parser[LogicalPlan] =
-    ( UNCACHE ~ TABLE ~> ident ^^ {
-        case tableName => UncacheTableCommand(tableName)
-      }
-    | CLEAR ~ CACHE ^^^ ClearCacheCommand
-    )
+    protected val AS = Keyword("AS")
+    protected val CACHE = Keyword("CACHE")
+    protected val CLEAR = Keyword("CLEAR")
+    protected val IN = Keyword("IN")
+    protected val LAZY = Keyword("LAZY")
+    protected val SET = Keyword("SET")
+    protected val SHOW = Keyword("SHOW")
+    protected val TABLE = Keyword("TABLE")
+    protected val TABLES = Keyword("TABLES")
+    protected val UNCACHE = Keyword("UNCACHE")
 
-  private lazy val set: Parser[LogicalPlan] =
-    SET ~> restInput ^^ {
-      case input => SetCommandParser(input)
-    }
+    override protected lazy val start: Parser[LogicalPlan] = cache | uncache | set | show | others
 
-  private lazy val show: Parser[LogicalPlan] =
-    SHOW ~> TABLES ~ (IN ~> ident).? ^^ {
-      case _ ~ dbName => ShowTablesCommand(dbName)
-    }
+    private lazy val cache: Parser[LogicalPlan] =
+        CACHE ~> LAZY.? ~ (TABLE ~> ident) ~ (AS ~> restInput).? ^^ {
+            case isLazy ~ tableName ~ plan =>
+                CacheTableCommand(tableName, plan.map(fallback), isLazy.isDefined)
+        }
 
-  private lazy val others: Parser[LogicalPlan] =
-    wholeInput ^^ {
-      case input => fallback(input)
-    }
+    private lazy val uncache: Parser[LogicalPlan] =
+        (UNCACHE ~ TABLE ~> ident ^^ {
+            case tableName => UncacheTableCommand(tableName)
+        }
+                | CLEAR ~ CACHE ^^^ ClearCacheCommand
+                )
+
+    private lazy val set: Parser[LogicalPlan] =
+        SET ~> restInput ^^ {
+            case input => SetCommandParser(input)
+        }
+
+    private lazy val show: Parser[LogicalPlan] =
+        SHOW ~> TABLES ~ (IN ~> ident).? ^^ {
+            case _ ~ dbName => ShowTablesCommand(dbName)
+        }
+
+    private lazy val others: Parser[LogicalPlan] =
+        wholeInput ^^ {
+            case input => fallback(input)
+        }
 
 }

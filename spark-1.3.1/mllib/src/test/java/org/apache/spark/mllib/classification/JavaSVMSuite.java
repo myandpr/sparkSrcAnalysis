@@ -30,66 +30,66 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.mllib.regression.LabeledPoint;
 
 public class JavaSVMSuite implements Serializable {
-  private transient JavaSparkContext sc;
+    private transient JavaSparkContext sc;
 
-  @Before
-  public void setUp() {
-    sc = new JavaSparkContext("local", "JavaSVMSuite");
-  }
-
-  @After
-  public void tearDown() {
-    sc.stop();
-    sc = null;
-  }
-
-  int validatePrediction(List<LabeledPoint> validationData, SVMModel model) {
-    int numAccurate = 0;
-    for (LabeledPoint point: validationData) {
-      Double prediction = model.predict(point.features());
-      if (prediction == point.label()) {
-        numAccurate++;
-      }
+    @Before
+    public void setUp() {
+        sc = new JavaSparkContext("local", "JavaSVMSuite");
     }
-    return numAccurate;
-  }
 
-  @Test
-  public void runSVMUsingConstructor() {
-    int nPoints = 10000;
-    double A = 2.0;
-    double[] weights = {-1.5, 1.0};
+    @After
+    public void tearDown() {
+        sc.stop();
+        sc = null;
+    }
 
-    JavaRDD<LabeledPoint> testRDD = sc.parallelize(SVMSuite.generateSVMInputAsList(A,
-        weights, nPoints, 42), 2).cache();
-    List<LabeledPoint> validationData =
-        SVMSuite.generateSVMInputAsList(A, weights, nPoints, 17);
+    int validatePrediction(List<LabeledPoint> validationData, SVMModel model) {
+        int numAccurate = 0;
+        for (LabeledPoint point : validationData) {
+            Double prediction = model.predict(point.features());
+            if (prediction == point.label()) {
+                numAccurate++;
+            }
+        }
+        return numAccurate;
+    }
 
-    SVMWithSGD svmSGDImpl = new SVMWithSGD();
-    svmSGDImpl.setIntercept(true);
-    svmSGDImpl.optimizer().setStepSize(1.0)
-                          .setRegParam(1.0)
-                          .setNumIterations(100);
-    SVMModel model = svmSGDImpl.run(testRDD.rdd());
+    @Test
+    public void runSVMUsingConstructor() {
+        int nPoints = 10000;
+        double A = 2.0;
+        double[] weights = {-1.5, 1.0};
 
-    int numAccurate = validatePrediction(validationData, model);
-    Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
-  }
+        JavaRDD<LabeledPoint> testRDD = sc.parallelize(SVMSuite.generateSVMInputAsList(A,
+                weights, nPoints, 42), 2).cache();
+        List<LabeledPoint> validationData =
+                SVMSuite.generateSVMInputAsList(A, weights, nPoints, 17);
 
-  @Test
-  public void runSVMUsingStaticMethods() {
-    int nPoints = 10000;
-    double A = 0.0;
-    double[] weights = {-1.5, 1.0};
+        SVMWithSGD svmSGDImpl = new SVMWithSGD();
+        svmSGDImpl.setIntercept(true);
+        svmSGDImpl.optimizer().setStepSize(1.0)
+                .setRegParam(1.0)
+                .setNumIterations(100);
+        SVMModel model = svmSGDImpl.run(testRDD.rdd());
 
-    JavaRDD<LabeledPoint> testRDD = sc.parallelize(SVMSuite.generateSVMInputAsList(A,
-        weights, nPoints, 42), 2).cache();
-    List<LabeledPoint> validationData =
-        SVMSuite.generateSVMInputAsList(A, weights, nPoints, 17);
+        int numAccurate = validatePrediction(validationData, model);
+        Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
+    }
 
-    SVMModel model = SVMWithSGD.train(testRDD.rdd(), 100, 1.0, 1.0, 1.0);
+    @Test
+    public void runSVMUsingStaticMethods() {
+        int nPoints = 10000;
+        double A = 0.0;
+        double[] weights = {-1.5, 1.0};
 
-    int numAccurate = validatePrediction(validationData, model);
-    Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
-  }
+        JavaRDD<LabeledPoint> testRDD = sc.parallelize(SVMSuite.generateSVMInputAsList(A,
+                weights, nPoints, 42), 2).cache();
+        List<LabeledPoint> validationData =
+                SVMSuite.generateSVMInputAsList(A, weights, nPoints, 17);
+
+        SVMModel model = SVMWithSGD.train(testRDD.rdd(), 100, 1.0, 1.0, 1.0);
+
+        int numAccurate = validatePrediction(validationData, model);
+        Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
+    }
 }

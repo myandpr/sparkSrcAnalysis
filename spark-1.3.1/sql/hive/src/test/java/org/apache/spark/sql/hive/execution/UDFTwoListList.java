@@ -20,9 +20,9 @@ package org.apache.spark.sql.hive.execution;
 import org.apache.hadoop.hive.ql.exec.UDF;
 
 public class UDFTwoListList extends UDF {
-  public String evaluate(Object o1, Object o2) {
-    UDFListListInt udf = new UDFListListInt();
+    public String evaluate(Object o1, Object o2) {
+        UDFListListInt udf = new UDFListListInt();
 
-    return String.format("%s, %s", udf.evaluate(o1), udf.evaluate(o2));
-  }
+        return String.format("%s, %s", udf.evaluate(o1), udf.evaluate(o2));
+    }
 }

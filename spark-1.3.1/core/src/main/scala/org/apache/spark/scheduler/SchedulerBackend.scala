@@ -18,27 +18,31 @@
 package org.apache.spark.scheduler
 
 /**
- * A backend interface for scheduling systems that allows plugging in different ones under
- * TaskSchedulerImpl. We assume a Mesos-like model where the application gets resource offers as
- * machines become available and can launch tasks on them.
- */
+  * A backend interface for scheduling systems that allows plugging in different ones under
+  * TaskSchedulerImpl. We assume a Mesos-like model where the application gets resource offers as
+  * machines become available and can launch tasks on them.
+  */
 private[spark] trait SchedulerBackend {
-  private val appId = "spark-application-" + System.currentTimeMillis
+    private val appId = "spark-application-" + System.currentTimeMillis
 
-  def start(): Unit
-  def stop(): Unit
-  def reviveOffers(): Unit
-  def defaultParallelism(): Int
+    def start(): Unit
 
-  def killTask(taskId: Long, executorId: String, interruptThread: Boolean): Unit =
-    throw new UnsupportedOperationException
-  def isReady(): Boolean = true
+    def stop(): Unit
 
-  /**
-   * Get an application ID associated with the job.
-   *
-   * @return An application ID
-   */
-  def applicationId(): String = appId
+    def reviveOffers(): Unit
+
+    def defaultParallelism(): Int
+
+    def killTask(taskId: Long, executorId: String, interruptThread: Boolean): Unit =
+        throw new UnsupportedOperationException
+
+    def isReady(): Boolean = true
+
+    /**
+      * Get an application ID associated with the job.
+      *
+      * @return An application ID
+      */
+    def applicationId(): String = appId
 
 }

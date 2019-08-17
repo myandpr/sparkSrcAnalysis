@@ -35,54 +35,54 @@ import org.apache.spark.sql.types.DataTypes;
 // serialized, as an alternative to converting these anonymous classes to static inner classes;
 // see http://stackoverflow.com/questions/758570/.
 public class JavaUDFSuite implements Serializable {
-  private transient JavaSparkContext sc;
-  private transient SQLContext sqlContext;
+    private transient JavaSparkContext sc;
+    private transient SQLContext sqlContext;
 
-  @Before
-  public void setUp() {
-    sqlContext = TestSQLContext$.MODULE$;
-    sc = new JavaSparkContext(sqlContext.sparkContext());
-  }
+    @Before
+    public void setUp() {
+        sqlContext = TestSQLContext$.MODULE$;
+        sc = new JavaSparkContext(sqlContext.sparkContext());
+    }
 
-  @After
-  public void tearDown() {
-  }
+    @After
+    public void tearDown() {
+    }
 
-  @SuppressWarnings("unchecked")
-  @Test
-  public void udf1Test() {
-    // With Java 8 lambdas:
-    // sqlContext.registerFunction(
-    //   "stringLengthTest", (String str) -> str.length(), DataType.IntegerType);
+    @SuppressWarnings("unchecked")
+    @Test
+    public void udf1Test() {
+        // With Java 8 lambdas:
+        // sqlContext.registerFunction(
+        //   "stringLengthTest", (String str) -> str.length(), DataType.IntegerType);
 
-    sqlContext.udf().register("stringLengthTest", new UDF1<String, Integer>() {
-      @Override
-      public Integer call(String str) throws Exception {
-        return str.length();
-      }
-    }, DataTypes.IntegerType);
+        sqlContext.udf().register("stringLengthTest", new UDF1<String, Integer>() {
+            @Override
+            public Integer call(String str) throws Exception {
+                return str.length();
+            }
+        }, DataTypes.IntegerType);
 
-    Row result = sqlContext.sql("SELECT stringLengthTest('test')").head();
-    assert(result.getInt(0) == 4);
-  }
+        Row result = sqlContext.sql("SELECT stringLengthTest('test')").head();
+        assert (result.getInt(0) == 4);
+    }
 
-  @SuppressWarnings("unchecked")
-  @Test
-  public void udf2Test() {
-    // With Java 8 lambdas:
-    // sqlContext.registerFunction(
-    //   "stringLengthTest",
-    //   (String str1, String str2) -> str1.length() + str2.length,
-    //   DataType.IntegerType);
+    @SuppressWarnings("unchecked")
+    @Test
+    public void udf2Test() {
+        // With Java 8 lambdas:
+        // sqlContext.registerFunction(
+        //   "stringLengthTest",
+        //   (String str1, String str2) -> str1.length() + str2.length,
+        //   DataType.IntegerType);
 
-    sqlContext.udf().register("stringLengthTest", new UDF2<String, String, Integer>() {
-      @Override
-      public Integer call(String str1, String str2) throws Exception {
-        return str1.length() + str2.length();
-      }
-    }, DataTypes.IntegerType);
+        sqlContext.udf().register("stringLengthTest", new UDF2<String, String, Integer>() {
+            @Override
+            public Integer call(String str1, String str2) throws Exception {
+                return str1.length() + str2.length();
+            }
+        }, DataTypes.IntegerType);
 
-    Row result = sqlContext.sql("SELECT stringLengthTest('test', 'test2')").head();
-    assert(result.getInt(0) == 9);
-  }
+        Row result = sqlContext.sql("SELECT stringLengthTest('test', 'test2')").head();
+        assert (result.getInt(0) == 9);
+    }
 }

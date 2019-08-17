@@ -17,4 +17,4 @@
 package org.apache.spark.streaming.util
 
 /** Class for representing a segment of data in a write ahead log file */
-private[streaming] case class WriteAheadLogFileSegment (path: String, offset: Long, length: Int)
+private[streaming] case class WriteAheadLogFileSegment(path: String, offset: Long, length: Int)

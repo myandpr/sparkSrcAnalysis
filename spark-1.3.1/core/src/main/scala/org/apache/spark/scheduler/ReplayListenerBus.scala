@@ -27,37 +27,37 @@ import org.apache.spark.Logging
 import org.apache.spark.util.JsonProtocol
 
 /**
- * A SparkListenerBus that can be used to replay events from serialized event data.
- */
+  * A SparkListenerBus that can be used to replay events from serialized event data.
+  */
 private[spark] class ReplayListenerBus extends SparkListenerBus with Logging {
 
-  /**
-   * Replay each event in the order maintained in the given stream. The stream is expected to
-   * contain one JSON-encoded SparkListenerEvent per line.
-   *
-   * This method can be called multiple times, but the listener behavior is undefined after any
-   * error is thrown by this method.
-   *
-   * @param logData Stream containing event log data.
-   * @param sourceName Filename (or other source identifier) from whence @logData is being read
-   */
-  def replay(logData: InputStream, sourceName: String): Unit = {
-    var currentLine: String = null
-    var lineNumber: Int = 1
-    try {
-      val lines = Source.fromInputStream(logData).getLines()
-      lines.foreach { line =>
-        currentLine = line
-        postToAll(JsonProtocol.sparkEventFromJson(parse(line)))
-        lineNumber += 1
-      }
-    } catch {
-      case ioe: IOException =>
-        throw ioe
-      case e: Exception =>
-        logError(s"Exception parsing Spark event log: $sourceName", e)
-        logError(s"Malformed line #$lineNumber: $currentLine\n")
+    /**
+      * Replay each event in the order maintained in the given stream. The stream is expected to
+      * contain one JSON-encoded SparkListenerEvent per line.
+      *
+      * This method can be called multiple times, but the listener behavior is undefined after any
+      * error is thrown by this method.
+      *
+      * @param logData    Stream containing event log data.
+      * @param sourceName Filename (or other source identifier) from whence @logData is being read
+      */
+    def replay(logData: InputStream, sourceName: String): Unit = {
+        var currentLine: String = null
+        var lineNumber: Int = 1
+        try {
+            val lines = Source.fromInputStream(logData).getLines()
+            lines.foreach { line =>
+                currentLine = line
+                postToAll(JsonProtocol.sparkEventFromJson(parse(line)))
+                lineNumber += 1
+            }
+        } catch {
+            case ioe: IOException =>
+                throw ioe
+            case e: Exception =>
+                logError(s"Exception parsing Spark event log: $sourceName", e)
+                logError(s"Malformed line #$lineNumber: $currentLine\n")
+        }
     }
-  }
 
 }

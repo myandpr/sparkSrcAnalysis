@@ -21,79 +21,80 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
 class DDLScanSource extends RelationProvider {
-  override def createRelation(
-      sqlContext: SQLContext,
-      parameters: Map[String, String]): BaseRelation = {
-    SimpleDDLScan(parameters("from").toInt, parameters("TO").toInt)(sqlContext)
-  }
+    override def createRelation(
+                                       sqlContext: SQLContext,
+                                       parameters: Map[String, String]): BaseRelation = {
+        SimpleDDLScan(parameters("from").toInt, parameters("TO").toInt)(sqlContext)
+    }
 }
 
 case class SimpleDDLScan(from: Int, to: Int)(@transient val sqlContext: SQLContext)
-  extends BaseRelation with TableScan {
+        extends BaseRelation with TableScan {
 
-  override def schema =
-    StructType(Seq(
-      StructField("intType", IntegerType, nullable = false,
-        new MetadataBuilder().putString("comment", "test comment").build()),
-      StructField("stringType", StringType, nullable = false),
-      StructField("dateType", DateType, nullable = false),
-      StructField("timestampType", TimestampType, nullable = false),
-      StructField("doubleType", DoubleType, nullable = false),
-      StructField("bigintType", LongType, nullable = false),
-      StructField("tinyintType", ByteType, nullable = false),
-      StructField("decimalType", DecimalType.Unlimited, nullable = false),
-      StructField("fixedDecimalType", DecimalType(5,1), nullable = false),
-      StructField("binaryType", BinaryType, nullable = false),
-      StructField("booleanType", BooleanType, nullable = false),
-      StructField("smallIntType", ShortType, nullable = false),
-      StructField("floatType", FloatType, nullable = false),
-      StructField("mapType", MapType(StringType, StringType)),
-      StructField("arrayType", ArrayType(StringType)),
-      StructField("structType",
-        StructType(StructField("f1",StringType) ::
-          (StructField("f2",IntegerType)) :: Nil
-        )
-      )
-    ))
+    override def schema =
+        StructType(Seq(
+            StructField("intType", IntegerType, nullable = false,
+                new MetadataBuilder().putString("comment", "test comment").build()),
+            StructField("stringType", StringType, nullable = false),
+            StructField("dateType", DateType, nullable = false),
+            StructField("timestampType", TimestampType, nullable = false),
+            StructField("doubleType", DoubleType, nullable = false),
+            StructField("bigintType", LongType, nullable = false),
+            StructField("tinyintType", ByteType, nullable = false),
+            StructField("decimalType", DecimalType.Unlimited, nullable = false),
+            StructField("fixedDecimalType", DecimalType(5, 1), nullable = false),
+            StructField("binaryType", BinaryType, nullable = false),
+            StructField("booleanType", BooleanType, nullable = false),
+            StructField("smallIntType", ShortType, nullable = false),
+            StructField("floatType", FloatType, nullable = false),
+            StructField("mapType", MapType(StringType, StringType)),
+            StructField("arrayType", ArrayType(StringType)),
+            StructField("structType",
+                StructType(StructField("f1", StringType) ::
+                        (StructField("f2", IntegerType)) :: Nil
+                )
+            )
+        ))
 
 
-  override def buildScan() = sqlContext.sparkContext.parallelize(from to to).
-    map(e => Row(s"people$e", e * 2))
+    override def buildScan() = sqlContext.sparkContext.parallelize(from to to).
+            map(e => Row(s"people$e", e * 2))
 }
 
 class DDLTestSuite extends DataSourceTest {
-  import caseInsensisitiveContext._
 
-  before {
-      sql(
-          """
-          |CREATE TEMPORARY TABLE ddlPeople
-          |USING org.apache.spark.sql.sources.DDLScanSource
-          |OPTIONS (
-          |  From '1',
-          |  To '10'
-          |)
-          """.stripMargin)
-  }
+    import caseInsensisitiveContext._
 
-  sqlTest(
-      "describe ddlPeople",
-      Seq(
-        Row("intType", "int", "test comment"),
-        Row("stringType", "string", ""),
-        Row("dateType", "date", ""),
-        Row("timestampType", "timestamp", ""),
-        Row("doubleType", "double", ""),
-        Row("bigintType", "bigint", ""),
-        Row("tinyintType", "tinyint", ""),
-        Row("decimalType", "decimal(10,0)", ""),
-        Row("fixedDecimalType", "decimal(5,1)", ""),
-        Row("binaryType", "binary", ""),
-        Row("booleanType", "boolean", ""),
-        Row("smallIntType", "smallint", ""),
-        Row("floatType", "float", ""),
-        Row("mapType", "map<string,string>", ""),
-        Row("arrayType", "array<string>", ""),
-        Row("structType", "struct<f1:string,f2:int>", "")
-      ))
+    before {
+        sql(
+            """
+              |CREATE TEMPORARY TABLE ddlPeople
+              |USING org.apache.spark.sql.sources.DDLScanSource
+              |OPTIONS (
+              |  From '1',
+              |  To '10'
+              |)
+            """.stripMargin)
+    }
+
+    sqlTest(
+        "describe ddlPeople",
+        Seq(
+            Row("intType", "int", "test comment"),
+            Row("stringType", "string", ""),
+            Row("dateType", "date", ""),
+            Row("timestampType", "timestamp", ""),
+            Row("doubleType", "double", ""),
+            Row("bigintType", "bigint", ""),
+            Row("tinyintType", "tinyint", ""),
+            Row("decimalType", "decimal(10,0)", ""),
+            Row("fixedDecimalType", "decimal(5,1)", ""),
+            Row("binaryType", "binary", ""),
+            Row("booleanType", "boolean", ""),
+            Row("smallIntType", "smallint", ""),
+            Row("floatType", "float", ""),
+            Row("mapType", "map<string,string>", ""),
+            Row("arrayType", "array<string>", ""),
+            Row("structType", "struct<f1:string,f2:int>", "")
+        ))
 }

@@ -24,37 +24,37 @@ import org.apache.spark.util.collection.CompactBuffer
 
 
 /**
- * Interface for a hashed relation by some key. Use [[HashedRelation.apply]] to create a concrete
- * object.
- */
+  * Interface for a hashed relation by some key. Use [[HashedRelation.apply]] to create a concrete
+  * object.
+  */
 private[joins] sealed trait HashedRelation {
-  def get(key: Row): CompactBuffer[Row]
+    def get(key: Row): CompactBuffer[Row]
 }
 
 
 /**
- * A general [[HashedRelation]] backed by a hash map that maps the key into a sequence of values.
- */
+  * A general [[HashedRelation]] backed by a hash map that maps the key into a sequence of values.
+  */
 private[joins] final class GeneralHashedRelation(hashTable: JavaHashMap[Row, CompactBuffer[Row]])
-  extends HashedRelation with Serializable {
+        extends HashedRelation with Serializable {
 
-  override def get(key: Row): CompactBuffer[Row] = hashTable.get(key)
+    override def get(key: Row): CompactBuffer[Row] = hashTable.get(key)
 }
 
 
 /**
- * A specialized [[HashedRelation]] that maps key into a single value. This implementation
- * assumes the key is unique.
- */
+  * A specialized [[HashedRelation]] that maps key into a single value. This implementation
+  * assumes the key is unique.
+  */
 private[joins] final class UniqueKeyHashedRelation(hashTable: JavaHashMap[Row, Row])
-  extends HashedRelation with Serializable {
+        extends HashedRelation with Serializable {
 
-  override def get(key: Row): CompactBuffer[Row] = {
-    val v = hashTable.get(key)
-    if (v eq null) null else CompactBuffer(v)
-  }
+    override def get(key: Row): CompactBuffer[Row] = {
+        val v = hashTable.get(key)
+        if (v eq null) null else CompactBuffer(v)
+    }
 
-  def getValue(key: Row): Row = hashTable.get(key)
+    def getValue(key: Row): Row = hashTable.get(key)
 }
 
 
@@ -63,47 +63,47 @@ private[joins] final class UniqueKeyHashedRelation(hashTable: JavaHashMap[Row, R
 
 private[joins] object HashedRelation {
 
-  def apply(
-      input: Iterator[Row],
-      keyGenerator: Projection,
-      sizeEstimate: Int = 64): HashedRelation = {
+    def apply(
+                     input: Iterator[Row],
+                     keyGenerator: Projection,
+                     sizeEstimate: Int = 64): HashedRelation = {
 
-    // TODO: Use Spark's HashMap implementation.
-    val hashTable = new JavaHashMap[Row, CompactBuffer[Row]](sizeEstimate)
-    var currentRow: Row = null
+        // TODO: Use Spark's HashMap implementation.
+        val hashTable = new JavaHashMap[Row, CompactBuffer[Row]](sizeEstimate)
+        var currentRow: Row = null
 
-    // Whether the join key is unique. If the key is unique, we can convert the underlying
-    // hash map into one specialized for this.
-    var keyIsUnique = true
+        // Whether the join key is unique. If the key is unique, we can convert the underlying
+        // hash map into one specialized for this.
+        var keyIsUnique = true
 
-    // Create a mapping of buildKeys -> rows
-    while (input.hasNext) {
-      currentRow = input.next()
-      val rowKey = keyGenerator(currentRow)
-      if (!rowKey.anyNull) {
-        val existingMatchList = hashTable.get(rowKey)
-        val matchList = if (existingMatchList == null) {
-          val newMatchList = new CompactBuffer[Row]()
-          hashTable.put(rowKey, newMatchList)
-          newMatchList
-        } else {
-          keyIsUnique = false
-          existingMatchList
+        // Create a mapping of buildKeys -> rows
+        while (input.hasNext) {
+            currentRow = input.next()
+            val rowKey = keyGenerator(currentRow)
+            if (!rowKey.anyNull) {
+                val existingMatchList = hashTable.get(rowKey)
+                val matchList = if (existingMatchList == null) {
+                    val newMatchList = new CompactBuffer[Row]()
+                    hashTable.put(rowKey, newMatchList)
+                    newMatchList
+                } else {
+                    keyIsUnique = false
+                    existingMatchList
+                }
+                matchList += currentRow.copy()
+            }
         }
-        matchList += currentRow.copy()
-      }
-    }
 
-    if (keyIsUnique) {
-      val uniqHashTable = new JavaHashMap[Row, Row](hashTable.size)
-      val iter = hashTable.entrySet().iterator()
-      while (iter.hasNext) {
-        val entry = iter.next()
-        uniqHashTable.put(entry.getKey, entry.getValue()(0))
-      }
-      new UniqueKeyHashedRelation(uniqHashTable)
-    } else {
-      new GeneralHashedRelation(hashTable)
+        if (keyIsUnique) {
+            val uniqHashTable = new JavaHashMap[Row, Row](hashTable.size)
+            val iter = hashTable.entrySet().iterator()
+            while (iter.hasNext) {
+                val entry = iter.next()
+                uniqHashTable.put(entry.getKey, entry.getValue()(0))
+            }
+            new UniqueKeyHashedRelation(uniqHashTable)
+        } else {
+            new GeneralHashedRelation(hashTable)
+        }
     }
-  }
 }

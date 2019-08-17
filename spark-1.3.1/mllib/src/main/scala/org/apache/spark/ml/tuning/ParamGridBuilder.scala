@@ -24,89 +24,89 @@ import org.apache.spark.annotation.AlphaComponent
 import org.apache.spark.ml.param._
 
 /**
- * :: AlphaComponent ::
- * Builder for a param grid used in grid search-based model selection.
- */
+  * :: AlphaComponent ::
+  * Builder for a param grid used in grid search-based model selection.
+  */
 @AlphaComponent
 class ParamGridBuilder {
 
-  private val paramGrid = mutable.Map.empty[Param[_], Iterable[_]]
+    private val paramGrid = mutable.Map.empty[Param[_], Iterable[_]]
 
-  /**
-   * Sets the given parameters in this grid to fixed values.
-   */
-  def baseOn(paramMap: ParamMap): this.type = {
-    baseOn(paramMap.toSeq: _*)
-    this
-  }
-
-  /**
-   * Sets the given parameters in this grid to fixed values.
-   */
-  @varargs
-  def baseOn(paramPairs: ParamPair[_]*): this.type = {
-    paramPairs.foreach { p =>
-      addGrid(p.param.asInstanceOf[Param[Any]], Seq(p.value))
+    /**
+      * Sets the given parameters in this grid to fixed values.
+      */
+    def baseOn(paramMap: ParamMap): this.type = {
+        baseOn(paramMap.toSeq: _*)
+        this
     }
-    this
-  }
 
-  /**
-   * Adds a param with multiple values (overwrites if the input param exists).
-   */
-  def addGrid[T](param: Param[T], values: Iterable[T]): this.type = {
-    paramGrid.put(param, values)
-    this
-  }
-
-  // specialized versions of addGrid for Java.
-
-  /**
-   * Adds a double param with multiple values.
-   */
-  def addGrid(param: DoubleParam, values: Array[Double]): this.type = {
-    addGrid[Double](param, values)
-  }
-
-  /**
-   * Adds a int param with multiple values.
-   */
-  def addGrid(param: IntParam, values: Array[Int]): this.type = {
-    addGrid[Int](param, values)
-  }
-
-  /**
-   * Adds a float param with multiple values.
-   */
-  def addGrid(param: FloatParam, values: Array[Float]): this.type = {
-    addGrid[Float](param, values)
-  }
-
-  /**
-   * Adds a long param with multiple values.
-   */
-  def addGrid(param: LongParam, values: Array[Long]): this.type = {
-    addGrid[Long](param, values)
-  }
-
-  /**
-   * Adds a boolean param with true and false.
-   */
-  def addGrid(param: BooleanParam): this.type = {
-    addGrid[Boolean](param, Array(true, false))
-  }
-
-  /**
-   * Builds and returns all combinations of parameters specified by the param grid.
-   */
-  def build(): Array[ParamMap] = {
-    var paramMaps = Array(new ParamMap)
-    paramGrid.foreach { case (param, values) =>
-      val newParamMaps = values.flatMap { v =>
-        paramMaps.map(_.copy.put(param.asInstanceOf[Param[Any]], v))
-      }
-      paramMaps = newParamMaps.toArray
+    /**
+      * Sets the given parameters in this grid to fixed values.
+      */
+    @varargs
+    def baseOn(paramPairs: ParamPair[_]*): this.type = {
+        paramPairs.foreach { p =>
+            addGrid(p.param.asInstanceOf[Param[Any]], Seq(p.value))
+        }
+        this
     }
-    paramMaps
-  }
+
+    /**
+      * Adds a param with multiple values (overwrites if the input param exists).
+      */
+    def addGrid[T](param: Param[T], values: Iterable[T]): this.type = {
+        paramGrid.put(param, values)
+        this
+    }
+
+    // specialized versions of addGrid for Java.
+
+    /**
+      * Adds a double param with multiple values.
+      */
+    def addGrid(param: DoubleParam, values: Array[Double]): this.type = {
+        addGrid[Double](param, values)
+    }
+
+    /**
+      * Adds a int param with multiple values.
+      */
+    def addGrid(param: IntParam, values: Array[Int]): this.type = {
+        addGrid[Int](param, values)
+    }
+
+    /**
+      * Adds a float param with multiple values.
+      */
+    def addGrid(param: FloatParam, values: Array[Float]): this.type = {
+        addGrid[Float](param, values)
+    }
+
+    /**
+      * Adds a long param with multiple values.
+      */
+    def addGrid(param: LongParam, values: Array[Long]): this.type = {
+        addGrid[Long](param, values)
+    }
+
+    /**
+      * Adds a boolean param with true and false.
+      */
+    def addGrid(param: BooleanParam): this.type = {
+        addGrid[Boolean](param, Array(true, false))
+    }
+
+    /**
+      * Builds and returns all combinations of parameters specified by the param grid.
+      */
+    def build(): Array[ParamMap] = {
+        var paramMaps = Array(new ParamMap)
+        paramGrid.foreach { case (param, values) =>
+            val newParamMaps = values.flatMap { v =>
+                paramMaps.map(_.copy.put(param.asInstanceOf[Param[Any]], v))
+            }
+            paramMaps = newParamMaps.toArray
+        }
+        paramMaps
+    }
 }

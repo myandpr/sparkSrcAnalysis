@@ -23,40 +23,40 @@ import org.apache.spark.mllib.linalg.Vector
 import org.apache.spark.rdd.RDD
 
 /**
- * :: DeveloperApi ::
- * Trait for transformation of a vector
- */
+  * :: DeveloperApi ::
+  * Trait for transformation of a vector
+  */
 @DeveloperApi
 trait VectorTransformer extends Serializable {
 
-  /**
-   * Applies transformation on a vector.
-   *
-   * @param vector vector to be transformed.
-   * @return transformed vector.
-   */
-  def transform(vector: Vector): Vector
+    /**
+      * Applies transformation on a vector.
+      *
+      * @param vector vector to be transformed.
+      * @return transformed vector.
+      */
+    def transform(vector: Vector): Vector
 
-  /**
-   * Applies transformation on an RDD[Vector].
-   *
-   * @param data RDD[Vector] to be transformed.
-   * @return transformed RDD[Vector].
-   */
-  def transform(data: RDD[Vector]): RDD[Vector] = {
-    // Later in #1498 , all RDD objects are sent via broadcasting instead of akka.
-    // So it should be no longer necessary to explicitly broadcast `this` object.
-    data.map(x => this.transform(x))
-  }
+    /**
+      * Applies transformation on an RDD[Vector].
+      *
+      * @param data RDD[Vector] to be transformed.
+      * @return transformed RDD[Vector].
+      */
+    def transform(data: RDD[Vector]): RDD[Vector] = {
+        // Later in #1498 , all RDD objects are sent via broadcasting instead of akka.
+        // So it should be no longer necessary to explicitly broadcast `this` object.
+        data.map(x => this.transform(x))
+    }
 
-  /**
-   * Applies transformation on an JavaRDD[Vector].
-   *
-   * @param data JavaRDD[Vector] to be transformed.
-   * @return transformed JavaRDD[Vector].
-   */
-  def transform(data: JavaRDD[Vector]): JavaRDD[Vector] = {
-    transform(data.rdd)
-  }
+    /**
+      * Applies transformation on an JavaRDD[Vector].
+      *
+      * @param data JavaRDD[Vector] to be transformed.
+      * @return transformed JavaRDD[Vector].
+      */
+    def transform(data: JavaRDD[Vector]): JavaRDD[Vector] = {
+        transform(data.rdd)
+    }
 
 }

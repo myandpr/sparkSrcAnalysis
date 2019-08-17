@@ -32,44 +32,45 @@ import org.apache.spark.ml.param.ParamMap;
 import org.apache.spark.mllib.regression.LabeledPoint;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
+
 import static org.apache.spark.mllib.classification.LogisticRegressionSuite.generateLogisticInputAsList;
 
 public class JavaCrossValidatorSuite implements Serializable {
 
-  private transient JavaSparkContext jsc;
-  private transient SQLContext jsql;
-  private transient DataFrame dataset;
+    private transient JavaSparkContext jsc;
+    private transient SQLContext jsql;
+    private transient DataFrame dataset;
 
-  @Before
-  public void setUp() {
-    jsc = new JavaSparkContext("local", "JavaCrossValidatorSuite");
-    jsql = new SQLContext(jsc);
-    List<LabeledPoint> points = generateLogisticInputAsList(1.0, 1.0, 100, 42);
-    dataset = jsql.createDataFrame(jsc.parallelize(points, 2), LabeledPoint.class);
-  }
+    @Before
+    public void setUp() {
+        jsc = new JavaSparkContext("local", "JavaCrossValidatorSuite");
+        jsql = new SQLContext(jsc);
+        List<LabeledPoint> points = generateLogisticInputAsList(1.0, 1.0, 100, 42);
+        dataset = jsql.createDataFrame(jsc.parallelize(points, 2), LabeledPoint.class);
+    }
 
-  @After
-  public void tearDown() {
-    jsc.stop();
-    jsc = null;
-  }
+    @After
+    public void tearDown() {
+        jsc.stop();
+        jsc = null;
+    }
 
-  @Test
-  public void crossValidationWithLogisticRegression() {
-    LogisticRegression lr = new LogisticRegression();
-    ParamMap[] lrParamMaps = new ParamGridBuilder()
-      .addGrid(lr.regParam(), new double[] {0.001, 1000.0})
-      .addGrid(lr.maxIter(), new int[] {0, 10})
-      .build();
-    BinaryClassificationEvaluator eval = new BinaryClassificationEvaluator();
-    CrossValidator cv = new CrossValidator()
-      .setEstimator(lr)
-      .setEstimatorParamMaps(lrParamMaps)
-      .setEvaluator(eval)
-      .setNumFolds(3);
-    CrossValidatorModel cvModel = cv.fit(dataset);
-    ParamMap bestParamMap = cvModel.bestModel().fittingParamMap();
-    Assert.assertEquals(0.001, bestParamMap.apply(lr.regParam()));
-    Assert.assertEquals(10, bestParamMap.apply(lr.maxIter()));
-  }
+    @Test
+    public void crossValidationWithLogisticRegression() {
+        LogisticRegression lr = new LogisticRegression();
+        ParamMap[] lrParamMaps = new ParamGridBuilder()
+                .addGrid(lr.regParam(), new double[]{0.001, 1000.0})
+                .addGrid(lr.maxIter(), new int[]{0, 10})
+                .build();
+        BinaryClassificationEvaluator eval = new BinaryClassificationEvaluator();
+        CrossValidator cv = new CrossValidator()
+                .setEstimator(lr)
+                .setEstimatorParamMaps(lrParamMaps)
+                .setEvaluator(eval)
+                .setNumFolds(3);
+        CrossValidatorModel cvModel = cv.fit(dataset);
+        ParamMap bestParamMap = cvModel.bestModel().fittingParamMap();
+        Assert.assertEquals(0.001, bestParamMap.apply(lr.regParam()));
+        Assert.assertEquals(10, bestParamMap.apply(lr.maxIter()));
+    }
 }

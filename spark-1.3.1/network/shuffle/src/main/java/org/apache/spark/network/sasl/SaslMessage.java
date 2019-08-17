@@ -29,37 +29,39 @@ import org.apache.spark.network.protocol.Encoders;
  */
 class SaslMessage implements Encodable {
 
-  /** Serialization tag used to catch incorrect payloads. */
-  private static final byte TAG_BYTE = (byte) 0xEA;
+    /**
+     * Serialization tag used to catch incorrect payloads.
+     */
+    private static final byte TAG_BYTE = (byte) 0xEA;
 
-  public final String appId;
-  public final byte[] payload;
+    public final String appId;
+    public final byte[] payload;
 
-  public SaslMessage(String appId, byte[] payload) {
-    this.appId = appId;
-    this.payload = payload;
-  }
-
-  @Override
-  public int encodedLength() {
-    return 1 + Encoders.Strings.encodedLength(appId) + Encoders.ByteArrays.encodedLength(payload);
-  }
-
-  @Override
-  public void encode(ByteBuf buf) {
-    buf.writeByte(TAG_BYTE);
-    Encoders.Strings.encode(buf, appId);
-    Encoders.ByteArrays.encode(buf, payload);
-  }
-
-  public static SaslMessage decode(ByteBuf buf) {
-    if (buf.readByte() != TAG_BYTE) {
-      throw new IllegalStateException("Expected SaslMessage, received something else"
-        + " (maybe your client does not have SASL enabled?)");
+    public SaslMessage(String appId, byte[] payload) {
+        this.appId = appId;
+        this.payload = payload;
     }
 
-    String appId = Encoders.Strings.decode(buf);
-    byte[] payload = Encoders.ByteArrays.decode(buf);
-    return new SaslMessage(appId, payload);
-  }
+    @Override
+    public int encodedLength() {
+        return 1 + Encoders.Strings.encodedLength(appId) + Encoders.ByteArrays.encodedLength(payload);
+    }
+
+    @Override
+    public void encode(ByteBuf buf) {
+        buf.writeByte(TAG_BYTE);
+        Encoders.Strings.encode(buf, appId);
+        Encoders.ByteArrays.encode(buf, payload);
+    }
+
+    public static SaslMessage decode(ByteBuf buf) {
+        if (buf.readByte() != TAG_BYTE) {
+            throw new IllegalStateException("Expected SaslMessage, received something else"
+                    + " (maybe your client does not have SASL enabled?)");
+        }
+
+        String appId = Encoders.Strings.decode(buf);
+        byte[] payload = Encoders.ByteArrays.decode(buf);
+        return new SaslMessage(appId, payload);
+    }
 }

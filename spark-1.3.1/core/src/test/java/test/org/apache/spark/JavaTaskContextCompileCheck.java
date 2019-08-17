@@ -24,18 +24,18 @@ import org.apache.spark.TaskContext;
  */
 public class JavaTaskContextCompileCheck {
 
-  public static void test() {
-    TaskContext tc = TaskContext.get();
+    public static void test() {
+        TaskContext tc = TaskContext.get();
 
-    tc.isCompleted();
-    tc.isInterrupted();
-    tc.isRunningLocally();
+        tc.isCompleted();
+        tc.isInterrupted();
+        tc.isRunningLocally();
 
-    tc.addTaskCompletionListener(new JavaTaskCompletionListenerImpl());
+        tc.addTaskCompletionListener(new JavaTaskCompletionListenerImpl());
 
-    tc.attemptNumber();
-    tc.partitionId();
-    tc.stageId();
-    tc.taskAttemptId();
-  }
+        tc.attemptNumber();
+        tc.partitionId();
+        tc.stageId();
+        tc.taskAttemptId();
+    }
 }

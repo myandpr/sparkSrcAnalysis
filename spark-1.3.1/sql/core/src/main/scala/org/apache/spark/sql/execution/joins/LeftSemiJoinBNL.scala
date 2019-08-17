@@ -24,52 +24,52 @@ import org.apache.spark.sql.catalyst.plans.physical.Partitioning
 import org.apache.spark.sql.execution.{BinaryNode, SparkPlan}
 
 /**
- * :: DeveloperApi ::
- * Using BroadcastNestedLoopJoin to calculate left semi join result when there's no join keys
- * for hash join.
- */
+  * :: DeveloperApi ::
+  * Using BroadcastNestedLoopJoin to calculate left semi join result when there's no join keys
+  * for hash join.
+  */
 @DeveloperApi
 case class LeftSemiJoinBNL(
-    streamed: SparkPlan, broadcast: SparkPlan, condition: Option[Expression])
-  extends BinaryNode {
-  // TODO: Override requiredChildDistribution.
+                                  streamed: SparkPlan, broadcast: SparkPlan, condition: Option[Expression])
+        extends BinaryNode {
+    // TODO: Override requiredChildDistribution.
 
-  override def outputPartitioning: Partitioning = streamed.outputPartitioning
+    override def outputPartitioning: Partitioning = streamed.outputPartitioning
 
-  override def output: Seq[Attribute] = left.output
+    override def output: Seq[Attribute] = left.output
 
-  /** The Streamed Relation */
-  override def left: SparkPlan = streamed
+    /** The Streamed Relation */
+    override def left: SparkPlan = streamed
 
-  /** The Broadcast relation */
-  override def right: SparkPlan = broadcast
+    /** The Broadcast relation */
+    override def right: SparkPlan = broadcast
 
-  @transient private lazy val boundCondition =
-    InterpretedPredicate(
-      condition
-        .map(c => BindReferences.bindReference(c, left.output ++ right.output))
-        .getOrElse(Literal(true)))
+    @transient private lazy val boundCondition =
+        InterpretedPredicate(
+            condition
+                    .map(c => BindReferences.bindReference(c, left.output ++ right.output))
+                    .getOrElse(Literal(true)))
 
-  override def execute(): RDD[Row] = {
-    val broadcastedRelation =
-      sparkContext.broadcast(broadcast.execute().map(_.copy()).collect().toIndexedSeq)
+    override def execute(): RDD[Row] = {
+        val broadcastedRelation =
+            sparkContext.broadcast(broadcast.execute().map(_.copy()).collect().toIndexedSeq)
 
-    streamed.execute().mapPartitions { streamedIter =>
-      val joinedRow = new JoinedRow
+        streamed.execute().mapPartitions { streamedIter =>
+            val joinedRow = new JoinedRow
 
-      streamedIter.filter(streamedRow => {
-        var i = 0
-        var matched = false
+            streamedIter.filter(streamedRow => {
+                var i = 0
+                var matched = false
 
-        while (i < broadcastedRelation.value.size && !matched) {
-          val broadcastedRow = broadcastedRelation.value(i)
-          if (boundCondition(joinedRow(streamedRow, broadcastedRow))) {
-            matched = true
-          }
-          i += 1
+                while (i < broadcastedRelation.value.size && !matched) {
+                    val broadcastedRow = broadcastedRelation.value(i)
+                    if (boundCondition(joinedRow(streamedRow, broadcastedRow))) {
+                        matched = true
+                    }
+                    i += 1
+                }
+                matched
+            })
         }
-        matched
-      })
     }
-  }
 }

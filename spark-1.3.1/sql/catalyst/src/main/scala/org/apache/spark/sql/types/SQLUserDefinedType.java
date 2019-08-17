@@ -24,11 +24,11 @@ import org.apache.spark.annotation.DeveloperApi;
 /**
  * ::DeveloperApi::
  * A user-defined type which can be automatically recognized by a SQLContext and registered.
- *
+ * <p>
  * WARNING: This annotation will only work if both Java and Scala reflection return the same class
- *          names (after erasure) for the UDT.  This will NOT be the case when, e.g., the UDT class
- *          is enclosed in an object (a singleton).
- *
+ * names (after erasure) for the UDT.  This will NOT be the case when, e.g., the UDT class
+ * is enclosed in an object (a singleton).
+ * <p>
  * WARNING: UDTs are currently only supported from Scala.
  */
 // TODO: Should I used @Documented ?
@@ -37,9 +37,9 @@ import org.apache.spark.annotation.DeveloperApi;
 @Target(ElementType.TYPE)
 public @interface SQLUserDefinedType {
 
-  /**
-   * Returns an instance of the UserDefinedType which can serialize and deserialize the user
-   * class to and from Catalyst built-in types.
-   */
-  Class<? extends UserDefinedType<?> > udt();
+    /**
+     * Returns an instance of the UserDefinedType which can serialize and deserialize the user
+     * class to and from Catalyst built-in types.
+     */
+    Class<? extends UserDefinedType<?>> udt();
 }

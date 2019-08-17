@@ -25,59 +25,59 @@ import org.apache.spark.shuffle.hash.HashShuffleReader
 
 private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager {
 
-  private val indexShuffleBlockManager = new IndexShuffleBlockManager(conf)
-  private val shuffleMapNumber = new ConcurrentHashMap[Int, Int]()
+    private val indexShuffleBlockManager = new IndexShuffleBlockManager(conf)
+    private val shuffleMapNumber = new ConcurrentHashMap[Int, Int]()
 
-  /**
-   * Register a shuffle with the manager and obtain a handle for it to pass to tasks.
-   */
-  override def registerShuffle[K, V, C](
-      shuffleId: Int,
-      numMaps: Int,
-      dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
-    new BaseShuffleHandle(shuffleId, numMaps, dependency)
-  }
-
-  /**
-   * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
-   * Called on executors by reduce tasks.
-   */
-  override def getReader[K, C](
-      handle: ShuffleHandle,
-      startPartition: Int,
-      endPartition: Int,
-      context: TaskContext): ShuffleReader[K, C] = {
-    // We currently use the same block store shuffle fetcher as the hash-based shuffle.
-    new HashShuffleReader(
-      handle.asInstanceOf[BaseShuffleHandle[K, _, C]], startPartition, endPartition, context)
-  }
-
-  /** Get a writer for a given partition. Called on executors by map tasks. */
-  override def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext)
-      : ShuffleWriter[K, V] = {
-    val baseShuffleHandle = handle.asInstanceOf[BaseShuffleHandle[K, V, _]]
-    shuffleMapNumber.putIfAbsent(baseShuffleHandle.shuffleId, baseShuffleHandle.numMaps)
-    new SortShuffleWriter(
-      shuffleBlockManager, baseShuffleHandle, mapId, context)
-  }
-
-  /** Remove a shuffle's metadata from the ShuffleManager. */
-  override def unregisterShuffle(shuffleId: Int): Boolean = {
-    if (shuffleMapNumber.containsKey(shuffleId)) {
-      val numMaps = shuffleMapNumber.remove(shuffleId)
-      (0 until numMaps).map{ mapId =>
-        shuffleBlockManager.removeDataByMap(shuffleId, mapId)
-      }
+    /**
+      * Register a shuffle with the manager and obtain a handle for it to pass to tasks.
+      */
+    override def registerShuffle[K, V, C](
+                                                 shuffleId: Int,
+                                                 numMaps: Int,
+                                                 dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
+        new BaseShuffleHandle(shuffleId, numMaps, dependency)
     }
-    true
-  }
 
-  override def shuffleBlockManager: IndexShuffleBlockManager = {
-    indexShuffleBlockManager
-  }
+    /**
+      * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
+      * Called on executors by reduce tasks.
+      */
+    override def getReader[K, C](
+                                        handle: ShuffleHandle,
+                                        startPartition: Int,
+                                        endPartition: Int,
+                                        context: TaskContext): ShuffleReader[K, C] = {
+        // We currently use the same block store shuffle fetcher as the hash-based shuffle.
+        new HashShuffleReader(
+            handle.asInstanceOf[BaseShuffleHandle[K, _, C]], startPartition, endPartition, context)
+    }
 
-  /** Shut down this ShuffleManager. */
-  override def stop(): Unit = {
-    shuffleBlockManager.stop()
-  }
+    /** Get a writer for a given partition. Called on executors by map tasks. */
+    override def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext)
+    : ShuffleWriter[K, V] = {
+        val baseShuffleHandle = handle.asInstanceOf[BaseShuffleHandle[K, V, _]]
+        shuffleMapNumber.putIfAbsent(baseShuffleHandle.shuffleId, baseShuffleHandle.numMaps)
+        new SortShuffleWriter(
+            shuffleBlockManager, baseShuffleHandle, mapId, context)
+    }
+
+    /** Remove a shuffle's metadata from the ShuffleManager. */
+    override def unregisterShuffle(shuffleId: Int): Boolean = {
+        if (shuffleMapNumber.containsKey(shuffleId)) {
+            val numMaps = shuffleMapNumber.remove(shuffleId)
+            (0 until numMaps).map { mapId =>
+                shuffleBlockManager.removeDataByMap(shuffleId, mapId)
+            }
+        }
+        true
+    }
+
+    override def shuffleBlockManager: IndexShuffleBlockManager = {
+        indexShuffleBlockManager
+    }
+
+    /** Shut down this ShuffleManager. */
+    override def stop(): Unit = {
+        shuffleBlockManager.stop()
+    }
 }

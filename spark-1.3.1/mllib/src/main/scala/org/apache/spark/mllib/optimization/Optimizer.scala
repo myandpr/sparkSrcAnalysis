@@ -23,14 +23,14 @@ import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.mllib.linalg.Vector
 
 /**
- * :: DeveloperApi ::
- * Trait for optimization problem solvers.
- */
+  * :: DeveloperApi ::
+  * Trait for optimization problem solvers.
+  */
 @DeveloperApi
 trait Optimizer extends Serializable {
 
-  /**
-   * Solve the provided convex optimization problem.
-   */
-  def optimize(data: RDD[(Double, Vector)], initialWeights: Vector): Vector
+    /**
+      * Solve the provided convex optimization problem.
+      */
+    def optimize(data: RDD[(Double, Vector)], initialWeights: Vector): Vector
 }

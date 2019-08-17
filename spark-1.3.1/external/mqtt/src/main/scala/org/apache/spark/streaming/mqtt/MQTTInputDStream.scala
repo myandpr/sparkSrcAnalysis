@@ -42,70 +42,71 @@ import org.apache.spark.streaming.dstream._
 import org.apache.spark.streaming.receiver.Receiver
 
 /**
- * Input stream that subscribe messages from a Mqtt Broker.
- * Uses eclipse paho as MqttClient http://www.eclipse.org/paho/
- * @param brokerUrl Url of remote mqtt publisher
- * @param topic topic name to subscribe to
- * @param storageLevel RDD storage level.
- */
+  * Input stream that subscribe messages from a Mqtt Broker.
+  * Uses eclipse paho as MqttClient http://www.eclipse.org/paho/
+  *
+  * @param brokerUrl    Url of remote mqtt publisher
+  * @param topic        topic name to subscribe to
+  * @param storageLevel RDD storage level.
+  */
 
 private[streaming]
 class MQTTInputDStream(
-    @transient ssc_ : StreamingContext,
-    brokerUrl: String,
-    topic: String,
-    storageLevel: StorageLevel
-  ) extends ReceiverInputDStream[String](ssc_) {
+                              @transient ssc_ : StreamingContext,
+                              brokerUrl: String,
+                              topic: String,
+                              storageLevel: StorageLevel
+                      ) extends ReceiverInputDStream[String](ssc_) {
 
-  def getReceiver(): Receiver[String] = {
-    new MQTTReceiver(brokerUrl, topic, storageLevel)
-  }
+    def getReceiver(): Receiver[String] = {
+        new MQTTReceiver(brokerUrl, topic, storageLevel)
+    }
 }
 
 private[streaming]
 class MQTTReceiver(
-    brokerUrl: String,
-    topic: String,
-    storageLevel: StorageLevel
-  ) extends Receiver[String](storageLevel) {
+                          brokerUrl: String,
+                          topic: String,
+                          storageLevel: StorageLevel
+                  ) extends Receiver[String](storageLevel) {
 
-  def onStop() {
+    def onStop() {
 
-  }
-
-  def onStart() {
-
-    // Set up persistence for messages
-    val persistence = new MemoryPersistence()
-
-    // Initializing Mqtt Client specifying brokerUrl, clientID and MqttClientPersistance
-    val client = new MqttClient(brokerUrl, MqttClient.generateClientId(), persistence)
-
-    // Callback automatically triggers as and when new message arrives on specified topic
-    val callback: MqttCallback = new MqttCallback() {
-
-      // Handles Mqtt message
-      override def messageArrived(arg0: String, arg1: MqttMessage) {
-        store(new String(arg1.getPayload(),"utf-8"))
-      }
-
-      override def deliveryComplete(arg0: IMqttDeliveryToken) {
-      }
-
-      override def connectionLost(arg0: Throwable) {
-        restart("Connection lost ", arg0)
-      }
     }
 
-    // Set up callback for MqttClient. This needs to happen before
-    // connecting or subscribing, otherwise messages may be lost
-    client.setCallback(callback)
+    def onStart() {
 
-    // Connect to MqttBroker
-    client.connect()
+        // Set up persistence for messages
+        val persistence = new MemoryPersistence()
 
-    // Subscribe to Mqtt topic
-    client.subscribe(topic)
+        // Initializing Mqtt Client specifying brokerUrl, clientID and MqttClientPersistance
+        val client = new MqttClient(brokerUrl, MqttClient.generateClientId(), persistence)
 
-  }
+        // Callback automatically triggers as and when new message arrives on specified topic
+        val callback: MqttCallback = new MqttCallback() {
+
+            // Handles Mqtt message
+            override def messageArrived(arg0: String, arg1: MqttMessage) {
+                store(new String(arg1.getPayload(), "utf-8"))
+            }
+
+            override def deliveryComplete(arg0: IMqttDeliveryToken) {
+            }
+
+            override def connectionLost(arg0: Throwable) {
+                restart("Connection lost ", arg0)
+            }
+        }
+
+        // Set up callback for MqttClient. This needs to happen before
+        // connecting or subscribing, otherwise messages may be lost
+        client.setCallback(callback)
+
+        // Connect to MqttBroker
+        client.connect()
+
+        // Subscribe to Mqtt topic
+        client.subscribe(topic)
+
+    }
 }

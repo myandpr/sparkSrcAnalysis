@@ -20,9 +20,9 @@ package org.apache.spark.storage
 import java.io.File
 
 /**
- * References a particular segment of a file (potentially the entire file),
- * based off an offset and a length.
- */
+  * References a particular segment of a file (potentially the entire file),
+  * based off an offset and a length.
+  */
 private[spark] class FileSegment(val file: File, val offset: Long, val length: Long) {
-  override def toString = "(name=%s, offset=%d, length=%d)".format(file.getName, offset, length)
+    override def toString = "(name=%s, offset=%d, length=%d)".format(file.getName, offset, length)
 }

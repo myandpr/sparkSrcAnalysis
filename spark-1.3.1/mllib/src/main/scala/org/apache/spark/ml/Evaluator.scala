@@ -22,18 +22,18 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.DataFrame
 
 /**
- * :: AlphaComponent ::
- * Abstract class for evaluators that compute metrics from predictions.
- */
+  * :: AlphaComponent ::
+  * Abstract class for evaluators that compute metrics from predictions.
+  */
 @AlphaComponent
 abstract class Evaluator extends Identifiable {
 
-  /**
-   * Evaluates the output.
-   *
-   * @param dataset a dataset that contains labels/observations and predictions.
-   * @param paramMap parameter map that specifies the input columns and output metrics
-   * @return metric
-   */
-  def evaluate(dataset: DataFrame, paramMap: ParamMap): Double
+    /**
+      * Evaluates the output.
+      *
+      * @param dataset  a dataset that contains labels/observations and predictions.
+      * @param paramMap parameter map that specifies the input columns and output metrics
+      * @return metric
+      */
+    def evaluate(dataset: DataFrame, paramMap: ParamMap): Double
 }

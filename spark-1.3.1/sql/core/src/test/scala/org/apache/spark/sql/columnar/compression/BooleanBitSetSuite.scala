@@ -25,84 +25,85 @@ import org.apache.spark.sql.columnar.{NoopColumnStats, BOOLEAN}
 import org.apache.spark.sql.columnar.ColumnarTestUtils._
 
 class BooleanBitSetSuite extends FunSuite {
-  import BooleanBitSet._
 
-  def skeleton(count: Int) {
-    // -------------
-    // Tests encoder
-    // -------------
+    import BooleanBitSet._
 
-    val builder = TestCompressibleColumnBuilder(new NoopColumnStats, BOOLEAN, BooleanBitSet)
-    val rows = Seq.fill[Row](count)(makeRandomRow(BOOLEAN))
-    val values = rows.map(_(0))
+    def skeleton(count: Int) {
+        // -------------
+        // Tests encoder
+        // -------------
 
-    rows.foreach(builder.appendFrom(_, 0))
-    val buffer = builder.build()
+        val builder = TestCompressibleColumnBuilder(new NoopColumnStats, BOOLEAN, BooleanBitSet)
+        val rows = Seq.fill[Row](count)(makeRandomRow(BOOLEAN))
+        val values = rows.map(_ (0))
 
-    // Column type ID + null count + null positions
-    val headerSize = CompressionScheme.columnHeaderSize(buffer)
+        rows.foreach(builder.appendFrom(_, 0))
+        val buffer = builder.build()
 
-    // Compression scheme ID + element count + bitset words
-    val compressedSize = 4 + 4 + {
-      val extra = if (count % BITS_PER_LONG == 0) 0 else 1
-      (count / BITS_PER_LONG + extra) * 8
-    }
+        // Column type ID + null count + null positions
+        val headerSize = CompressionScheme.columnHeaderSize(buffer)
 
-    // 4 extra bytes for compression scheme type ID
-    assertResult(headerSize + compressedSize, "Wrong buffer capacity")(buffer.capacity)
-
-    // Skips column header
-    buffer.position(headerSize)
-    assertResult(BooleanBitSet.typeId, "Wrong compression scheme ID")(buffer.getInt())
-    assertResult(count, "Wrong element count")(buffer.getInt())
-
-    var word = 0: Long
-    for (i <- 0 until count) {
-      val bit = i % BITS_PER_LONG
-      word = if (bit == 0) buffer.getLong() else word
-      assertResult(values(i), s"Wrong value in compressed buffer, index=$i") {
-        (word & ((1: Long) << bit)) != 0
-      }
-    }
-
-    // -------------
-    // Tests decoder
-    // -------------
-
-    // Rewinds, skips column header and 4 more bytes for compression scheme ID
-    buffer.rewind().position(headerSize + 4)
-
-    val decoder = BooleanBitSet.decoder(buffer, BOOLEAN)
-    val mutableRow = new GenericMutableRow(1)
-    if (values.nonEmpty) {
-      values.foreach {
-        assert(decoder.hasNext)
-        assertResult(_, "Wrong decoded value") {
-          decoder.next(mutableRow, 0)
-          mutableRow.getBoolean(0)
+        // Compression scheme ID + element count + bitset words
+        val compressedSize = 4 + 4 + {
+            val extra = if (count % BITS_PER_LONG == 0) 0 else 1
+            (count / BITS_PER_LONG + extra) * 8
         }
-      }
+
+        // 4 extra bytes for compression scheme type ID
+        assertResult(headerSize + compressedSize, "Wrong buffer capacity")(buffer.capacity)
+
+        // Skips column header
+        buffer.position(headerSize)
+        assertResult(BooleanBitSet.typeId, "Wrong compression scheme ID")(buffer.getInt())
+        assertResult(count, "Wrong element count")(buffer.getInt())
+
+        var word = 0: Long
+        for (i <- 0 until count) {
+            val bit = i % BITS_PER_LONG
+            word = if (bit == 0) buffer.getLong() else word
+            assertResult(values(i), s"Wrong value in compressed buffer, index=$i") {
+                (word & ((1: Long) << bit)) != 0
+            }
+        }
+
+        // -------------
+        // Tests decoder
+        // -------------
+
+        // Rewinds, skips column header and 4 more bytes for compression scheme ID
+        buffer.rewind().position(headerSize + 4)
+
+        val decoder = BooleanBitSet.decoder(buffer, BOOLEAN)
+        val mutableRow = new GenericMutableRow(1)
+        if (values.nonEmpty) {
+            values.foreach {
+                assert(decoder.hasNext)
+                assertResult(_, "Wrong decoded value") {
+                    decoder.next(mutableRow, 0)
+                    mutableRow.getBoolean(0)
+                }
+            }
+        }
+        assert(!decoder.hasNext)
     }
-    assert(!decoder.hasNext)
-  }
 
-  test(s"$BooleanBitSet: empty") {
-    skeleton(0)
-  }
+    test(s"$BooleanBitSet: empty") {
+        skeleton(0)
+    }
 
-  test(s"$BooleanBitSet: less than 1 word") {
-    skeleton(BITS_PER_LONG - 1)
-  }
+    test(s"$BooleanBitSet: less than 1 word") {
+        skeleton(BITS_PER_LONG - 1)
+    }
 
-  test(s"$BooleanBitSet: exactly 1 word") {
-    skeleton(BITS_PER_LONG)
-  }
+    test(s"$BooleanBitSet: exactly 1 word") {
+        skeleton(BITS_PER_LONG)
+    }
 
-  test(s"$BooleanBitSet: multiple whole words") {
-    skeleton(BITS_PER_LONG * 2)
-  }
+    test(s"$BooleanBitSet: multiple whole words") {
+        skeleton(BITS_PER_LONG * 2)
+    }
 
-  test(s"$BooleanBitSet: multiple words and 1 more bit") {
-    skeleton(BITS_PER_LONG * 2 + 1)
-  }
+    test(s"$BooleanBitSet: multiple words and 1 more bit") {
+        skeleton(BITS_PER_LONG * 2 + 1)
+    }
 }

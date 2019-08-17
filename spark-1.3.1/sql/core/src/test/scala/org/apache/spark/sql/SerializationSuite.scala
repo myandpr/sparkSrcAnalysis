@@ -25,8 +25,8 @@ import org.apache.spark.sql.test.TestSQLContext
 
 class SerializationSuite extends FunSuite {
 
-  test("[SPARK-5235] SQLContext should be serializable") {
-    val sqlContext = new SQLContext(TestSQLContext.sparkContext)
-    new JavaSerializer(new SparkConf()).newInstance().serialize(sqlContext)
-  }
+    test("[SPARK-5235] SQLContext should be serializable") {
+        val sqlContext = new SQLContext(TestSQLContext.sparkContext)
+        new JavaSerializer(new SparkConf()).newInstance().serialize(sqlContext)
+    }
 }

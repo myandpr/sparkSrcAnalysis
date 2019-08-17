@@ -24,37 +24,37 @@ import org.apache.spark.sql.catalyst.plans.logical.{OneRowRelation, Filter, Logi
 import org.apache.spark.sql.catalyst.util._
 
 /**
- * Provides helper methods for comparing plans.
- */
+  * Provides helper methods for comparing plans.
+  */
 class PlanTest extends FunSuite {
 
-  /**
-   * Since attribute references are given globally unique ids during analysis,
-   * we must normalize them to check if two different queries are identical.
-   */
-  protected def normalizeExprIds(plan: LogicalPlan) = {
-    plan transformAllExpressions {
-      case a: AttributeReference =>
-        AttributeReference(a.name, a.dataType, a.nullable)(exprId = ExprId(0))
-      case a: Alias =>
-        Alias(a.child, a.name)(exprId = ExprId(0))
+    /**
+      * Since attribute references are given globally unique ids during analysis,
+      * we must normalize them to check if two different queries are identical.
+      */
+    protected def normalizeExprIds(plan: LogicalPlan) = {
+        plan transformAllExpressions {
+            case a: AttributeReference =>
+                AttributeReference(a.name, a.dataType, a.nullable)(exprId = ExprId(0))
+            case a: Alias =>
+                Alias(a.child, a.name)(exprId = ExprId(0))
+        }
     }
-  }
 
-  /** Fails the test if the two plans do not match */
-  protected def comparePlans(plan1: LogicalPlan, plan2: LogicalPlan) {
-    val normalized1 = normalizeExprIds(plan1)
-    val normalized2 = normalizeExprIds(plan2)
-    if (normalized1 != normalized2)
-      fail(
-        s"""
-          |== FAIL: Plans do not match ===
-          |${sideBySide(normalized1.treeString, normalized2.treeString).mkString("\n")}
+    /** Fails the test if the two plans do not match */
+    protected def comparePlans(plan1: LogicalPlan, plan2: LogicalPlan) {
+        val normalized1 = normalizeExprIds(plan1)
+        val normalized2 = normalizeExprIds(plan2)
+        if (normalized1 != normalized2)
+            fail(
+                s"""
+                   |== FAIL: Plans do not match ===
+                   |${sideBySide(normalized1.treeString, normalized2.treeString).mkString("\n")}
         """.stripMargin)
-  }
+    }
 
-  /** Fails the test if the two expressions do not match */
-  protected def compareExpressions(e1: Expression, e2: Expression): Unit = {
-    comparePlans(Filter(e1, OneRowRelation), Filter(e2, OneRowRelation))
-  }
+    /** Fails the test if the two expressions do not match */
+    protected def compareExpressions(e1: Expression, e2: Expression): Unit = {
+        comparePlans(Filter(e1, OneRowRelation), Filter(e2, OneRowRelation))
+    }
 }

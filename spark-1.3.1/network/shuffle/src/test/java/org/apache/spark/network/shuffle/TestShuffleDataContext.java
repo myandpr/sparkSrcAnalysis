@@ -32,78 +32,82 @@ import org.apache.spark.network.shuffle.protocol.ExecutorShuffleInfo;
  * and cleanup of directories that can be read by the {@link ExternalShuffleBlockManager}.
  */
 public class TestShuffleDataContext {
-  public final String[] localDirs;
-  public final int subDirsPerLocalDir;
+    public final String[] localDirs;
+    public final int subDirsPerLocalDir;
 
-  public TestShuffleDataContext(int numLocalDirs, int subDirsPerLocalDir) {
-    this.localDirs = new String[numLocalDirs];
-    this.subDirsPerLocalDir = subDirsPerLocalDir;
-  }
-
-  public void create() {
-    for (int i = 0; i < localDirs.length; i ++) {
-      localDirs[i] = Files.createTempDir().getAbsolutePath();
-
-      for (int p = 0; p < subDirsPerLocalDir; p ++) {
-        new File(localDirs[i], String.format("%02x", p)).mkdirs();
-      }
-    }
-  }
-
-  public void cleanup() {
-    for (String localDir : localDirs) {
-      deleteRecursively(new File(localDir));
-    }
-  }
-
-  /** Creates reducer blocks in a sort-based data format within our local dirs. */
-  public void insertSortShuffleData(int shuffleId, int mapId, byte[][] blocks) throws IOException {
-    String blockId = "shuffle_" + shuffleId + "_" + mapId + "_0";
-
-    OutputStream dataStream = new FileOutputStream(
-      ExternalShuffleBlockManager.getFile(localDirs, subDirsPerLocalDir, blockId + ".data"));
-    DataOutputStream indexStream = new DataOutputStream(new FileOutputStream(
-      ExternalShuffleBlockManager.getFile(localDirs, subDirsPerLocalDir, blockId + ".index")));
-
-    long offset = 0;
-    indexStream.writeLong(offset);
-    for (byte[] block : blocks) {
-      offset += block.length;
-      dataStream.write(block);
-      indexStream.writeLong(offset);
+    public TestShuffleDataContext(int numLocalDirs, int subDirsPerLocalDir) {
+        this.localDirs = new String[numLocalDirs];
+        this.subDirsPerLocalDir = subDirsPerLocalDir;
     }
 
-    dataStream.close();
-    indexStream.close();
-  }
+    public void create() {
+        for (int i = 0; i < localDirs.length; i++) {
+            localDirs[i] = Files.createTempDir().getAbsolutePath();
 
-  /** Creates reducer blocks in a hash-based data format within our local dirs. */
-  public void insertHashShuffleData(int shuffleId, int mapId, byte[][] blocks) throws IOException {
-    for (int i = 0; i < blocks.length; i ++) {
-      String blockId = "shuffle_" + shuffleId + "_" + mapId + "_" + i;
-      Files.write(blocks[i],
-        ExternalShuffleBlockManager.getFile(localDirs, subDirsPerLocalDir, blockId));
-    }
-  }
-
-  /**
-   * Creates an ExecutorShuffleInfo object based on the given shuffle manager which targets this
-   * context's directories.
-   */
-  public ExecutorShuffleInfo createExecutorInfo(String shuffleManager) {
-    return new ExecutorShuffleInfo(localDirs, subDirsPerLocalDir, shuffleManager);
-  }
-
-  private static void deleteRecursively(File f) {
-    assert f != null;
-    if (f.isDirectory()) {
-      File[] children = f.listFiles();
-      if (children != null) {
-        for (File child : children) {
-          deleteRecursively(child);
+            for (int p = 0; p < subDirsPerLocalDir; p++) {
+                new File(localDirs[i], String.format("%02x", p)).mkdirs();
+            }
         }
-      }
     }
-    f.delete();
-  }
+
+    public void cleanup() {
+        for (String localDir : localDirs) {
+            deleteRecursively(new File(localDir));
+        }
+    }
+
+    /**
+     * Creates reducer blocks in a sort-based data format within our local dirs.
+     */
+    public void insertSortShuffleData(int shuffleId, int mapId, byte[][] blocks) throws IOException {
+        String blockId = "shuffle_" + shuffleId + "_" + mapId + "_0";
+
+        OutputStream dataStream = new FileOutputStream(
+                ExternalShuffleBlockManager.getFile(localDirs, subDirsPerLocalDir, blockId + ".data"));
+        DataOutputStream indexStream = new DataOutputStream(new FileOutputStream(
+                ExternalShuffleBlockManager.getFile(localDirs, subDirsPerLocalDir, blockId + ".index")));
+
+        long offset = 0;
+        indexStream.writeLong(offset);
+        for (byte[] block : blocks) {
+            offset += block.length;
+            dataStream.write(block);
+            indexStream.writeLong(offset);
+        }
+
+        dataStream.close();
+        indexStream.close();
+    }
+
+    /**
+     * Creates reducer blocks in a hash-based data format within our local dirs.
+     */
+    public void insertHashShuffleData(int shuffleId, int mapId, byte[][] blocks) throws IOException {
+        for (int i = 0; i < blocks.length; i++) {
+            String blockId = "shuffle_" + shuffleId + "_" + mapId + "_" + i;
+            Files.write(blocks[i],
+                    ExternalShuffleBlockManager.getFile(localDirs, subDirsPerLocalDir, blockId));
+        }
+    }
+
+    /**
+     * Creates an ExecutorShuffleInfo object based on the given shuffle manager which targets this
+     * context's directories.
+     */
+    public ExecutorShuffleInfo createExecutorInfo(String shuffleManager) {
+        return new ExecutorShuffleInfo(localDirs, subDirsPerLocalDir, shuffleManager);
+    }
+
+    private static void deleteRecursively(File f) {
+        assert f != null;
+        if (f.isDirectory()) {
+            File[] children = f.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursively(child);
+                }
+            }
+        }
+        f.delete();
+    }
 }

@@ -24,37 +24,37 @@ import scala.reflect.ClassTag
 
 
 /**
- * A serializer implementation that always return a single element in a deserialization stream.
- */
+  * A serializer implementation that always return a single element in a deserialization stream.
+  */
 class TestSerializer extends Serializer {
-  override def newInstance() = new TestSerializerInstance
+    override def newInstance() = new TestSerializerInstance
 }
 
 
 class TestSerializerInstance extends SerializerInstance {
-  override def serialize[T: ClassTag](t: T): ByteBuffer = ???
+    override def serialize[T: ClassTag](t: T): ByteBuffer = ???
 
-  override def serializeStream(s: OutputStream): SerializationStream = ???
+    override def serializeStream(s: OutputStream): SerializationStream = ???
 
-  override def deserializeStream(s: InputStream) = new TestDeserializationStream
+    override def deserializeStream(s: InputStream) = new TestDeserializationStream
 
-  override def deserialize[T: ClassTag](bytes: ByteBuffer): T = ???
+    override def deserialize[T: ClassTag](bytes: ByteBuffer): T = ???
 
-  override def deserialize[T: ClassTag](bytes: ByteBuffer, loader: ClassLoader): T = ???
+    override def deserialize[T: ClassTag](bytes: ByteBuffer, loader: ClassLoader): T = ???
 }
 
 
 class TestDeserializationStream extends DeserializationStream {
 
-  private var count = 0
+    private var count = 0
 
-  override def readObject[T: ClassTag](): T = {
-    count += 1
-    if (count == 2) {
-      throw new EOFException
+    override def readObject[T: ClassTag](): T = {
+        count += 1
+        if (count == 2) {
+            throw new EOFException
+        }
+        new Object().asInstanceOf[T]
     }
-    new Object().asInstanceOf[T]
-  }
 
-  override def close(): Unit = {}
+    override def close(): Unit = {}
 }

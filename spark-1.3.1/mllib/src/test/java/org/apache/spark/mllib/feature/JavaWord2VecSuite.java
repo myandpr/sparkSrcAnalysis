@@ -33,34 +33,34 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 public class JavaWord2VecSuite implements Serializable {
-  private transient JavaSparkContext sc;
+    private transient JavaSparkContext sc;
 
-  @Before
-  public void setUp() {
-    sc = new JavaSparkContext("local", "JavaWord2VecSuite");
-  }
+    @Before
+    public void setUp() {
+        sc = new JavaSparkContext("local", "JavaWord2VecSuite");
+    }
 
-  @After
-  public void tearDown() {
-    sc.stop();
-    sc = null;
-  }
+    @After
+    public void tearDown() {
+        sc.stop();
+        sc = null;
+    }
 
-  @Test
-  @SuppressWarnings("unchecked")
-  public void word2Vec() {
-    // The tests are to check Java compatibility.
-    String sentence = Strings.repeat("a b ", 100) + Strings.repeat("a c ", 10);
-    List<String> words = Lists.newArrayList(sentence.split(" "));
-    List<List<String>> localDoc = Lists.newArrayList(words, words);
-    JavaRDD<List<String>> doc = sc.parallelize(localDoc);
-    Word2Vec word2vec = new Word2Vec()
-      .setVectorSize(10)
-      .setSeed(42L);
-    Word2VecModel model = word2vec.fit(doc);
-    Tuple2<String, Object>[] syms = model.findSynonyms("a", 2);
-    Assert.assertEquals(2, syms.length);
-    Assert.assertEquals("b", syms[0]._1());
-    Assert.assertEquals("c", syms[1]._1());
-  }
+    @Test
+    @SuppressWarnings("unchecked")
+    public void word2Vec() {
+        // The tests are to check Java compatibility.
+        String sentence = Strings.repeat("a b ", 100) + Strings.repeat("a c ", 10);
+        List<String> words = Lists.newArrayList(sentence.split(" "));
+        List<List<String>> localDoc = Lists.newArrayList(words, words);
+        JavaRDD<List<String>> doc = sc.parallelize(localDoc);
+        Word2Vec word2vec = new Word2Vec()
+                .setVectorSize(10)
+                .setSeed(42L);
+        Word2VecModel model = word2vec.fit(doc);
+        Tuple2<String, Object>[] syms = model.findSynonyms("a", 2);
+        Assert.assertEquals(2, syms.length);
+        Assert.assertEquals("b", syms[0]._1());
+        Assert.assertEquals("c", syms[1]._1());
+    }
 }

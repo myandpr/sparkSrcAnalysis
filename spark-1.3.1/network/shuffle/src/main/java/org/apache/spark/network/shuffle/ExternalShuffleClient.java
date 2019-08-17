@@ -42,97 +42,97 @@ import org.apache.spark.network.util.TransportConf;
  * executors.
  */
 public class ExternalShuffleClient extends ShuffleClient {
-  private final Logger logger = LoggerFactory.getLogger(ExternalShuffleClient.class);
+    private final Logger logger = LoggerFactory.getLogger(ExternalShuffleClient.class);
 
-  private final TransportConf conf;
-  private final boolean saslEnabled;
-  private final SecretKeyHolder secretKeyHolder;
+    private final TransportConf conf;
+    private final boolean saslEnabled;
+    private final SecretKeyHolder secretKeyHolder;
 
-  private TransportClientFactory clientFactory;
-  private String appId;
+    private TransportClientFactory clientFactory;
+    private String appId;
 
-  /**
-   * Creates an external shuffle client, with SASL optionally enabled. If SASL is not enabled,
-   * then secretKeyHolder may be null.
-   */
-  public ExternalShuffleClient(
-      TransportConf conf,
-      SecretKeyHolder secretKeyHolder,
-      boolean saslEnabled) {
-    this.conf = conf;
-    this.secretKeyHolder = secretKeyHolder;
-    this.saslEnabled = saslEnabled;
-  }
-
-  @Override
-  public void init(String appId) {
-    this.appId = appId;
-    TransportContext context = new TransportContext(conf, new NoOpRpcHandler());
-    List<TransportClientBootstrap> bootstraps = Lists.newArrayList();
-    if (saslEnabled) {
-      bootstraps.add(new SaslClientBootstrap(conf, appId, secretKeyHolder));
+    /**
+     * Creates an external shuffle client, with SASL optionally enabled. If SASL is not enabled,
+     * then secretKeyHolder may be null.
+     */
+    public ExternalShuffleClient(
+            TransportConf conf,
+            SecretKeyHolder secretKeyHolder,
+            boolean saslEnabled) {
+        this.conf = conf;
+        this.secretKeyHolder = secretKeyHolder;
+        this.saslEnabled = saslEnabled;
     }
-    clientFactory = context.createClientFactory(bootstraps);
-  }
 
-  @Override
-  public void fetchBlocks(
-      final String host,
-      final int port,
-      final String execId,
-      String[] blockIds,
-      BlockFetchingListener listener) {
-    assert appId != null : "Called before init()";
-    logger.debug("External shuffle fetch from {}:{} (executor id {})", host, port, execId);
-    try {
-      RetryingBlockFetcher.BlockFetchStarter blockFetchStarter =
-        new RetryingBlockFetcher.BlockFetchStarter() {
-          @Override
-          public void createAndStart(String[] blockIds, BlockFetchingListener listener)
-              throws IOException {
-            TransportClient client = clientFactory.createClient(host, port);
-            new OneForOneBlockFetcher(client, appId, execId, blockIds, listener).start();
-          }
-        };
-
-      int maxRetries = conf.maxIORetries();
-      if (maxRetries > 0) {
-        // Note this Fetcher will correctly handle maxRetries == 0; we avoid it just in case there's
-        // a bug in this code. We should remove the if statement once we're sure of the stability.
-        new RetryingBlockFetcher(conf, blockFetchStarter, blockIds, listener).start();
-      } else {
-        blockFetchStarter.createAndStart(blockIds, listener);
-      }
-    } catch (Exception e) {
-      logger.error("Exception while beginning fetchBlocks", e);
-      for (String blockId : blockIds) {
-        listener.onBlockFetchFailure(blockId, e);
-      }
+    @Override
+    public void init(String appId) {
+        this.appId = appId;
+        TransportContext context = new TransportContext(conf, new NoOpRpcHandler());
+        List<TransportClientBootstrap> bootstraps = Lists.newArrayList();
+        if (saslEnabled) {
+            bootstraps.add(new SaslClientBootstrap(conf, appId, secretKeyHolder));
+        }
+        clientFactory = context.createClientFactory(bootstraps);
     }
-  }
 
-  /**
-   * Registers this executor with an external shuffle server. This registration is required to
-   * inform the shuffle server about where and how we store our shuffle files.
-   *
-   * @param host Host of shuffle server.
-   * @param port Port of shuffle server.
-   * @param execId This Executor's id.
-   * @param executorInfo Contains all info necessary for the service to find our shuffle files.
-   */
-  public void registerWithShuffleServer(
-      String host,
-      int port,
-      String execId,
-      ExecutorShuffleInfo executorInfo) throws IOException {
-    assert appId != null : "Called before init()";
-    TransportClient client = clientFactory.createClient(host, port);
-    byte[] registerMessage = new RegisterExecutor(appId, execId, executorInfo).toByteArray();
-    client.sendRpcSync(registerMessage, 5000 /* timeoutMs */);
-  }
+    @Override
+    public void fetchBlocks(
+            final String host,
+            final int port,
+            final String execId,
+            String[] blockIds,
+            BlockFetchingListener listener) {
+        assert appId != null : "Called before init()";
+        logger.debug("External shuffle fetch from {}:{} (executor id {})", host, port, execId);
+        try {
+            RetryingBlockFetcher.BlockFetchStarter blockFetchStarter =
+                    new RetryingBlockFetcher.BlockFetchStarter() {
+                        @Override
+                        public void createAndStart(String[] blockIds, BlockFetchingListener listener)
+                                throws IOException {
+                            TransportClient client = clientFactory.createClient(host, port);
+                            new OneForOneBlockFetcher(client, appId, execId, blockIds, listener).start();
+                        }
+                    };
 
-  @Override
-  public void close() {
-    clientFactory.close();
-  }
+            int maxRetries = conf.maxIORetries();
+            if (maxRetries > 0) {
+                // Note this Fetcher will correctly handle maxRetries == 0; we avoid it just in case there's
+                // a bug in this code. We should remove the if statement once we're sure of the stability.
+                new RetryingBlockFetcher(conf, blockFetchStarter, blockIds, listener).start();
+            } else {
+                blockFetchStarter.createAndStart(blockIds, listener);
+            }
+        } catch (Exception e) {
+            logger.error("Exception while beginning fetchBlocks", e);
+            for (String blockId : blockIds) {
+                listener.onBlockFetchFailure(blockId, e);
+            }
+        }
+    }
+
+    /**
+     * Registers this executor with an external shuffle server. This registration is required to
+     * inform the shuffle server about where and how we store our shuffle files.
+     *
+     * @param host         Host of shuffle server.
+     * @param port         Port of shuffle server.
+     * @param execId       This Executor's id.
+     * @param executorInfo Contains all info necessary for the service to find our shuffle files.
+     */
+    public void registerWithShuffleServer(
+            String host,
+            int port,
+            String execId,
+            ExecutorShuffleInfo executorInfo) throws IOException {
+        assert appId != null : "Called before init()";
+        TransportClient client = clientFactory.createClient(host, port);
+        byte[] registerMessage = new RegisterExecutor(appId, execId, executorInfo).toByteArray();
+        client.sendRpcSync(registerMessage, 5000 /* timeoutMs */);
+    }
+
+    @Override
+    public void close() {
+        clientFactory.close();
+    }
 }

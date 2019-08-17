@@ -23,47 +23,47 @@ import parquet.Preconditions
 import parquet.io.api.{Binary, RecordConsumer}
 
 private[parquet] class NanoTime extends Serializable {
-  private var julianDay = 0
-  private var timeOfDayNanos = 0L
+    private var julianDay = 0
+    private var timeOfDayNanos = 0L
 
-  def set(julianDay: Int, timeOfDayNanos: Long): this.type = {
-    this.julianDay = julianDay
-    this.timeOfDayNanos = timeOfDayNanos
-    this
-  }
+    def set(julianDay: Int, timeOfDayNanos: Long): this.type = {
+        this.julianDay = julianDay
+        this.timeOfDayNanos = timeOfDayNanos
+        this
+    }
 
-  def getJulianDay: Int = julianDay
+    def getJulianDay: Int = julianDay
 
-  def getTimeOfDayNanos: Long = timeOfDayNanos
+    def getTimeOfDayNanos: Long = timeOfDayNanos
 
-  def toBinary: Binary = {
-    val buf = ByteBuffer.allocate(12)
-    buf.order(ByteOrder.LITTLE_ENDIAN)
-    buf.putLong(timeOfDayNanos)
-    buf.putInt(julianDay)
-    buf.flip()
-    Binary.fromByteBuffer(buf)
-  }
+    def toBinary: Binary = {
+        val buf = ByteBuffer.allocate(12)
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        buf.putLong(timeOfDayNanos)
+        buf.putInt(julianDay)
+        buf.flip()
+        Binary.fromByteBuffer(buf)
+    }
 
-  def writeValue(recordConsumer: RecordConsumer): Unit = {
-    recordConsumer.addBinary(toBinary)
-  }
+    def writeValue(recordConsumer: RecordConsumer): Unit = {
+        recordConsumer.addBinary(toBinary)
+    }
 
-  override def toString: String =
-    "NanoTime{julianDay=" + julianDay + ", timeOfDayNanos=" + timeOfDayNanos + "}"
+    override def toString: String =
+        "NanoTime{julianDay=" + julianDay + ", timeOfDayNanos=" + timeOfDayNanos + "}"
 }
 
 private[sql] object NanoTime {
-  def fromBinary(bytes: Binary): NanoTime = {
-    Preconditions.checkArgument(bytes.length() == 12, "Must be 12 bytes")
-    val buf = bytes.toByteBuffer
-    buf.order(ByteOrder.LITTLE_ENDIAN)
-    val timeOfDayNanos = buf.getLong
-    val julianDay = buf.getInt
-    new NanoTime().set(julianDay, timeOfDayNanos)
-  }
+    def fromBinary(bytes: Binary): NanoTime = {
+        Preconditions.checkArgument(bytes.length() == 12, "Must be 12 bytes")
+        val buf = bytes.toByteBuffer
+        buf.order(ByteOrder.LITTLE_ENDIAN)
+        val timeOfDayNanos = buf.getLong
+        val julianDay = buf.getInt
+        new NanoTime().set(julianDay, timeOfDayNanos)
+    }
 
-  def apply(julianDay: Int, timeOfDayNanos: Long): NanoTime = {
-    new NanoTime().set(julianDay, timeOfDayNanos)
-  }
+    def apply(julianDay: Int, timeOfDayNanos: Long): NanoTime = {
+        new NanoTime().set(julianDay, timeOfDayNanos)
+    }
 }

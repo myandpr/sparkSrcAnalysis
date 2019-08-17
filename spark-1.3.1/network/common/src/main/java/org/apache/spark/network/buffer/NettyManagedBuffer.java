@@ -29,48 +29,48 @@ import io.netty.buffer.ByteBufInputStream;
  * A {@link ManagedBuffer} backed by a Netty {@link ByteBuf}.
  */
 public final class NettyManagedBuffer extends ManagedBuffer {
-  private final ByteBuf buf;
+    private final ByteBuf buf;
 
-  public NettyManagedBuffer(ByteBuf buf) {
-    this.buf = buf;
-  }
+    public NettyManagedBuffer(ByteBuf buf) {
+        this.buf = buf;
+    }
 
-  @Override
-  public long size() {
-    return buf.readableBytes();
-  }
+    @Override
+    public long size() {
+        return buf.readableBytes();
+    }
 
-  @Override
-  public ByteBuffer nioByteBuffer() throws IOException {
-    return buf.nioBuffer();
-  }
+    @Override
+    public ByteBuffer nioByteBuffer() throws IOException {
+        return buf.nioBuffer();
+    }
 
-  @Override
-  public InputStream createInputStream() throws IOException {
-    return new ByteBufInputStream(buf);
-  }
+    @Override
+    public InputStream createInputStream() throws IOException {
+        return new ByteBufInputStream(buf);
+    }
 
-  @Override
-  public ManagedBuffer retain() {
-    buf.retain();
-    return this;
-  }
+    @Override
+    public ManagedBuffer retain() {
+        buf.retain();
+        return this;
+    }
 
-  @Override
-  public ManagedBuffer release() {
-    buf.release();
-    return this;
-  }
+    @Override
+    public ManagedBuffer release() {
+        buf.release();
+        return this;
+    }
 
-  @Override
-  public Object convertToNetty() throws IOException {
-    return buf.duplicate();
-  }
+    @Override
+    public Object convertToNetty() throws IOException {
+        return buf.duplicate();
+    }
 
-  @Override
-  public String toString() {
-    return Objects.toStringHelper(this)
-      .add("buf", buf)
-      .toString();
-  }
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("buf", buf)
+                .toString();
+    }
 }

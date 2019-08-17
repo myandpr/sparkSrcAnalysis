@@ -29,76 +29,76 @@ import org.apache.spark.sql.types.StructType
 import scala.collection.immutable
 
 /**
- * :: DeveloperApi ::
- */
+  * :: DeveloperApi ::
+  */
 @DeveloperApi
 object RDDConversions {
-  def productToRowRdd[A <: Product](data: RDD[A], schema: StructType): RDD[Row] = {
-    data.mapPartitions { iterator =>
-      if (iterator.isEmpty) {
-        Iterator.empty
-      } else {
-        val bufferedIterator = iterator.buffered
-        val mutableRow = new GenericMutableRow(bufferedIterator.head.productArity)
-        val schemaFields = schema.fields.toArray
-        bufferedIterator.map { r =>
-          var i = 0
-          while (i < mutableRow.length) {
-            mutableRow(i) =
-              ScalaReflection.convertToCatalyst(r.productElement(i), schemaFields(i).dataType)
-            i += 1
-          }
+    def productToRowRdd[A <: Product](data: RDD[A], schema: StructType): RDD[Row] = {
+        data.mapPartitions { iterator =>
+            if (iterator.isEmpty) {
+                Iterator.empty
+            } else {
+                val bufferedIterator = iterator.buffered
+                val mutableRow = new GenericMutableRow(bufferedIterator.head.productArity)
+                val schemaFields = schema.fields.toArray
+                bufferedIterator.map { r =>
+                    var i = 0
+                    while (i < mutableRow.length) {
+                        mutableRow(i) =
+                                ScalaReflection.convertToCatalyst(r.productElement(i), schemaFields(i).dataType)
+                        i += 1
+                    }
 
-          mutableRow
+                    mutableRow
+                }
+            }
         }
-      }
     }
-  }
 }
 
 /** Logical plan node for scanning data from an RDD. */
 case class LogicalRDD(output: Seq[Attribute], rdd: RDD[Row])(sqlContext: SQLContext)
-  extends LogicalPlan with MultiInstanceRelation {
+        extends LogicalPlan with MultiInstanceRelation {
 
-  override def children: Seq[LogicalPlan] = Nil
+    override def children: Seq[LogicalPlan] = Nil
 
-  override def newInstance(): LogicalRDD.this.type =
-    LogicalRDD(output.map(_.newInstance()), rdd)(sqlContext).asInstanceOf[this.type]
+    override def newInstance(): LogicalRDD.this.type =
+        LogicalRDD(output.map(_.newInstance()), rdd)(sqlContext).asInstanceOf[this.type]
 
-  override def sameResult(plan: LogicalPlan): Boolean = plan match {
-    case LogicalRDD(_, otherRDD) => rdd.id == otherRDD.id
-    case _ => false
-  }
+    override def sameResult(plan: LogicalPlan): Boolean = plan match {
+        case LogicalRDD(_, otherRDD) => rdd.id == otherRDD.id
+        case _ => false
+    }
 
-  @transient override lazy val statistics: Statistics = Statistics(
-    // TODO: Instead of returning a default value here, find a way to return a meaningful size
-    // estimate for RDDs. See PR 1238 for more discussions.
-    sizeInBytes = BigInt(sqlContext.conf.defaultSizeInBytes)
-  )
+    @transient override lazy val statistics: Statistics = Statistics(
+        // TODO: Instead of returning a default value here, find a way to return a meaningful size
+        // estimate for RDDs. See PR 1238 for more discussions.
+        sizeInBytes = BigInt(sqlContext.conf.defaultSizeInBytes)
+    )
 }
 
 /** Physical plan node for scanning data from an RDD. */
 case class PhysicalRDD(output: Seq[Attribute], rdd: RDD[Row]) extends LeafNode {
-  override def execute(): RDD[Row] = rdd
+    override def execute(): RDD[Row] = rdd
 }
 
 /** Logical plan node for scanning data from a local collection. */
 case class LogicalLocalTable(output: Seq[Attribute], rows: Seq[Row])(sqlContext: SQLContext)
-   extends LogicalPlan with MultiInstanceRelation {
+        extends LogicalPlan with MultiInstanceRelation {
 
-  override def children: Seq[LogicalPlan] = Nil
+    override def children: Seq[LogicalPlan] = Nil
 
-  override def newInstance(): this.type =
-    LogicalLocalTable(output.map(_.newInstance()), rows)(sqlContext).asInstanceOf[this.type]
+    override def newInstance(): this.type =
+        LogicalLocalTable(output.map(_.newInstance()), rows)(sqlContext).asInstanceOf[this.type]
 
-  override def sameResult(plan: LogicalPlan): Boolean = plan match {
-    case LogicalRDD(_, otherRDD) => rows == rows
-    case _ => false
-  }
+    override def sameResult(plan: LogicalPlan): Boolean = plan match {
+        case LogicalRDD(_, otherRDD) => rows == rows
+        case _ => false
+    }
 
-  @transient override lazy val statistics: Statistics = Statistics(
-    // TODO: Improve the statistics estimation.
-    // This is made small enough so it can be broadcasted.
-    sizeInBytes = sqlContext.conf.autoBroadcastJoinThreshold - 1
-  )
+    @transient override lazy val statistics: Statistics = Statistics(
+        // TODO: Improve the statistics estimation.
+        // This is made small enough so it can be broadcasted.
+        sizeInBytes = sqlContext.conf.autoBroadcastJoinThreshold - 1
+    )
 }

@@ -32,77 +32,78 @@ import org.apache.spark.streaming.receiver.Receiver
 
 
 /**
- * An input stream that reads blocks of serialized objects from a given network address.
- * The blocks will be inserted directly into the block store. This is the fastest way to get
- * data into Spark Streaming, though it requires the sender to batch data and serialize it
- * in the format that the system is configured with.
- */
+  * An input stream that reads blocks of serialized objects from a given network address.
+  * The blocks will be inserted directly into the block store. This is the fastest way to get
+  * data into Spark Streaming, though it requires the sender to batch data and serialize it
+  * in the format that the system is configured with.
+  */
 private[streaming]
 class RawInputDStream[T: ClassTag](
-    @transient ssc_ : StreamingContext,
-    host: String,
-    port: Int,
-    storageLevel: StorageLevel
-  ) extends ReceiverInputDStream[T](ssc_ ) with Logging {
+                                          @transient ssc_ : StreamingContext,
+                                          host: String,
+                                          port: Int,
+                                          storageLevel: StorageLevel
+                                  ) extends ReceiverInputDStream[T](ssc_) with Logging {
 
-  def getReceiver(): Receiver[T] = {
-    new RawNetworkReceiver(host, port, storageLevel).asInstanceOf[Receiver[T]]
-  }
+    def getReceiver(): Receiver[T] = {
+        new RawNetworkReceiver(host, port, storageLevel).asInstanceOf[Receiver[T]]
+    }
 }
 
 private[streaming]
 class RawNetworkReceiver(host: String, port: Int, storageLevel: StorageLevel)
-  extends Receiver[Any](storageLevel) with Logging {
+        extends Receiver[Any](storageLevel) with Logging {
 
-  var blockPushingThread: Thread = null
+    var blockPushingThread: Thread = null
 
-  def onStart() {
-    // Open a socket to the target address and keep reading from it
-    logInfo("Connecting to " + host + ":" + port)
-    val channel = SocketChannel.open()
-    channel.configureBlocking(true)
-    channel.connect(new InetSocketAddress(host, port))
-    logInfo("Connected to " + host + ":" + port)
+    def onStart() {
+        // Open a socket to the target address and keep reading from it
+        logInfo("Connecting to " + host + ":" + port)
+        val channel = SocketChannel.open()
+        channel.configureBlocking(true)
+        channel.connect(new InetSocketAddress(host, port))
+        logInfo("Connected to " + host + ":" + port)
 
-    val queue = new ArrayBlockingQueue[ByteBuffer](2)
+        val queue = new ArrayBlockingQueue[ByteBuffer](2)
 
-    blockPushingThread = new Thread {
-      setDaemon(true)
-      override def run() {
-        var nextBlockNumber = 0
-        while (true) {
-          val buffer = queue.take()
-          nextBlockNumber += 1
-          store(buffer)
+        blockPushingThread = new Thread {
+            setDaemon(true)
+
+            override def run() {
+                var nextBlockNumber = 0
+                while (true) {
+                    val buffer = queue.take()
+                    nextBlockNumber += 1
+                    store(buffer)
+                }
+            }
         }
-      }
-    }
-    blockPushingThread.start()
+        blockPushingThread.start()
 
-    val lengthBuffer = ByteBuffer.allocate(4)
-    while (true) {
-      lengthBuffer.clear()
-      readFully(channel, lengthBuffer)
-      lengthBuffer.flip()
-      val length = lengthBuffer.getInt()
-      val dataBuffer = ByteBuffer.allocate(length)
-      readFully(channel, dataBuffer)
-      dataBuffer.flip()
-      logInfo("Read a block with " + length + " bytes")
-      queue.put(dataBuffer)
+        val lengthBuffer = ByteBuffer.allocate(4)
+        while (true) {
+            lengthBuffer.clear()
+            readFully(channel, lengthBuffer)
+            lengthBuffer.flip()
+            val length = lengthBuffer.getInt()
+            val dataBuffer = ByteBuffer.allocate(length)
+            readFully(channel, dataBuffer)
+            dataBuffer.flip()
+            logInfo("Read a block with " + length + " bytes")
+            queue.put(dataBuffer)
+        }
     }
-  }
 
-  def onStop() {
-    if (blockPushingThread != null) blockPushingThread.interrupt()
-  }
-
-  /** Read a buffer fully from a given Channel */
-  private def readFully(channel: ReadableByteChannel, dest: ByteBuffer) {
-    while (dest.position < dest.limit) {
-      if (channel.read(dest) == -1) {
-        throw new EOFException("End of channel")
-      }
+    def onStop() {
+        if (blockPushingThread != null) blockPushingThread.interrupt()
     }
-  }
+
+    /** Read a buffer fully from a given Channel */
+    private def readFully(channel: ReadableByteChannel, dest: ByteBuffer) {
+        while (dest.position < dest.limit) {
+            if (channel.read(dest) == -1) {
+                throw new EOFException("End of channel")
+            }
+        }
+    }
 }

@@ -26,56 +26,56 @@ import org.apache.spark.sql.Row
 
 class ListTablesSuite extends QueryTest with BeforeAndAfterAll {
 
-  import org.apache.spark.sql.hive.test.TestHive.implicits._
+    import org.apache.spark.sql.hive.test.TestHive.implicits._
 
-  val df =
-    sparkContext.parallelize((1 to 10).map(i => (i,s"str$i"))).toDF("key", "value")
+    val df =
+        sparkContext.parallelize((1 to 10).map(i => (i, s"str$i"))).toDF("key", "value")
 
-  override def beforeAll(): Unit = {
-    // The catalog in HiveContext is a case insensitive one.
-    catalog.registerTable(Seq("ListTablesSuiteTable"), df.logicalPlan)
-    catalog.registerTable(Seq("ListTablesSuiteDB", "InDBListTablesSuiteTable"), df.logicalPlan)
-    sql("CREATE TABLE HiveListTablesSuiteTable (key int, value string)")
-    sql("CREATE DATABASE IF NOT EXISTS ListTablesSuiteDB")
-    sql("CREATE TABLE ListTablesSuiteDB.HiveInDBListTablesSuiteTable (key int, value string)")
-  }
-
-  override def afterAll(): Unit = {
-    catalog.unregisterTable(Seq("ListTablesSuiteTable"))
-    catalog.unregisterTable(Seq("ListTablesSuiteDB", "InDBListTablesSuiteTable"))
-    sql("DROP TABLE IF EXISTS HiveListTablesSuiteTable")
-    sql("DROP TABLE IF EXISTS ListTablesSuiteDB.HiveInDBListTablesSuiteTable")
-    sql("DROP DATABASE IF EXISTS ListTablesSuiteDB")
-  }
-
-  test("get all tables of current database") {
-    Seq(tables(), sql("SHOW TABLes")).foreach {
-      case allTables =>
-        // We are using default DB.
-        checkAnswer(
-          allTables.filter("tableName = 'listtablessuitetable'"),
-          Row("listtablessuitetable", true))
-        assert(allTables.filter("tableName = 'indblisttablessuitetable'").count() === 0)
-        checkAnswer(
-          allTables.filter("tableName = 'hivelisttablessuitetable'"),
-          Row("hivelisttablessuitetable", false))
-        assert(allTables.filter("tableName = 'hiveindblisttablessuitetable'").count() === 0)
+    override def beforeAll(): Unit = {
+        // The catalog in HiveContext is a case insensitive one.
+        catalog.registerTable(Seq("ListTablesSuiteTable"), df.logicalPlan)
+        catalog.registerTable(Seq("ListTablesSuiteDB", "InDBListTablesSuiteTable"), df.logicalPlan)
+        sql("CREATE TABLE HiveListTablesSuiteTable (key int, value string)")
+        sql("CREATE DATABASE IF NOT EXISTS ListTablesSuiteDB")
+        sql("CREATE TABLE ListTablesSuiteDB.HiveInDBListTablesSuiteTable (key int, value string)")
     }
-  }
 
-  test("getting all tables with a database name") {
-    Seq(tables("listtablessuiteDb"), sql("SHOW TABLes in listTablesSuitedb")).foreach {
-      case allTables =>
-        checkAnswer(
-          allTables.filter("tableName = 'listtablessuitetable'"),
-          Row("listtablessuitetable", true))
-        checkAnswer(
-          allTables.filter("tableName = 'indblisttablessuitetable'"),
-          Row("indblisttablessuitetable", true))
-        assert(allTables.filter("tableName = 'hivelisttablessuitetable'").count() === 0)
-        checkAnswer(
-          allTables.filter("tableName = 'hiveindblisttablessuitetable'"),
-          Row("hiveindblisttablessuitetable", false))
+    override def afterAll(): Unit = {
+        catalog.unregisterTable(Seq("ListTablesSuiteTable"))
+        catalog.unregisterTable(Seq("ListTablesSuiteDB", "InDBListTablesSuiteTable"))
+        sql("DROP TABLE IF EXISTS HiveListTablesSuiteTable")
+        sql("DROP TABLE IF EXISTS ListTablesSuiteDB.HiveInDBListTablesSuiteTable")
+        sql("DROP DATABASE IF EXISTS ListTablesSuiteDB")
     }
-  }
+
+    test("get all tables of current database") {
+        Seq(tables(), sql("SHOW TABLes")).foreach {
+            case allTables =>
+                // We are using default DB.
+                checkAnswer(
+                    allTables.filter("tableName = 'listtablessuitetable'"),
+                    Row("listtablessuitetable", true))
+                assert(allTables.filter("tableName = 'indblisttablessuitetable'").count() === 0)
+                checkAnswer(
+                    allTables.filter("tableName = 'hivelisttablessuitetable'"),
+                    Row("hivelisttablessuitetable", false))
+                assert(allTables.filter("tableName = 'hiveindblisttablessuitetable'").count() === 0)
+        }
+    }
+
+    test("getting all tables with a database name") {
+        Seq(tables("listtablessuiteDb"), sql("SHOW TABLes in listTablesSuitedb")).foreach {
+            case allTables =>
+                checkAnswer(
+                    allTables.filter("tableName = 'listtablessuitetable'"),
+                    Row("listtablessuitetable", true))
+                checkAnswer(
+                    allTables.filter("tableName = 'indblisttablessuitetable'"),
+                    Row("indblisttablessuitetable", true))
+                assert(allTables.filter("tableName = 'hivelisttablessuitetable'").count() === 0)
+                checkAnswer(
+                    allTables.filter("tableName = 'hiveindblisttablessuitetable'"),
+                    Row("hiveindblisttablessuitetable", false))
+        }
+    }
 }

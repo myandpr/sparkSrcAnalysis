@@ -23,20 +23,22 @@ import org.apache.hadoop.conf.Configuration;
 
 import org.apache.spark.network.util.ConfigProvider;
 
-/** Use the Hadoop configuration to obtain config values. */
+/**
+ * Use the Hadoop configuration to obtain config values.
+ */
 public class HadoopConfigProvider extends ConfigProvider {
-  private final Configuration conf;
+    private final Configuration conf;
 
-  public HadoopConfigProvider(Configuration conf) {
-    this.conf = conf;
-  }
-
-  @Override
-  public String get(String name) {
-    String value = conf.get(name);
-    if (value == null) {
-      throw new NoSuchElementException(name);
+    public HadoopConfigProvider(Configuration conf) {
+        this.conf = conf;
     }
-    return value;
-  }
+
+    @Override
+    public String get(String name) {
+        String value = conf.get(name);
+        if (value == null) {
+            throw new NoSuchElementException(name);
+        }
+        return value;
+    }
 }

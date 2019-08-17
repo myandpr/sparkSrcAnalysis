@@ -28,28 +28,28 @@ import org.apache.spark.streaming.dstream.ReceiverInputDStream
 
 class ZeroMQStreamSuite extends FunSuite {
 
-  val batchDuration = Seconds(1)
+    val batchDuration = Seconds(1)
 
-  private val master: String = "local[2]"
+    private val master: String = "local[2]"
 
-  private val framework: String = this.getClass.getSimpleName
+    private val framework: String = this.getClass.getSimpleName
 
-  test("zeromq input stream") {
-    val ssc = new StreamingContext(master, framework, batchDuration)
-    val publishUrl = "abc"
-    val subscribe = new Subscribe(null.asInstanceOf[ByteString])
-    val bytesToObjects = (bytes: Seq[ByteString]) => null.asInstanceOf[Iterator[String]]
+    test("zeromq input stream") {
+        val ssc = new StreamingContext(master, framework, batchDuration)
+        val publishUrl = "abc"
+        val subscribe = new Subscribe(null.asInstanceOf[ByteString])
+        val bytesToObjects = (bytes: Seq[ByteString]) => null.asInstanceOf[Iterator[String]]
 
-    // tests the API, does not actually test data receiving
-    val test1: ReceiverInputDStream[String] =
-      ZeroMQUtils.createStream(ssc, publishUrl, subscribe, bytesToObjects)
-    val test2: ReceiverInputDStream[String] = ZeroMQUtils.createStream(
-      ssc, publishUrl, subscribe, bytesToObjects, StorageLevel.MEMORY_AND_DISK_SER_2)
-    val test3: ReceiverInputDStream[String] = ZeroMQUtils.createStream(
-      ssc, publishUrl, subscribe, bytesToObjects,
-      StorageLevel.MEMORY_AND_DISK_SER_2, SupervisorStrategy.defaultStrategy)
+        // tests the API, does not actually test data receiving
+        val test1: ReceiverInputDStream[String] =
+            ZeroMQUtils.createStream(ssc, publishUrl, subscribe, bytesToObjects)
+        val test2: ReceiverInputDStream[String] = ZeroMQUtils.createStream(
+            ssc, publishUrl, subscribe, bytesToObjects, StorageLevel.MEMORY_AND_DISK_SER_2)
+        val test3: ReceiverInputDStream[String] = ZeroMQUtils.createStream(
+            ssc, publishUrl, subscribe, bytesToObjects,
+            StorageLevel.MEMORY_AND_DISK_SER_2, SupervisorStrategy.defaultStrategy)
 
-    // TODO: Actually test data receiving
-    ssc.stop()
-  }
+        // TODO: Actually test data receiving
+        ssc.stop()
+    }
 }

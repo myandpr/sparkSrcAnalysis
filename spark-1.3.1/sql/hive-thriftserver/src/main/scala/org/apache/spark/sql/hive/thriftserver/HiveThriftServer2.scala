@@ -30,90 +30,90 @@ import org.apache.spark.sql.hive.thriftserver.ReflectionUtils._
 import org.apache.spark.scheduler.{SparkListenerApplicationEnd, SparkListener}
 
 /**
- * The main entry point for the Spark SQL port of HiveServer2.  Starts up a `SparkSQLContext` and a
- * `HiveThriftServer2` thrift server.
- */
+  * The main entry point for the Spark SQL port of HiveServer2.  Starts up a `SparkSQLContext` and a
+  * `HiveThriftServer2` thrift server.
+  */
 object HiveThriftServer2 extends Logging {
-  var LOG = LogFactory.getLog(classOf[HiveServer2])
+    var LOG = LogFactory.getLog(classOf[HiveServer2])
 
-  /**
-   * :: DeveloperApi ::
-   * Starts a new thrift server with the given context.
-   */
-  @DeveloperApi
-  def startWithContext(sqlContext: HiveContext): Unit = {
-    val server = new HiveThriftServer2(sqlContext)
-    server.init(sqlContext.hiveconf)
-    server.start()
-    sqlContext.sparkContext.addSparkListener(new HiveThriftServer2Listener(server))
-  }
-
-  def main(args: Array[String]) {
-    val optionsProcessor = new ServerOptionsProcessor("HiveThriftServer2")
-    if (!optionsProcessor.process(args)) {
-      System.exit(-1)
+    /**
+      * :: DeveloperApi ::
+      * Starts a new thrift server with the given context.
+      */
+    @DeveloperApi
+    def startWithContext(sqlContext: HiveContext): Unit = {
+        val server = new HiveThriftServer2(sqlContext)
+        server.init(sqlContext.hiveconf)
+        server.start()
+        sqlContext.sparkContext.addSparkListener(new HiveThriftServer2Listener(server))
     }
 
-    logInfo("Starting SparkContext")
-    SparkSQLEnv.init()
-
-    Runtime.getRuntime.addShutdownHook(
-      new Thread() {
-        override def run() {
-          SparkSQLEnv.stop()
+    def main(args: Array[String]) {
+        val optionsProcessor = new ServerOptionsProcessor("HiveThriftServer2")
+        if (!optionsProcessor.process(args)) {
+            System.exit(-1)
         }
-      }
-    )
 
-    try {
-      val server = new HiveThriftServer2(SparkSQLEnv.hiveContext)
-      server.init(SparkSQLEnv.hiveContext.hiveconf)
-      server.start()
-      logInfo("HiveThriftServer2 started")
-      SparkSQLEnv.sparkContext.addSparkListener(new HiveThriftServer2Listener(server))
-    } catch {
-      case e: Exception =>
-        logError("Error starting HiveThriftServer2", e)
-        System.exit(-1)
-    }
-  }
+        logInfo("Starting SparkContext")
+        SparkSQLEnv.init()
 
-  /**
-   * A inner sparkListener called in sc.stop to clean up the HiveThriftServer2
-   */
-  class HiveThriftServer2Listener(val server: HiveServer2) extends SparkListener {
-    override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
-      server.stop()
+        Runtime.getRuntime.addShutdownHook(
+            new Thread() {
+                override def run() {
+                    SparkSQLEnv.stop()
+                }
+            }
+        )
+
+        try {
+            val server = new HiveThriftServer2(SparkSQLEnv.hiveContext)
+            server.init(SparkSQLEnv.hiveContext.hiveconf)
+            server.start()
+            logInfo("HiveThriftServer2 started")
+            SparkSQLEnv.sparkContext.addSparkListener(new HiveThriftServer2Listener(server))
+        } catch {
+            case e: Exception =>
+                logError("Error starting HiveThriftServer2", e)
+                System.exit(-1)
+        }
     }
-  }
+
+    /**
+      * A inner sparkListener called in sc.stop to clean up the HiveThriftServer2
+      */
+    class HiveThriftServer2Listener(val server: HiveServer2) extends SparkListener {
+        override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
+            server.stop()
+        }
+    }
 
 }
 
 private[hive] class HiveThriftServer2(hiveContext: HiveContext)
-  extends HiveServer2
-  with ReflectedCompositeService {
+        extends HiveServer2
+                with ReflectedCompositeService {
 
-  override def init(hiveConf: HiveConf) {
-    val sparkSqlCliService = new SparkSQLCLIService(hiveContext)
-    setSuperField(this, "cliService", sparkSqlCliService)
-    addService(sparkSqlCliService)
+    override def init(hiveConf: HiveConf) {
+        val sparkSqlCliService = new SparkSQLCLIService(hiveContext)
+        setSuperField(this, "cliService", sparkSqlCliService)
+        addService(sparkSqlCliService)
 
-    if (isHTTPTransportMode(hiveConf)) {
-      val thriftCliService = new ThriftHttpCLIService(sparkSqlCliService)
-      setSuperField(this, "thriftCLIService", thriftCliService)
-      addService(thriftCliService)
-    } else {
-      val thriftCliService = new ThriftBinaryCLIService(sparkSqlCliService)
-      setSuperField(this, "thriftCLIService", thriftCliService)
-      addService(thriftCliService)
+        if (isHTTPTransportMode(hiveConf)) {
+            val thriftCliService = new ThriftHttpCLIService(sparkSqlCliService)
+            setSuperField(this, "thriftCLIService", thriftCliService)
+            addService(thriftCliService)
+        } else {
+            val thriftCliService = new ThriftBinaryCLIService(sparkSqlCliService)
+            setSuperField(this, "thriftCLIService", thriftCliService)
+            addService(thriftCliService)
+        }
+
+        initCompositeService(hiveConf)
     }
 
-    initCompositeService(hiveConf)
-  }
-
-  private def isHTTPTransportMode(hiveConf: HiveConf): Boolean = {
-    val transportMode: String = hiveConf.getVar(ConfVars.HIVE_SERVER2_TRANSPORT_MODE)
-    transportMode.equalsIgnoreCase("http")
-  }
+    private def isHTTPTransportMode(hiveConf: HiveConf): Boolean = {
+        val transportMode: String = hiveConf.getVar(ConfVars.HIVE_SERVER2_TRANSPORT_MODE)
+        transportMode.equalsIgnoreCase("http")
+    }
 
 }

@@ -32,84 +32,84 @@ import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.mllib.util.LinearDataGenerator;
 
 public class JavaLinearRegressionSuite implements Serializable {
-  private transient JavaSparkContext sc;
+    private transient JavaSparkContext sc;
 
-  @Before
-  public void setUp() {
-    sc = new JavaSparkContext("local", "JavaLinearRegressionSuite");
-  }
-
-  @After
-  public void tearDown() {
-    sc.stop();
-    sc = null;
-  }
-
-  int validatePrediction(List<LabeledPoint> validationData, LinearRegressionModel model) {
-    int numAccurate = 0;
-    for (LabeledPoint point: validationData) {
-        Double prediction = model.predict(point.features());
-        // A prediction is off if the prediction is more than 0.5 away from expected value.
-        if (Math.abs(prediction - point.label()) <= 0.5) {
-            numAccurate++;
-        }
+    @Before
+    public void setUp() {
+        sc = new JavaSparkContext("local", "JavaLinearRegressionSuite");
     }
-    return numAccurate;
-  }
 
-  @Test
-  public void runLinearRegressionUsingConstructor() {
-    int nPoints = 100;
-    double A = 3.0;
-    double[] weights = {10, 10};
+    @After
+    public void tearDown() {
+        sc.stop();
+        sc = null;
+    }
 
-    JavaRDD<LabeledPoint> testRDD = sc.parallelize(
-        LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 42, 0.1), 2).cache();
-    List<LabeledPoint> validationData =
-            LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 17, 0.1);
+    int validatePrediction(List<LabeledPoint> validationData, LinearRegressionModel model) {
+        int numAccurate = 0;
+        for (LabeledPoint point : validationData) {
+            Double prediction = model.predict(point.features());
+            // A prediction is off if the prediction is more than 0.5 away from expected value.
+            if (Math.abs(prediction - point.label()) <= 0.5) {
+                numAccurate++;
+            }
+        }
+        return numAccurate;
+    }
 
-    LinearRegressionWithSGD linSGDImpl = new LinearRegressionWithSGD();
-    linSGDImpl.setIntercept(true);
-    LinearRegressionModel model = linSGDImpl.run(testRDD.rdd());
+    @Test
+    public void runLinearRegressionUsingConstructor() {
+        int nPoints = 100;
+        double A = 3.0;
+        double[] weights = {10, 10};
 
-    int numAccurate = validatePrediction(validationData, model);
-    Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
-  }
+        JavaRDD<LabeledPoint> testRDD = sc.parallelize(
+                LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 42, 0.1), 2).cache();
+        List<LabeledPoint> validationData =
+                LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 17, 0.1);
 
-  @Test
-  public void runLinearRegressionUsingStaticMethods() {
-    int nPoints = 100;
-    double A = 0.0;
-    double[] weights = {10, 10};
+        LinearRegressionWithSGD linSGDImpl = new LinearRegressionWithSGD();
+        linSGDImpl.setIntercept(true);
+        LinearRegressionModel model = linSGDImpl.run(testRDD.rdd());
 
-    JavaRDD<LabeledPoint> testRDD = sc.parallelize(
-        LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 42, 0.1), 2).cache();
-    List<LabeledPoint> validationData =
-            LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 17, 0.1);
+        int numAccurate = validatePrediction(validationData, model);
+        Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
+    }
 
-    LinearRegressionModel model = LinearRegressionWithSGD.train(testRDD.rdd(), 100);
+    @Test
+    public void runLinearRegressionUsingStaticMethods() {
+        int nPoints = 100;
+        double A = 0.0;
+        double[] weights = {10, 10};
 
-    int numAccurate = validatePrediction(validationData, model);
-    Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
-  }
+        JavaRDD<LabeledPoint> testRDD = sc.parallelize(
+                LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 42, 0.1), 2).cache();
+        List<LabeledPoint> validationData =
+                LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 17, 0.1);
 
-  @Test
-  public void testPredictJavaRDD() {
-    int nPoints = 100;
-    double A = 0.0;
-    double[] weights = {10, 10};
-    JavaRDD<LabeledPoint> testRDD = sc.parallelize(
-      LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 42, 0.1), 2).cache();
-    LinearRegressionWithSGD linSGDImpl = new LinearRegressionWithSGD();
-    LinearRegressionModel model = linSGDImpl.run(testRDD.rdd());
-    JavaRDD<Vector> vectors = testRDD.map(new Function<LabeledPoint, Vector>() {
-      @Override
-      public Vector call(LabeledPoint v) throws Exception {
-        return v.features();
-      }
-    });
-    JavaRDD<Double> predictions = model.predict(vectors);
-    // Should be able to get the first prediction.
-    predictions.first();
-  }
+        LinearRegressionModel model = LinearRegressionWithSGD.train(testRDD.rdd(), 100);
+
+        int numAccurate = validatePrediction(validationData, model);
+        Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
+    }
+
+    @Test
+    public void testPredictJavaRDD() {
+        int nPoints = 100;
+        double A = 0.0;
+        double[] weights = {10, 10};
+        JavaRDD<LabeledPoint> testRDD = sc.parallelize(
+                LinearDataGenerator.generateLinearInputAsList(A, weights, nPoints, 42, 0.1), 2).cache();
+        LinearRegressionWithSGD linSGDImpl = new LinearRegressionWithSGD();
+        LinearRegressionModel model = linSGDImpl.run(testRDD.rdd());
+        JavaRDD<Vector> vectors = testRDD.map(new Function<LabeledPoint, Vector>() {
+            @Override
+            public Vector call(LabeledPoint v) throws Exception {
+                return v.features();
+            }
+        });
+        JavaRDD<Double> predictions = model.predict(vectors);
+        // Should be able to get the first prediction.
+        predictions.first();
+    }
 }

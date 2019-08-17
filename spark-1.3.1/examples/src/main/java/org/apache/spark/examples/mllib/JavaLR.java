@@ -34,49 +34,49 @@ import org.apache.spark.mllib.regression.LabeledPoint;
  */
 public final class JavaLR {
 
-  static class ParsePoint implements Function<String, LabeledPoint> {
-    private static final Pattern COMMA = Pattern.compile(",");
-    private static final Pattern SPACE = Pattern.compile(" ");
+    static class ParsePoint implements Function<String, LabeledPoint> {
+        private static final Pattern COMMA = Pattern.compile(",");
+        private static final Pattern SPACE = Pattern.compile(" ");
 
-    @Override
-    public LabeledPoint call(String line) {
-      String[] parts = COMMA.split(line);
-      double y = Double.parseDouble(parts[0]);
-      String[] tok = SPACE.split(parts[1]);
-      double[] x = new double[tok.length];
-      for (int i = 0; i < tok.length; ++i) {
-        x[i] = Double.parseDouble(tok[i]);
-      }
-      return new LabeledPoint(y, Vectors.dense(x));
+        @Override
+        public LabeledPoint call(String line) {
+            String[] parts = COMMA.split(line);
+            double y = Double.parseDouble(parts[0]);
+            String[] tok = SPACE.split(parts[1]);
+            double[] x = new double[tok.length];
+            for (int i = 0; i < tok.length; ++i) {
+                x[i] = Double.parseDouble(tok[i]);
+            }
+            return new LabeledPoint(y, Vectors.dense(x));
+        }
     }
-  }
 
-  public static void main(String[] args) {
-    if (args.length != 3) {
-      System.err.println("Usage: JavaLR <input_dir> <step_size> <niters>");
-      System.exit(1);
+    public static void main(String[] args) {
+        if (args.length != 3) {
+            System.err.println("Usage: JavaLR <input_dir> <step_size> <niters>");
+            System.exit(1);
+        }
+        SparkConf sparkConf = new SparkConf().setAppName("JavaLR");
+        JavaSparkContext sc = new JavaSparkContext(sparkConf);
+        JavaRDD<String> lines = sc.textFile(args[0]);
+        JavaRDD<LabeledPoint> points = lines.map(new ParsePoint()).cache();
+        double stepSize = Double.parseDouble(args[1]);
+        int iterations = Integer.parseInt(args[2]);
+
+        // Another way to configure LogisticRegression
+        //
+        // LogisticRegressionWithSGD lr = new LogisticRegressionWithSGD();
+        // lr.optimizer().setNumIterations(iterations)
+        //               .setStepSize(stepSize)
+        //               .setMiniBatchFraction(1.0);
+        // lr.setIntercept(true);
+        // LogisticRegressionModel model = lr.train(points.rdd());
+
+        LogisticRegressionModel model = LogisticRegressionWithSGD.train(points.rdd(),
+                iterations, stepSize);
+
+        System.out.print("Final w: " + model.weights());
+
+        sc.stop();
     }
-    SparkConf sparkConf = new SparkConf().setAppName("JavaLR");
-    JavaSparkContext sc = new JavaSparkContext(sparkConf);
-    JavaRDD<String> lines = sc.textFile(args[0]);
-    JavaRDD<LabeledPoint> points = lines.map(new ParsePoint()).cache();
-    double stepSize = Double.parseDouble(args[1]);
-    int iterations = Integer.parseInt(args[2]);
-
-    // Another way to configure LogisticRegression
-    //
-    // LogisticRegressionWithSGD lr = new LogisticRegressionWithSGD();
-    // lr.optimizer().setNumIterations(iterations)
-    //               .setStepSize(stepSize)
-    //               .setMiniBatchFraction(1.0);
-    // lr.setIntercept(true);
-    // LogisticRegressionModel model = lr.train(points.rdd());
-
-    LogisticRegressionModel model = LogisticRegressionWithSGD.train(points.rdd(),
-      iterations, stepSize);
-
-    System.out.print("Final w: " + model.weights());
-
-    sc.stop();
-  }
 }

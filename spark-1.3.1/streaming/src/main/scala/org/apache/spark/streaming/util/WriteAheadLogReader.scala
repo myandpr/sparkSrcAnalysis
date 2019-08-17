@@ -23,60 +23,60 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.Logging
 
 /**
- * A reader for reading write ahead log files written using
- * [[org.apache.spark.streaming.util.WriteAheadLogWriter]]. This reads
- * the records (bytebuffers) in the log file sequentially and return them as an
- * iterator of bytebuffers.
- */
+  * A reader for reading write ahead log files written using
+  * [[org.apache.spark.streaming.util.WriteAheadLogWriter]]. This reads
+  * the records (bytebuffers) in the log file sequentially and return them as an
+  * iterator of bytebuffers.
+  */
 private[streaming] class WriteAheadLogReader(path: String, conf: Configuration)
-  extends Iterator[ByteBuffer] with Closeable with Logging {
+        extends Iterator[ByteBuffer] with Closeable with Logging {
 
-  private val instream = HdfsUtils.getInputStream(path, conf)
-  private var closed = false
-  private var nextItem: Option[ByteBuffer] = None
+    private val instream = HdfsUtils.getInputStream(path, conf)
+    private var closed = false
+    private var nextItem: Option[ByteBuffer] = None
 
-  override def hasNext: Boolean = synchronized {
-    if (closed) {
-      return false
+    override def hasNext: Boolean = synchronized {
+        if (closed) {
+            return false
+        }
+
+        if (nextItem.isDefined) { // handle the case where hasNext is called without calling next
+            true
+        } else {
+            try {
+                val length = instream.readInt()
+                val buffer = new Array[Byte](length)
+                instream.readFully(buffer)
+                nextItem = Some(ByteBuffer.wrap(buffer))
+                logTrace("Read next item " + nextItem.get)
+                true
+            } catch {
+                case e: EOFException =>
+                    logDebug("Error reading next item, EOF reached", e)
+                    close()
+                    false
+                case e: Exception =>
+                    logWarning("Error while trying to read data from HDFS.", e)
+                    close()
+                    throw e
+            }
+        }
     }
 
-    if (nextItem.isDefined) { // handle the case where hasNext is called without calling next
-      true
-    } else {
-      try {
-        val length = instream.readInt()
-        val buffer = new Array[Byte](length)
-        instream.readFully(buffer)
-        nextItem = Some(ByteBuffer.wrap(buffer))
-        logTrace("Read next item " + nextItem.get)
-        true
-      } catch {
-        case e: EOFException =>
-          logDebug("Error reading next item, EOF reached", e)
-          close()
-          false
-        case e: Exception =>
-          logWarning("Error while trying to read data from HDFS.", e)
-          close()
-          throw e
-      }
+    override def next(): ByteBuffer = synchronized {
+        val data = nextItem.getOrElse {
+            close()
+            throw new IllegalStateException(
+                "next called without calling hasNext or after hasNext returned false")
+        }
+        nextItem = None // Ensure the next hasNext call loads new data.
+        data
     }
-  }
 
-  override def next(): ByteBuffer = synchronized {
-    val data = nextItem.getOrElse {
-      close()
-      throw new IllegalStateException(
-        "next called without calling hasNext or after hasNext returned false")
+    override def close(): Unit = synchronized {
+        if (!closed) {
+            instream.close()
+        }
+        closed = true
     }
-    nextItem = None // Ensure the next hasNext call loads new data.
-    data
-  }
-
-  override def close(): Unit = synchronized {
-    if (!closed) {
-      instream.close()
-    }
-    closed = true
-  }
 }

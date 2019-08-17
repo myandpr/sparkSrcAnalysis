@@ -21,22 +21,22 @@ import org.apache.spark._
 import org.apache.spark.deploy.yarn.ApplicationMaster
 
 /**
- * This is a simple extension to ClusterScheduler - to ensure that appropriate initialization of
- * ApplicationMaster, etc is done
- */
+  * This is a simple extension to ClusterScheduler - to ensure that appropriate initialization of
+  * ApplicationMaster, etc is done
+  */
 private[spark] class YarnClusterScheduler(sc: SparkContext) extends YarnScheduler(sc) {
 
-  logInfo("Created YarnClusterScheduler")
+    logInfo("Created YarnClusterScheduler")
 
-  override def postStartHook() {
-    ApplicationMaster.sparkContextInitialized(sc)
-    super.postStartHook()
-    logInfo("YarnClusterScheduler.postStartHook done")
-  }
+    override def postStartHook() {
+        ApplicationMaster.sparkContextInitialized(sc)
+        super.postStartHook()
+        logInfo("YarnClusterScheduler.postStartHook done")
+    }
 
-  override def stop() {
-    super.stop()
-    ApplicationMaster.sparkContextStopped(sc)
-  }
+    override def stop() {
+        super.stop()
+        ApplicationMaster.sparkContextStopped(sc)
+    }
 
 }

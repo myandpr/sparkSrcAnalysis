@@ -18,10 +18,10 @@
 package org.apache.spark.deploy.client
 
 private[spark] object TestExecutor {
-  def main(args: Array[String]) {
-    println("Hello world!")
-    while (true) {
-      Thread.sleep(1000)
+    def main(args: Array[String]) {
+        println("Hello world!")
+        while (true) {
+            Thread.sleep(1000)
+        }
     }
-  }
 }

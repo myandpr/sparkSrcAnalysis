@@ -27,55 +27,55 @@ import org.apache.spark.deploy.master.Master
 import org.apache.spark.util.Utils
 
 /**
- * Testing class that creates a Spark standalone process in-cluster (that is, running the
- * spark.deploy.master.Master and spark.deploy.worker.Workers in the same JVMs). Executors launched
- * by the Workers still run in separate JVMs. This can be used to test distributed operation and
- * fault recovery without spinning up a lot of processes.
- */
+  * Testing class that creates a Spark standalone process in-cluster (that is, running the
+  * spark.deploy.master.Master and spark.deploy.worker.Workers in the same JVMs). Executors launched
+  * by the Workers still run in separate JVMs. This can be used to test distributed operation and
+  * fault recovery without spinning up a lot of processes.
+  */
 private[spark]
 class LocalSparkCluster(
-    numWorkers: Int,
-    coresPerWorker: Int,
-    memoryPerWorker: Int,
-    conf: SparkConf)
-  extends Logging {
+                               numWorkers: Int,
+                               coresPerWorker: Int,
+                               memoryPerWorker: Int,
+                               conf: SparkConf)
+        extends Logging {
 
-  private val localHostname = Utils.localHostName()
-  private val masterActorSystems = ArrayBuffer[ActorSystem]()
-  private val workerActorSystems = ArrayBuffer[ActorSystem]()
+    private val localHostname = Utils.localHostName()
+    private val masterActorSystems = ArrayBuffer[ActorSystem]()
+    private val workerActorSystems = ArrayBuffer[ActorSystem]()
 
-  def start(): Array[String] = {
-    logInfo("Starting a local Spark cluster with " + numWorkers + " workers.")
+    def start(): Array[String] = {
+        logInfo("Starting a local Spark cluster with " + numWorkers + " workers.")
 
-    // Disable REST server on Master in this mode unless otherwise specified
-    val _conf = conf.clone().setIfMissing("spark.master.rest.enabled", "false")
+        // Disable REST server on Master in this mode unless otherwise specified
+        val _conf = conf.clone().setIfMissing("spark.master.rest.enabled", "false")
 
-    /* Start the Master */
-    val (masterSystem, masterPort, _, _) = Master.startSystemAndActor(localHostname, 0, 0, _conf)
-    masterActorSystems += masterSystem
-    val masterUrl = "spark://" + localHostname + ":" + masterPort
-    val masters = Array(masterUrl)
+        /* Start the Master */
+        val (masterSystem, masterPort, _, _) = Master.startSystemAndActor(localHostname, 0, 0, _conf)
+        masterActorSystems += masterSystem
+        val masterUrl = "spark://" + localHostname + ":" + masterPort
+        val masters = Array(masterUrl)
 
-    /* Start the Workers */
-    for (workerNum <- 1 to numWorkers) {
-      val (workerSystem, _) = Worker.startSystemAndActor(localHostname, 0, 0, coresPerWorker,
-        memoryPerWorker, masters, null, Some(workerNum), _conf)
-      workerActorSystems += workerSystem
+        /* Start the Workers */
+        for (workerNum <- 1 to numWorkers) {
+            val (workerSystem, _) = Worker.startSystemAndActor(localHostname, 0, 0, coresPerWorker,
+                memoryPerWorker, masters, null, Some(workerNum), _conf)
+            workerActorSystems += workerSystem
+        }
+
+        masters
     }
 
-    masters
-  }
-
-  def stop() {
-    logInfo("Shutting down local Spark cluster.")
-    // Stop the workers before the master so they don't get upset that it disconnected
-    // TODO: In Akka 2.1.x, ActorSystem.awaitTermination hangs when you have remote actors!
-    //       This is unfortunate, but for now we just comment it out.
-    workerActorSystems.foreach(_.shutdown())
-    // workerActorSystems.foreach(_.awaitTermination())
-    masterActorSystems.foreach(_.shutdown())
-    // masterActorSystems.foreach(_.awaitTermination())
-    masterActorSystems.clear()
-    workerActorSystems.clear()
-  }
+    def stop() {
+        logInfo("Shutting down local Spark cluster.")
+        // Stop the workers before the master so they don't get upset that it disconnected
+        // TODO: In Akka 2.1.x, ActorSystem.awaitTermination hangs when you have remote actors!
+        //       This is unfortunate, but for now we just comment it out.
+        workerActorSystems.foreach(_.shutdown())
+        // workerActorSystems.foreach(_.awaitTermination())
+        masterActorSystems.foreach(_.shutdown())
+        // masterActorSystems.foreach(_.awaitTermination())
+        masterActorSystems.clear()
+        workerActorSystems.clear()
+    }
 }

@@ -28,6 +28,7 @@ import org.apache.spark.ml.classification.LogisticRegression;
 import org.apache.spark.ml.feature.StandardScaler;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
+
 import static org.apache.spark.mllib.classification.LogisticRegressionSuite.generateLogisticInputAsList;
 
 /**
@@ -35,37 +36,37 @@ import static org.apache.spark.mllib.classification.LogisticRegressionSuite.gene
  */
 public class JavaPipelineSuite {
 
-  private transient JavaSparkContext jsc;
-  private transient SQLContext jsql;
-  private transient DataFrame dataset;
+    private transient JavaSparkContext jsc;
+    private transient SQLContext jsql;
+    private transient DataFrame dataset;
 
-  @Before
-  public void setUp() {
-    jsc = new JavaSparkContext("local", "JavaPipelineSuite");
-    jsql = new SQLContext(jsc);
-    JavaRDD<LabeledPoint> points =
-      jsc.parallelize(generateLogisticInputAsList(1.0, 1.0, 100, 42), 2);
-    dataset = jsql.createDataFrame(points, LabeledPoint.class);
-  }
+    @Before
+    public void setUp() {
+        jsc = new JavaSparkContext("local", "JavaPipelineSuite");
+        jsql = new SQLContext(jsc);
+        JavaRDD<LabeledPoint> points =
+                jsc.parallelize(generateLogisticInputAsList(1.0, 1.0, 100, 42), 2);
+        dataset = jsql.createDataFrame(points, LabeledPoint.class);
+    }
 
-  @After
-  public void tearDown() {
-    jsc.stop();
-    jsc = null;
-  }
+    @After
+    public void tearDown() {
+        jsc.stop();
+        jsc = null;
+    }
 
-  @Test
-  public void pipeline() {
-    StandardScaler scaler = new StandardScaler()
-      .setInputCol("features")
-      .setOutputCol("scaledFeatures");
-    LogisticRegression lr = new LogisticRegression()
-      .setFeaturesCol("scaledFeatures");
-    Pipeline pipeline = new Pipeline()
-      .setStages(new PipelineStage[] {scaler, lr});
-    PipelineModel model = pipeline.fit(dataset);
-    model.transform(dataset).registerTempTable("prediction");
-    DataFrame predictions = jsql.sql("SELECT label, probability, prediction FROM prediction");
-    predictions.collectAsList();
-  }
+    @Test
+    public void pipeline() {
+        StandardScaler scaler = new StandardScaler()
+                .setInputCol("features")
+                .setOutputCol("scaledFeatures");
+        LogisticRegression lr = new LogisticRegression()
+                .setFeaturesCol("scaledFeatures");
+        Pipeline pipeline = new Pipeline()
+                .setStages(new PipelineStage[]{scaler, lr});
+        PipelineModel model = pipeline.fit(dataset);
+        model.transform(dataset).registerTempTable("prediction");
+        DataFrame predictions = jsql.sql("SELECT label, probability, prediction FROM prediction");
+        predictions.collectAsList();
+    }
 }

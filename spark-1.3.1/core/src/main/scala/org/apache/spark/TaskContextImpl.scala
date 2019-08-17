@@ -23,74 +23,74 @@ import org.apache.spark.util.{TaskCompletionListener, TaskCompletionListenerExce
 import scala.collection.mutable.ArrayBuffer
 
 private[spark] class TaskContextImpl(
-    val stageId: Int,
-    val partitionId: Int,
-    override val taskAttemptId: Long,
-    override val attemptNumber: Int,
-    val runningLocally: Boolean = false,
-    val taskMetrics: TaskMetrics = TaskMetrics.empty)
-  extends TaskContext
-  with Logging {
+                                            val stageId: Int,
+                                            val partitionId: Int,
+                                            override val taskAttemptId: Long,
+                                            override val attemptNumber: Int,
+                                            val runningLocally: Boolean = false,
+                                            val taskMetrics: TaskMetrics = TaskMetrics.empty)
+        extends TaskContext
+                with Logging {
 
-  // For backwards-compatibility; this method is now deprecated as of 1.3.0.
-  override def attemptId(): Long = taskAttemptId
+    // For backwards-compatibility; this method is now deprecated as of 1.3.0.
+    override def attemptId(): Long = taskAttemptId
 
-  // List of callback functions to execute when the task completes.
-  @transient private val onCompleteCallbacks = new ArrayBuffer[TaskCompletionListener]
+    // List of callback functions to execute when the task completes.
+    @transient private val onCompleteCallbacks = new ArrayBuffer[TaskCompletionListener]
 
-  // Whether the corresponding task has been killed.
-  @volatile private var interrupted: Boolean = false
+    // Whether the corresponding task has been killed.
+    @volatile private var interrupted: Boolean = false
 
-  // Whether the task has completed.
-  @volatile private var completed: Boolean = false
+    // Whether the task has completed.
+    @volatile private var completed: Boolean = false
 
-  override def addTaskCompletionListener(listener: TaskCompletionListener): this.type = {
-    onCompleteCallbacks += listener
-    this
-  }
-
-  override def addTaskCompletionListener(f: TaskContext => Unit): this.type = {
-    onCompleteCallbacks += new TaskCompletionListener {
-      override def onTaskCompletion(context: TaskContext): Unit = f(context)
+    override def addTaskCompletionListener(listener: TaskCompletionListener): this.type = {
+        onCompleteCallbacks += listener
+        this
     }
-    this
-  }
 
-  @deprecated("use addTaskCompletionListener", "1.1.0")
-  override def addOnCompleteCallback(f: () => Unit) {
-    onCompleteCallbacks += new TaskCompletionListener {
-      override def onTaskCompletion(context: TaskContext): Unit = f()
+    override def addTaskCompletionListener(f: TaskContext => Unit): this.type = {
+        onCompleteCallbacks += new TaskCompletionListener {
+            override def onTaskCompletion(context: TaskContext): Unit = f(context)
+        }
+        this
     }
-  }
 
-  /** Marks the task as completed and triggers the listeners. */
-  private[spark] def markTaskCompleted(): Unit = {
-    completed = true
-    val errorMsgs = new ArrayBuffer[String](2)
-    // Process complete callbacks in the reverse order of registration
-    onCompleteCallbacks.reverse.foreach { listener =>
-      try {
-        listener.onTaskCompletion(this)
-      } catch {
-        case e: Throwable =>
-          errorMsgs += e.getMessage
-          logError("Error in TaskCompletionListener", e)
-      }
+    @deprecated("use addTaskCompletionListener", "1.1.0")
+    override def addOnCompleteCallback(f: () => Unit) {
+        onCompleteCallbacks += new TaskCompletionListener {
+            override def onTaskCompletion(context: TaskContext): Unit = f()
+        }
     }
-    if (errorMsgs.nonEmpty) {
-      throw new TaskCompletionListenerException(errorMsgs)
+
+    /** Marks the task as completed and triggers the listeners. */
+    private[spark] def markTaskCompleted(): Unit = {
+        completed = true
+        val errorMsgs = new ArrayBuffer[String](2)
+        // Process complete callbacks in the reverse order of registration
+        onCompleteCallbacks.reverse.foreach { listener =>
+            try {
+                listener.onTaskCompletion(this)
+            } catch {
+                case e: Throwable =>
+                    errorMsgs += e.getMessage
+                    logError("Error in TaskCompletionListener", e)
+            }
+        }
+        if (errorMsgs.nonEmpty) {
+            throw new TaskCompletionListenerException(errorMsgs)
+        }
     }
-  }
 
-  /** Marks the task for interruption, i.e. cancellation. */
-  private[spark] def markInterrupted(): Unit = {
-    interrupted = true
-  }
+    /** Marks the task for interruption, i.e. cancellation. */
+    private[spark] def markInterrupted(): Unit = {
+        interrupted = true
+    }
 
-  override def isCompleted(): Boolean = completed
+    override def isCompleted(): Boolean = completed
 
-  override def isRunningLocally(): Boolean = runningLocally
+    override def isRunningLocally(): Boolean = runningLocally
 
-  override def isInterrupted(): Boolean = interrupted
+    override def isInterrupted(): Boolean = interrupted
 }
 

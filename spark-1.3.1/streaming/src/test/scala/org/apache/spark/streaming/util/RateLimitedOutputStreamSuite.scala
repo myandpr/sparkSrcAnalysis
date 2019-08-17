@@ -24,21 +24,23 @@ import org.scalatest.FunSuite
 
 class RateLimitedOutputStreamSuite extends FunSuite {
 
-  private def benchmark[U](f: => U): Long = {
-    val start = System.nanoTime
-    f
-    System.nanoTime - start
-  }
+    private def benchmark[U](f: => U): Long = {
+        val start = System.nanoTime
+        f
+        System.nanoTime - start
+    }
 
-  test("write") {
-    val underlying = new ByteArrayOutputStream
-    val data = "X" * 41000
-    val stream = new RateLimitedOutputStream(underlying, desiredBytesPerSec = 10000)
-    val elapsedNs = benchmark { stream.write(data.getBytes("UTF-8")) }
+    test("write") {
+        val underlying = new ByteArrayOutputStream
+        val data = "X" * 41000
+        val stream = new RateLimitedOutputStream(underlying, desiredBytesPerSec = 10000)
+        val elapsedNs = benchmark {
+            stream.write(data.getBytes("UTF-8"))
+        }
 
-    val seconds = SECONDS.convert(elapsedNs, NANOSECONDS)
-    assert(seconds >= 4, s"Seconds value ($seconds) is less than 4.")
-    assert(seconds <= 30, s"Took more than 30 seconds ($seconds) to write data.")
-    assert(underlying.toString("UTF-8") === data)
-  }
+        val seconds = SECONDS.convert(elapsedNs, NANOSECONDS)
+        assert(seconds >= 4, s"Seconds value ($seconds) is less than 4.")
+        assert(seconds <= 30, s"Took more than 30 seconds ($seconds) to write data.")
+        assert(underlying.toString("UTF-8") === data)
+    }
 }

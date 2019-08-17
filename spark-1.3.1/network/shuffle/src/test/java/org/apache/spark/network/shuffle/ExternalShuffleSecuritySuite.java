@@ -37,80 +37,84 @@ import org.apache.spark.network.util.TransportConf;
 
 public class ExternalShuffleSecuritySuite {
 
-  TransportConf conf = new TransportConf(new SystemPropertyConfigProvider());
-  TransportServer server;
+    TransportConf conf = new TransportConf(new SystemPropertyConfigProvider());
+    TransportServer server;
 
-  @Before
-  public void beforeEach() {
-    RpcHandler handler = new SaslRpcHandler(new ExternalShuffleBlockHandler(conf),
-      new TestSecretKeyHolder("my-app-id", "secret"));
-    TransportContext context = new TransportContext(conf, handler);
-    this.server = context.createServer();
-  }
-
-  @After
-  public void afterEach() {
-    if (server != null) {
-      server.close();
-      server = null;
-    }
-  }
-
-  @Test
-  public void testValid() throws IOException {
-    validate("my-app-id", "secret");
-  }
-
-  @Test
-  public void testBadAppId() {
-    try {
-      validate("wrong-app-id", "secret");
-    } catch (Exception e) {
-      assertTrue(e.getMessage(), e.getMessage().contains("Wrong appId!"));
-    }
-  }
-
-  @Test
-  public void testBadSecret() {
-    try {
-      validate("my-app-id", "bad-secret");
-    } catch (Exception e) {
-      assertTrue(e.getMessage(), e.getMessage().contains("Mismatched response"));
-    }
-  }
-
-  /** Creates an ExternalShuffleClient and attempts to register with the server. */
-  private void validate(String appId, String secretKey) throws IOException {
-    ExternalShuffleClient client =
-      new ExternalShuffleClient(conf, new TestSecretKeyHolder(appId, secretKey), true);
-    client.init(appId);
-    // Registration either succeeds or throws an exception.
-    client.registerWithShuffleServer(TestUtils.getLocalHost(), server.getPort(), "exec0",
-      new ExecutorShuffleInfo(new String[0], 0, ""));
-    client.close();
-  }
-
-  /** Provides a secret key holder which always returns the given secret key, for a single appId. */
-  static class TestSecretKeyHolder implements SecretKeyHolder {
-    private final String appId;
-    private final String secretKey;
-
-    TestSecretKeyHolder(String appId, String secretKey) {
-      this.appId = appId;
-      this.secretKey = secretKey;
+    @Before
+    public void beforeEach() {
+        RpcHandler handler = new SaslRpcHandler(new ExternalShuffleBlockHandler(conf),
+                new TestSecretKeyHolder("my-app-id", "secret"));
+        TransportContext context = new TransportContext(conf, handler);
+        this.server = context.createServer();
     }
 
-    @Override
-    public String getSaslUser(String appId) {
-      return "user";
+    @After
+    public void afterEach() {
+        if (server != null) {
+            server.close();
+            server = null;
+        }
     }
 
-    @Override
-    public String getSecretKey(String appId) {
-      if (!appId.equals(this.appId)) {
-        throw new IllegalArgumentException("Wrong appId!");
-      }
-      return secretKey;
+    @Test
+    public void testValid() throws IOException {
+        validate("my-app-id", "secret");
     }
-  }
+
+    @Test
+    public void testBadAppId() {
+        try {
+            validate("wrong-app-id", "secret");
+        } catch (Exception e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("Wrong appId!"));
+        }
+    }
+
+    @Test
+    public void testBadSecret() {
+        try {
+            validate("my-app-id", "bad-secret");
+        } catch (Exception e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("Mismatched response"));
+        }
+    }
+
+    /**
+     * Creates an ExternalShuffleClient and attempts to register with the server.
+     */
+    private void validate(String appId, String secretKey) throws IOException {
+        ExternalShuffleClient client =
+                new ExternalShuffleClient(conf, new TestSecretKeyHolder(appId, secretKey), true);
+        client.init(appId);
+        // Registration either succeeds or throws an exception.
+        client.registerWithShuffleServer(TestUtils.getLocalHost(), server.getPort(), "exec0",
+                new ExecutorShuffleInfo(new String[0], 0, ""));
+        client.close();
+    }
+
+    /**
+     * Provides a secret key holder which always returns the given secret key, for a single appId.
+     */
+    static class TestSecretKeyHolder implements SecretKeyHolder {
+        private final String appId;
+        private final String secretKey;
+
+        TestSecretKeyHolder(String appId, String secretKey) {
+            this.appId = appId;
+            this.secretKey = secretKey;
+        }
+
+        @Override
+        public String getSaslUser(String appId) {
+            return "user";
+        }
+
+        @Override
+        public String getSecretKey(String appId) {
+            if (!appId.equals(this.appId)) {
+                throw new IllegalArgumentException("Wrong appId!");
+            }
+            return secretKey;
+        }
+    }
 }

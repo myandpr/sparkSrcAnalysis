@@ -23,60 +23,60 @@ import org.apache.spark.sql.types.IntegerType
 
 class AttributeSetSuite extends FunSuite {
 
-  val aUpper = AttributeReference("A", IntegerType)(exprId = ExprId(1))
-  val aLower = AttributeReference("a", IntegerType)(exprId = ExprId(1))
-  val fakeA = AttributeReference("a", IntegerType)(exprId = ExprId(3))
-  val aSet = AttributeSet(aLower :: Nil)
+    val aUpper = AttributeReference("A", IntegerType)(exprId = ExprId(1))
+    val aLower = AttributeReference("a", IntegerType)(exprId = ExprId(1))
+    val fakeA = AttributeReference("a", IntegerType)(exprId = ExprId(3))
+    val aSet = AttributeSet(aLower :: Nil)
 
-  val bUpper = AttributeReference("B", IntegerType)(exprId = ExprId(2))
-  val bLower = AttributeReference("b", IntegerType)(exprId = ExprId(2))
-  val bSet = AttributeSet(bUpper :: Nil)
+    val bUpper = AttributeReference("B", IntegerType)(exprId = ExprId(2))
+    val bLower = AttributeReference("b", IntegerType)(exprId = ExprId(2))
+    val bSet = AttributeSet(bUpper :: Nil)
 
-  val aAndBSet = AttributeSet(aUpper :: bUpper :: Nil)
+    val aAndBSet = AttributeSet(aUpper :: bUpper :: Nil)
 
-  test("sanity check") {
-    assert(aUpper != aLower)
-    assert(bUpper != bLower)
-  }
+    test("sanity check") {
+        assert(aUpper != aLower)
+        assert(bUpper != bLower)
+    }
 
-  test("checks by id not name") {
-    assert(aSet.contains(aUpper) === true)
-    assert(aSet.contains(aLower) === true)
-    assert(aSet.contains(fakeA) === false)
+    test("checks by id not name") {
+        assert(aSet.contains(aUpper) === true)
+        assert(aSet.contains(aLower) === true)
+        assert(aSet.contains(fakeA) === false)
 
-    assert(aSet.contains(bUpper) === false)
-    assert(aSet.contains(bLower) === false)
-  }
+        assert(aSet.contains(bUpper) === false)
+        assert(aSet.contains(bLower) === false)
+    }
 
-  test("++ preserves AttributeSet")  {
-    assert((aSet ++ bSet).contains(aUpper) === true)
-    assert((aSet ++ bSet).contains(aLower) === true)
-  }
+    test("++ preserves AttributeSet") {
+        assert((aSet ++ bSet).contains(aUpper) === true)
+        assert((aSet ++ bSet).contains(aLower) === true)
+    }
 
-  test("extracts all references references") {
-    val addSet = AttributeSet(Add(aUpper, Alias(bUpper, "test")()):: Nil)
-    assert(addSet.contains(aUpper))
-    assert(addSet.contains(aLower))
-    assert(addSet.contains(bUpper))
-    assert(addSet.contains(bLower))
-  }
+    test("extracts all references references") {
+        val addSet = AttributeSet(Add(aUpper, Alias(bUpper, "test")()) :: Nil)
+        assert(addSet.contains(aUpper))
+        assert(addSet.contains(aLower))
+        assert(addSet.contains(bUpper))
+        assert(addSet.contains(bLower))
+    }
 
-  test("dedups attributes") {
-    assert(AttributeSet(aUpper :: aLower :: Nil).size === 1)
-  }
+    test("dedups attributes") {
+        assert(AttributeSet(aUpper :: aLower :: Nil).size === 1)
+    }
 
-  test("subset") {
-    assert(aSet.subsetOf(aAndBSet) === true)
-    assert(aAndBSet.subsetOf(aSet) === false)
-  }
+    test("subset") {
+        assert(aSet.subsetOf(aAndBSet) === true)
+        assert(aAndBSet.subsetOf(aSet) === false)
+    }
 
-  test("equality") {
-    assert(aSet != aAndBSet)
-    assert(aAndBSet != aSet)
-    assert(aSet != bSet)
-    assert(bSet != aSet)
+    test("equality") {
+        assert(aSet != aAndBSet)
+        assert(aAndBSet != aSet)
+        assert(aSet != bSet)
+        assert(bSet != aSet)
 
-    assert(aSet == aSet)
-    assert(aSet == AttributeSet(aUpper :: Nil))
-  }
+        assert(aSet == aSet)
+        assert(aSet == AttributeSet(aUpper :: Nil))
+    }
 }

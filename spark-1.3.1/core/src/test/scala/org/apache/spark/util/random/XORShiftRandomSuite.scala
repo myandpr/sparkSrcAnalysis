@@ -28,41 +28,43 @@ import scala.language.reflectiveCalls
 
 class XORShiftRandomSuite extends FunSuite with Matchers {
 
-  def fixture = new {
-    val seed = 1L
-    val xorRand = new XORShiftRandom(seed)
-    val hundMil = 1e8.toInt
-  }
-
-  /*
-   * This test is based on a chi-squared test for randomness.
-   */
-  test ("XORShift generates valid random numbers") {
-
-    val f = fixture
-
-    val numBins = 10 // create 10 bins
-    val numRows = 5 // create 5 rows
-    val bins = Array.ofDim[Long](numRows, numBins)
-
-    // populate bins based on modulus of the random number for each row
-    for (r <- 0 to numRows-1) {
-      times(f.hundMil) {bins(r)(math.abs(f.xorRand.nextInt) % numBins) += 1}
+    def fixture = new {
+        val seed = 1L
+        val xorRand = new XORShiftRandom(seed)
+        val hundMil = 1e8.toInt
     }
 
     /*
-     * Perform the chi square test on the 5 rows of randomly generated numbers evenly divided into
-     * 10 bins. chiSquareTest returns true iff the null hypothesis (that the classifications
-     * represented by the counts in the columns of the input 2-way table are independent of the
-     * rows) can be rejected with 100 * (1 - alpha) percent confidence, where alpha is prespeficied
-     * as 0.05
+     * This test is based on a chi-squared test for randomness.
      */
-    val chiTest = new ChiSquareTest
-    assert(chiTest.chiSquareTest(bins, 0.05) === false)
-  }
+    test("XORShift generates valid random numbers") {
 
-  test ("XORShift with zero seed") {
-    val random = new XORShiftRandom(0L)
-    assert(random.nextInt() != 0)
-  }
+        val f = fixture
+
+        val numBins = 10 // create 10 bins
+        val numRows = 5 // create 5 rows
+        val bins = Array.ofDim[Long](numRows, numBins)
+
+        // populate bins based on modulus of the random number for each row
+        for (r <- 0 to numRows - 1) {
+            times(f.hundMil) {
+                bins(r)(math.abs(f.xorRand.nextInt) % numBins) += 1
+            }
+        }
+
+        /*
+         * Perform the chi square test on the 5 rows of randomly generated numbers evenly divided into
+         * 10 bins. chiSquareTest returns true iff the null hypothesis (that the classifications
+         * represented by the counts in the columns of the input 2-way table are independent of the
+         * rows) can be rejected with 100 * (1 - alpha) percent confidence, where alpha is prespeficied
+         * as 0.05
+         */
+        val chiTest = new ChiSquareTest
+        assert(chiTest.chiSquareTest(bins, 0.05) === false)
+    }
+
+    test("XORShift with zero seed") {
+        val random = new XORShiftRandom(0L)
+        assert(random.nextInt() != 0)
+    }
 }

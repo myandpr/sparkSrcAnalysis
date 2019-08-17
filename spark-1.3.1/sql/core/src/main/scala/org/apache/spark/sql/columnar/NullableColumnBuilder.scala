@@ -22,70 +22,70 @@ import java.nio.{ByteBuffer, ByteOrder}
 import org.apache.spark.sql.Row
 
 /**
- * A stackable trait used for building byte buffer for a column containing null values.  Memory
- * layout of the final byte buffer is:
- * {{{
- *    .----------------------- Column type ID (4 bytes)
- *    |   .------------------- Null count N (4 bytes)
- *    |   |   .--------------- Null positions (4 x N bytes, empty if null count is zero)
- *    |   |   |     .--------- Non-null elements
- *    V   V   V     V
- *   +---+---+-----+---------+
- *   |   |   | ... | ... ... |
- *   +---+---+-----+---------+
- * }}}
- */
+  * A stackable trait used for building byte buffer for a column containing null values.  Memory
+  * layout of the final byte buffer is:
+  * {{{
+  *    .----------------------- Column type ID (4 bytes)
+  *    |   .------------------- Null count N (4 bytes)
+  *    |   |   .--------------- Null positions (4 x N bytes, empty if null count is zero)
+  *    |   |   |     .--------- Non-null elements
+  *    V   V   V     V
+  *   +---+---+-----+---------+
+  *   |   |   | ... | ... ... |
+  *   +---+---+-----+---------+
+  * }}}
+  */
 private[sql] trait NullableColumnBuilder extends ColumnBuilder {
-  protected var nulls: ByteBuffer = _
-  protected var nullCount: Int = _
-  private var pos: Int = _
+    protected var nulls: ByteBuffer = _
+    protected var nullCount: Int = _
+    private var pos: Int = _
 
-  abstract override def initialize(
-      initialSize: Int,
-      columnName: String,
-      useCompression: Boolean): Unit = {
+    abstract override def initialize(
+                                            initialSize: Int,
+                                            columnName: String,
+                                            useCompression: Boolean): Unit = {
 
-    nulls = ByteBuffer.allocate(1024)
-    nulls.order(ByteOrder.nativeOrder())
-    pos = 0
-    nullCount = 0
-    super.initialize(initialSize, columnName, useCompression)
-  }
-
-  abstract override def appendFrom(row: Row, ordinal: Int): Unit = {
-    columnStats.gatherStats(row, ordinal)
-    if (row.isNullAt(ordinal)) {
-      nulls = ColumnBuilder.ensureFreeSpace(nulls, 4)
-      nulls.putInt(pos)
-      nullCount += 1
-    } else {
-      super.appendFrom(row, ordinal)
+        nulls = ByteBuffer.allocate(1024)
+        nulls.order(ByteOrder.nativeOrder())
+        pos = 0
+        nullCount = 0
+        super.initialize(initialSize, columnName, useCompression)
     }
-    pos += 1
-  }
 
-  abstract override def build(): ByteBuffer = {
-    val nonNulls = super.build()
-    val typeId = nonNulls.getInt()
-    val nullDataLen = nulls.position()
+    abstract override def appendFrom(row: Row, ordinal: Int): Unit = {
+        columnStats.gatherStats(row, ordinal)
+        if (row.isNullAt(ordinal)) {
+            nulls = ColumnBuilder.ensureFreeSpace(nulls, 4)
+            nulls.putInt(pos)
+            nullCount += 1
+        } else {
+            super.appendFrom(row, ordinal)
+        }
+        pos += 1
+    }
 
-    nulls.limit(nullDataLen)
-    nulls.rewind()
+    abstract override def build(): ByteBuffer = {
+        val nonNulls = super.build()
+        val typeId = nonNulls.getInt()
+        val nullDataLen = nulls.position()
 
-    val buffer = ByteBuffer
-      .allocate(4 + 4 + nullDataLen + nonNulls.remaining())
-      .order(ByteOrder.nativeOrder())
-      .putInt(typeId)
-      .putInt(nullCount)
-      .put(nulls)
-      .put(nonNulls)
+        nulls.limit(nullDataLen)
+        nulls.rewind()
 
-    buffer.rewind()
-    buffer
-  }
+        val buffer = ByteBuffer
+                .allocate(4 + 4 + nullDataLen + nonNulls.remaining())
+                .order(ByteOrder.nativeOrder())
+                .putInt(typeId)
+                .putInt(nullCount)
+                .put(nulls)
+                .put(nonNulls)
 
-  protected def buildNonNulls(): ByteBuffer = {
-    nulls.limit(nulls.position()).rewind()
-    super.build()
-  }
+        buffer.rewind()
+        buffer
+    }
+
+    protected def buildNonNulls(): ByteBuffer = {
+        nulls.limit(nulls.position()).rewind()
+        super.build()
+    }
 }

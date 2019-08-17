@@ -41,97 +41,102 @@ import static org.apache.spark.network.sasl.SparkSaslServer.*;
  * firstToken, which is then followed by a set of challenges and responses.
  */
 public class SparkSaslClient {
-  private final Logger logger = LoggerFactory.getLogger(SparkSaslClient.class);
+    private final Logger logger = LoggerFactory.getLogger(SparkSaslClient.class);
 
-  private final String secretKeyId;
-  private final SecretKeyHolder secretKeyHolder;
-  private SaslClient saslClient;
+    private final String secretKeyId;
+    private final SecretKeyHolder secretKeyHolder;
+    private SaslClient saslClient;
 
-  public SparkSaslClient(String secretKeyId, SecretKeyHolder secretKeyHolder) {
-    this.secretKeyId = secretKeyId;
-    this.secretKeyHolder = secretKeyHolder;
-    try {
-      this.saslClient = Sasl.createSaslClient(new String[] { DIGEST }, null, null, DEFAULT_REALM,
-        SASL_PROPS, new ClientCallbackHandler());
-    } catch (SaslException e) {
-      throw Throwables.propagate(e);
-    }
-  }
-
-  /** Used to initiate SASL handshake with server. */
-  public synchronized byte[] firstToken() {
-    if (saslClient != null && saslClient.hasInitialResponse()) {
-      try {
-        return saslClient.evaluateChallenge(new byte[0]);
-      } catch (SaslException e) {
-        throw Throwables.propagate(e);
-      }
-    } else {
-      return new byte[0];
-    }
-  }
-
-  /** Determines whether the authentication exchange has completed. */
-  public synchronized boolean isComplete() {
-    return saslClient != null && saslClient.isComplete();
-  }
-
-  /**
-   * Respond to server's SASL token.
-   * @param token contains server's SASL token
-   * @return client's response SASL token
-   */
-  public synchronized byte[] response(byte[] token) {
-    try {
-      return saslClient != null ? saslClient.evaluateChallenge(token) : new byte[0];
-    } catch (SaslException e) {
-      throw Throwables.propagate(e);
-    }
-  }
-
-  /**
-   * Disposes of any system resources or security-sensitive information the
-   * SaslClient might be using.
-   */
-  public synchronized void dispose() {
-    if (saslClient != null) {
-      try {
-        saslClient.dispose();
-      } catch (SaslException e) {
-        // ignore
-      } finally {
-        saslClient = null;
-      }
-    }
-  }
-
-  /**
-   * Implementation of javax.security.auth.callback.CallbackHandler
-   * that works with share secrets.
-   */
-  private class ClientCallbackHandler implements CallbackHandler {
-    @Override
-    public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
-
-      for (Callback callback : callbacks) {
-        if (callback instanceof NameCallback) {
-          logger.trace("SASL client callback: setting username");
-          NameCallback nc = (NameCallback) callback;
-          nc.setName(encodeIdentifier(secretKeyHolder.getSaslUser(secretKeyId)));
-        } else if (callback instanceof PasswordCallback) {
-          logger.trace("SASL client callback: setting password");
-          PasswordCallback pc = (PasswordCallback) callback;
-          pc.setPassword(encodePassword(secretKeyHolder.getSecretKey(secretKeyId)));
-        } else if (callback instanceof RealmCallback) {
-          logger.trace("SASL client callback: setting realm");
-          RealmCallback rc = (RealmCallback) callback;
-          rc.setText(rc.getDefaultText());
-        } else if (callback instanceof RealmChoiceCallback) {
-          // ignore (?)
-        } else {
-          throw new UnsupportedCallbackException(callback, "Unrecognized SASL DIGEST-MD5 Callback");
+    public SparkSaslClient(String secretKeyId, SecretKeyHolder secretKeyHolder) {
+        this.secretKeyId = secretKeyId;
+        this.secretKeyHolder = secretKeyHolder;
+        try {
+            this.saslClient = Sasl.createSaslClient(new String[]{DIGEST}, null, null, DEFAULT_REALM,
+                    SASL_PROPS, new ClientCallbackHandler());
+        } catch (SaslException e) {
+            throw Throwables.propagate(e);
         }
-      }
     }
-  }
+
+    /**
+     * Used to initiate SASL handshake with server.
+     */
+    public synchronized byte[] firstToken() {
+        if (saslClient != null && saslClient.hasInitialResponse()) {
+            try {
+                return saslClient.evaluateChallenge(new byte[0]);
+            } catch (SaslException e) {
+                throw Throwables.propagate(e);
+            }
+        } else {
+            return new byte[0];
+        }
+    }
+
+    /**
+     * Determines whether the authentication exchange has completed.
+     */
+    public synchronized boolean isComplete() {
+        return saslClient != null && saslClient.isComplete();
+    }
+
+    /**
+     * Respond to server's SASL token.
+     *
+     * @param token contains server's SASL token
+     * @return client's response SASL token
+     */
+    public synchronized byte[] response(byte[] token) {
+        try {
+            return saslClient != null ? saslClient.evaluateChallenge(token) : new byte[0];
+        } catch (SaslException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    /**
+     * Disposes of any system resources or security-sensitive information the
+     * SaslClient might be using.
+     */
+    public synchronized void dispose() {
+        if (saslClient != null) {
+            try {
+                saslClient.dispose();
+            } catch (SaslException e) {
+                // ignore
+            } finally {
+                saslClient = null;
+            }
+        }
+    }
+
+    /**
+     * Implementation of javax.security.auth.callback.CallbackHandler
+     * that works with share secrets.
+     */
+    private class ClientCallbackHandler implements CallbackHandler {
+        @Override
+        public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
+
+            for (Callback callback : callbacks) {
+                if (callback instanceof NameCallback) {
+                    logger.trace("SASL client callback: setting username");
+                    NameCallback nc = (NameCallback) callback;
+                    nc.setName(encodeIdentifier(secretKeyHolder.getSaslUser(secretKeyId)));
+                } else if (callback instanceof PasswordCallback) {
+                    logger.trace("SASL client callback: setting password");
+                    PasswordCallback pc = (PasswordCallback) callback;
+                    pc.setPassword(encodePassword(secretKeyHolder.getSecretKey(secretKeyId)));
+                } else if (callback instanceof RealmCallback) {
+                    logger.trace("SASL client callback: setting realm");
+                    RealmCallback rc = (RealmCallback) callback;
+                    rc.setText(rc.getDefaultText());
+                } else if (callback instanceof RealmChoiceCallback) {
+                    // ignore (?)
+                } else {
+                    throw new UnsupportedCallbackException(callback, "Unrecognized SASL DIGEST-MD5 Callback");
+                }
+            }
+        }
+    }
 }

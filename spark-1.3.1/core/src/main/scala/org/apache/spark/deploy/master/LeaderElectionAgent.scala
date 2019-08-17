@@ -20,24 +20,26 @@ package org.apache.spark.deploy.master
 import org.apache.spark.annotation.DeveloperApi
 
 /**
- * :: DeveloperApi ::
- *
- * A LeaderElectionAgent tracks current master and is a common interface for all election Agents.
- */
+  * :: DeveloperApi ::
+  *
+  * A LeaderElectionAgent tracks current master and is a common interface for all election Agents.
+  */
 @DeveloperApi
 trait LeaderElectionAgent {
-  val masterActor: LeaderElectable
-  def stop() {} // to avoid noops in implementations.
+    val masterActor: LeaderElectable
+
+    def stop() {} // to avoid noops in implementations.
 }
 
 @DeveloperApi
 trait LeaderElectable {
-  def electedLeader()
-  def revokedLeadership()
+    def electedLeader()
+
+    def revokedLeadership()
 }
 
 /** Single-node implementation of LeaderElectionAgent -- we're initially and always the leader. */
 private[spark] class MonarchyLeaderAgent(val masterActor: LeaderElectable)
-  extends LeaderElectionAgent {
-  masterActor.electedLeader()
+        extends LeaderElectionAgent {
+    masterActor.electedLeader()
 }

@@ -25,48 +25,48 @@ import org.apache.spark.util.Utils
 import org.apache.spark.Logging
 
 /**
- * A simple object that provides the implementation of readExternal and writeExternal for both
- * the wrapper classes for Flume-style Events.
- */
+  * A simple object that provides the implementation of readExternal and writeExternal for both
+  * the wrapper classes for Flume-style Events.
+  */
 private[streaming] object EventTransformer extends Logging {
-  def readExternal(in: ObjectInput): (java.util.HashMap[CharSequence, CharSequence],
-    Array[Byte]) = {
-    val bodyLength = in.readInt()
-    val bodyBuff = new Array[Byte](bodyLength)
-    in.readFully(bodyBuff)
+    def readExternal(in: ObjectInput): (java.util.HashMap[CharSequence, CharSequence],
+            Array[Byte]) = {
+        val bodyLength = in.readInt()
+        val bodyBuff = new Array[Byte](bodyLength)
+        in.readFully(bodyBuff)
 
-    val numHeaders = in.readInt()
-    val headers = new java.util.HashMap[CharSequence, CharSequence]
+        val numHeaders = in.readInt()
+        val headers = new java.util.HashMap[CharSequence, CharSequence]
 
-    for (i <- 0 until numHeaders) {
-      val keyLength = in.readInt()
-      val keyBuff = new Array[Byte](keyLength)
-      in.readFully(keyBuff)
-      val key: String = Utils.deserialize(keyBuff)
+        for (i <- 0 until numHeaders) {
+            val keyLength = in.readInt()
+            val keyBuff = new Array[Byte](keyLength)
+            in.readFully(keyBuff)
+            val key: String = Utils.deserialize(keyBuff)
 
-      val valLength = in.readInt()
-      val valBuff = new Array[Byte](valLength)
-      in.readFully(valBuff)
-      val value: String = Utils.deserialize(valBuff)
+            val valLength = in.readInt()
+            val valBuff = new Array[Byte](valLength)
+            in.readFully(valBuff)
+            val value: String = Utils.deserialize(valBuff)
 
-      headers.put(key, value)
+            headers.put(key, value)
+        }
+        (headers, bodyBuff)
     }
-    (headers, bodyBuff)
-  }
 
-  def writeExternal(out: ObjectOutput, headers: java.util.Map[CharSequence, CharSequence],
-    body: Array[Byte]) {
-    out.writeInt(body.length)
-    out.write(body)
-    val numHeaders = headers.size()
-    out.writeInt(numHeaders)
-    for ((k,v) <- headers) {
-      val keyBuff = Utils.serialize(k.toString)
-      out.writeInt(keyBuff.length)
-      out.write(keyBuff)
-      val valBuff = Utils.serialize(v.toString)
-      out.writeInt(valBuff.length)
-      out.write(valBuff)
+    def writeExternal(out: ObjectOutput, headers: java.util.Map[CharSequence, CharSequence],
+                      body: Array[Byte]) {
+        out.writeInt(body.length)
+        out.write(body)
+        val numHeaders = headers.size()
+        out.writeInt(numHeaders)
+        for ((k, v) <- headers) {
+            val keyBuff = Utils.serialize(k.toString)
+            out.writeInt(keyBuff.length)
+            out.write(keyBuff)
+            val valBuff = Utils.serialize(v.toString)
+            out.writeInt(valBuff.length)
+            out.write(valBuff)
+        }
     }
-  }
 }

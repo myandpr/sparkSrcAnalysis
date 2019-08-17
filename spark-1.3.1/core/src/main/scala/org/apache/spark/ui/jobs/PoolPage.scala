@@ -26,32 +26,34 @@ import org.apache.spark.ui.{WebUIPage, UIUtils}
 
 /** Page showing specific pool details */
 private[ui] class PoolPage(parent: StagesTab) extends WebUIPage("pool") {
-  private val sc = parent.sc
-  private val listener = parent.listener
+    private val sc = parent.sc
+    private val listener = parent.listener
 
-  def render(request: HttpServletRequest): Seq[Node] = {
-    listener.synchronized {
-      val poolName = request.getParameter("poolname")
-      require(poolName != null && poolName.nonEmpty, "Missing poolname parameter")
+    def render(request: HttpServletRequest): Seq[Node] = {
+        listener.synchronized {
+            val poolName = request.getParameter("poolname")
+            require(poolName != null && poolName.nonEmpty, "Missing poolname parameter")
 
-      val poolToActiveStages = listener.poolToActiveStages
-      val activeStages = poolToActiveStages.get(poolName) match {
-        case Some(s) => s.values.toSeq
-        case None => Seq[StageInfo]()
-      }
-      val activeStagesTable = new StageTableBase(activeStages.sortBy(_.submissionTime).reverse,
-        parent.basePath, parent.listener, isFairScheduler = parent.isFairScheduler,
-        killEnabled = parent.killEnabled)
+            val poolToActiveStages = listener.poolToActiveStages
+            val activeStages = poolToActiveStages.get(poolName) match {
+                case Some(s) => s.values.toSeq
+                case None => Seq[StageInfo]()
+            }
+            val activeStagesTable = new StageTableBase(activeStages.sortBy(_.submissionTime).reverse,
+                parent.basePath, parent.listener, isFairScheduler = parent.isFairScheduler,
+                killEnabled = parent.killEnabled)
 
-      // For now, pool information is only accessible in live UIs
-      val pools = sc.map(_.getPoolForName(poolName).get).toSeq
-      val poolTable = new PoolTable(pools, parent)
+            // For now, pool information is only accessible in live UIs
+            val pools = sc.map(_.getPoolForName(poolName).get).toSeq
+            val poolTable = new PoolTable(pools, parent)
 
-      val content =
-        <h4>Summary </h4> ++ poolTable.toNodeSeq ++
-        <h4>{activeStages.size} Active Stages</h4> ++ activeStagesTable.toNodeSeq
+            val content =
+                <h4>Summary</h4> ++ poolTable.toNodeSeq ++
+                        <h4>
+                            {activeStages.size}
+                            Active Stages</h4> ++ activeStagesTable.toNodeSeq
 
-      UIUtils.headerSparkPage("Fair Scheduler Pool: " + poolName, content, parent)
+            UIUtils.headerSparkPage("Fair Scheduler Pool: " + poolName, content, parent)
+        }
     }
-  }
 }

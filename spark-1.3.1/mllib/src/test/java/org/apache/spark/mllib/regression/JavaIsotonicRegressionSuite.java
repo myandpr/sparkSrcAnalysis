@@ -33,57 +33,57 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
 public class JavaIsotonicRegressionSuite implements Serializable {
-  private transient JavaSparkContext sc;
+    private transient JavaSparkContext sc;
 
-  private List<Tuple3<Double, Double, Double>> generateIsotonicInput(double[] labels) {
-    List<Tuple3<Double, Double, Double>> input = Lists.newArrayList();
+    private List<Tuple3<Double, Double, Double>> generateIsotonicInput(double[] labels) {
+        List<Tuple3<Double, Double, Double>> input = Lists.newArrayList();
 
-    for (int i = 1; i <= labels.length; i++) {
-      input.add(new Tuple3<Double, Double, Double>(labels[i-1], (double) i, 1d));
+        for (int i = 1; i <= labels.length; i++) {
+            input.add(new Tuple3<Double, Double, Double>(labels[i - 1], (double) i, 1d));
+        }
+
+        return input;
     }
 
-    return input;
-  }
+    private IsotonicRegressionModel runIsotonicRegression(double[] labels) {
+        JavaRDD<Tuple3<Double, Double, Double>> trainRDD =
+                sc.parallelize(generateIsotonicInput(labels), 2).cache();
 
-  private IsotonicRegressionModel runIsotonicRegression(double[] labels) {
-    JavaRDD<Tuple3<Double, Double, Double>> trainRDD =
-      sc.parallelize(generateIsotonicInput(labels), 2).cache();
+        return new IsotonicRegression().run(trainRDD);
+    }
 
-    return new IsotonicRegression().run(trainRDD);
-  }
+    @Before
+    public void setUp() {
+        sc = new JavaSparkContext("local", "JavaLinearRegressionSuite");
+    }
 
-  @Before
-  public void setUp() {
-    sc = new JavaSparkContext("local", "JavaLinearRegressionSuite");
-  }
+    @After
+    public void tearDown() {
+        sc.stop();
+        sc = null;
+    }
 
-  @After
-  public void tearDown() {
-    sc.stop();
-    sc = null;
-  }
+    @Test
+    public void testIsotonicRegressionJavaRDD() {
+        IsotonicRegressionModel model =
+                runIsotonicRegression(new double[]{1, 2, 3, 3, 1, 6, 7, 8, 11, 9, 10, 12});
 
-  @Test
-  public void testIsotonicRegressionJavaRDD() {
-    IsotonicRegressionModel model =
-      runIsotonicRegression(new double[]{1, 2, 3, 3, 1, 6, 7, 8, 11, 9, 10, 12});
+        Assert.assertArrayEquals(
+                new double[]{1, 2, 7d / 3, 7d / 3, 6, 7, 8, 10, 10, 12}, model.predictions(), 1e-14);
+    }
 
-    Assert.assertArrayEquals(
-      new double[] {1, 2, 7d/3, 7d/3, 6, 7, 8, 10, 10, 12}, model.predictions(), 1e-14);
-  }
+    @Test
+    public void testIsotonicRegressionPredictionsJavaRDD() {
+        IsotonicRegressionModel model =
+                runIsotonicRegression(new double[]{1, 2, 3, 3, 1, 6, 7, 8, 11, 9, 10, 12});
 
-  @Test
-  public void testIsotonicRegressionPredictionsJavaRDD() {
-    IsotonicRegressionModel model =
-      runIsotonicRegression(new double[]{1, 2, 3, 3, 1, 6, 7, 8, 11, 9, 10, 12});
+        JavaDoubleRDD testRDD = sc.parallelizeDoubles(Lists.newArrayList(0.0, 1.0, 9.5, 12.0, 13.0));
+        List<Double> predictions = model.predict(testRDD).collect();
 
-    JavaDoubleRDD testRDD = sc.parallelizeDoubles(Lists.newArrayList(0.0, 1.0, 9.5, 12.0, 13.0));
-    List<Double> predictions = model.predict(testRDD).collect();
-
-    Assert.assertTrue(predictions.get(0) == 1d);
-    Assert.assertTrue(predictions.get(1) == 1d);
-    Assert.assertTrue(predictions.get(2) == 10d);
-    Assert.assertTrue(predictions.get(3) == 12d);
-    Assert.assertTrue(predictions.get(4) == 12d);
-  }
+        Assert.assertTrue(predictions.get(0) == 1d);
+        Assert.assertTrue(predictions.get(1) == 1d);
+        Assert.assertTrue(predictions.get(2) == 10d);
+        Assert.assertTrue(predictions.get(3) == 12d);
+        Assert.assertTrue(predictions.get(4) == 12d);
+    }
 }

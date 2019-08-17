@@ -33,97 +33,115 @@ import org.apache.spark.util.Utils
 
 private[spark] class ApplicationPage(parent: MasterWebUI) extends WebUIPage("app") {
 
-  private val master = parent.masterActorRef
-  private val timeout = parent.timeout
+    private val master = parent.masterActorRef
+    private val timeout = parent.timeout
 
-  /** Executor details for a particular application */
-  override def renderJson(request: HttpServletRequest): JValue = {
-    val appId = request.getParameter("appId")
-    val stateFuture = (master ? RequestMasterState)(timeout).mapTo[MasterStateResponse]
-    val state = Await.result(stateFuture, timeout)
-    val app = state.activeApps.find(_.id == appId).getOrElse({
-      state.completedApps.find(_.id == appId).getOrElse(null)
-    })
-    JsonProtocol.writeApplicationInfo(app)
-  }
-
-  /** Executor details for a particular application */
-  def render(request: HttpServletRequest): Seq[Node] = {
-    val appId = request.getParameter("appId")
-    val stateFuture = (master ? RequestMasterState)(timeout).mapTo[MasterStateResponse]
-    val state = Await.result(stateFuture, timeout)
-    val app = state.activeApps.find(_.id == appId).getOrElse({
-      state.completedApps.find(_.id == appId).getOrElse(null)
-    })
-
-    val executorHeaders = Seq("ExecutorID", "Worker", "Cores", "Memory", "State", "Logs")
-    val allExecutors = (app.executors.values ++ app.removedExecutors).toSet.toSeq
-    // This includes executors that are either still running or have exited cleanly
-    val executors = allExecutors.filter { exec =>
-      !ExecutorState.isFinished(exec.state) || exec.state == ExecutorState.EXITED
+    /** Executor details for a particular application */
+    override def renderJson(request: HttpServletRequest): JValue = {
+        val appId = request.getParameter("appId")
+        val stateFuture = (master ? RequestMasterState) (timeout).mapTo[MasterStateResponse]
+        val state = Await.result(stateFuture, timeout)
+        val app = state.activeApps.find(_.id == appId).getOrElse({
+            state.completedApps.find(_.id == appId).getOrElse(null)
+        })
+        JsonProtocol.writeApplicationInfo(app)
     }
-    val removedExecutors = allExecutors.diff(executors)
-    val executorsTable = UIUtils.listingTable(executorHeaders, executorRow, executors)
-    val removedExecutorsTable = UIUtils.listingTable(executorHeaders, executorRow, removedExecutors)
 
-    val content =
-      <div class="row-fluid">
-        <div class="span12">
-          <ul class="unstyled">
-            <li><strong>ID:</strong> {app.id}</li>
-            <li><strong>Name:</strong> {app.desc.name}</li>
-            <li><strong>User:</strong> {app.desc.user}</li>
-            <li><strong>Cores:</strong>
-            {
-              if (app.desc.maxCores.isEmpty) {
-                "Unlimited (%s granted)".format(app.coresGranted)
-              } else {
-                "%s (%s granted, %s left)".format(
-                  app.desc.maxCores.get, app.coresGranted, app.coresLeft)
-              }
-            }
-            </li>
-            <li>
-              <strong>Executor Memory:</strong>
-              {Utils.megabytesToString(app.desc.memoryPerSlave)}
-            </li>
-            <li><strong>Submit Date:</strong> {app.submitDate}</li>
-            <li><strong>State:</strong> {app.state}</li>
-            <li><strong><a href={app.desc.appUiUrl}>Application Detail UI</a></strong></li>
-          </ul>
-        </div>
-      </div>
+    /** Executor details for a particular application */
+    def render(request: HttpServletRequest): Seq[Node] = {
+        val appId = request.getParameter("appId")
+        val stateFuture = (master ? RequestMasterState) (timeout).mapTo[MasterStateResponse]
+        val state = Await.result(stateFuture, timeout)
+        val app = state.activeApps.find(_.id == appId).getOrElse({
+            state.completedApps.find(_.id == appId).getOrElse(null)
+        })
 
-      <div class="row-fluid"> <!-- Executors -->
-        <div class="span12">
-          <h4> Executor Summary </h4>
-          {executorsTable}
-          {
-            if (removedExecutors.nonEmpty) {
-              <h4> Removed Executors </h4> ++
-              removedExecutorsTable
-            }
-          }
-        </div>
-      </div>;
-    UIUtils.basicSparkPage(content, "Application: " + app.desc.name)
-  }
+        val executorHeaders = Seq("ExecutorID", "Worker", "Cores", "Memory", "State", "Logs")
+        val allExecutors = (app.executors.values ++ app.removedExecutors).toSet.toSeq
+        // This includes executors that are either still running or have exited cleanly
+        val executors = allExecutors.filter { exec =>
+            !ExecutorState.isFinished(exec.state) || exec.state == ExecutorState.EXITED
+        }
+        val removedExecutors = allExecutors.diff(executors)
+        val executorsTable = UIUtils.listingTable(executorHeaders, executorRow, executors)
+        val removedExecutorsTable = UIUtils.listingTable(executorHeaders, executorRow, removedExecutors)
 
-  private def executorRow(executor: ExecutorDesc): Seq[Node] = {
-    <tr>
-      <td>{executor.id}</td>
-      <td>
-        <a href={executor.worker.webUiAddress}>{executor.worker.id}</a>
-      </td>
-      <td>{executor.cores}</td>
-      <td>{executor.memory}</td>
-      <td>{executor.state}</td>
-      <td>
-        <a href={"%s/logPage?appId=%s&executorId=%s&logType=stdout"
-          .format(executor.worker.webUiAddress, executor.application.id, executor.id)}>stdout</a>
-        <a href={"%s/logPage?appId=%s&executorId=%s&logType=stderr"
-          .format(executor.worker.webUiAddress, executor.application.id, executor.id)}>stderr</a>
-      </td>
-    </tr>
-  }
+        val content =
+            <div class="row-fluid">
+                <div class="span12">
+                    <ul class="unstyled">
+                        <li>
+                            <strong>ID:</strong>{app.id}
+                        </li>
+                        <li>
+                            <strong>Name:</strong>{app.desc.name}
+                        </li>
+                        <li>
+                            <strong>User:</strong>{app.desc.user}
+                        </li>
+                        <li>
+                            <strong>Cores:</strong>{if (app.desc.maxCores.isEmpty) {
+                            "Unlimited (%s granted)".format(app.coresGranted)
+                        } else {
+                            "%s (%s granted, %s left)".format(
+                                app.desc.maxCores.get, app.coresGranted, app.coresLeft)
+                        }}
+                        </li>
+                        <li>
+                            <strong>Executor Memory:</strong>{Utils.megabytesToString(app.desc.memoryPerSlave)}
+                        </li>
+                        <li>
+                            <strong>Submit Date:</strong>{app.submitDate}
+                        </li>
+                        <li>
+                            <strong>State:</strong>{app.state}
+                        </li>
+                        <li>
+                            <strong>
+                                <a href={app.desc.appUiUrl}>Application Detail UI</a>
+                            </strong>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+                    <div class="row-fluid">
+                        <!-- Executors -->
+                        <div class="span12">
+                            <h4>Executor Summary</h4>{executorsTable}{if (removedExecutors.nonEmpty) {
+                            <h4>Removed Executors</h4> ++
+                                    removedExecutorsTable
+                        }}
+                        </div>
+                    </div>;
+        UIUtils.basicSparkPage(content, "Application: " + app.desc.name)
+    }
+
+    private def executorRow(executor: ExecutorDesc): Seq[Node] = {
+        <tr>
+            <td>
+                {executor.id}
+            </td>
+            <td>
+                <a href={executor.worker.webUiAddress}>
+                    {executor.worker.id}
+                </a>
+            </td>
+            <td>
+                {executor.cores}
+            </td>
+            <td>
+                {executor.memory}
+            </td>
+            <td>
+                {executor.state}
+            </td>
+            <td>
+                <a href={"%s/logPage?appId=%s&executorId=%s&logType=stdout"
+                        .format(executor.worker.webUiAddress, executor.application.id, executor.id)}>stdout</a>
+                <a href={"%s/logPage?appId=%s&executorId=%s&logType=stderr"
+                        .format(executor.worker.webUiAddress, executor.application.id, executor.id)}>stderr</a>
+            </td>
+        </tr>
+    }
 }

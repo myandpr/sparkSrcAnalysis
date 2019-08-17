@@ -20,19 +20,20 @@ package org.apache.spark.sql.hive.execution;
 import org.apache.hadoop.hive.ql.exec.UDF;
 
 import java.util.List;
+
 import org.apache.commons.lang.StringUtils;
 
 public class UDFListString extends UDF {
 
-  public String evaluate(Object a) {
-    if (a == null) {
-      return null;
-    }
-    @SuppressWarnings("unchecked")
-    List<Object> s = (List<Object>) a;
+    public String evaluate(Object a) {
+        if (a == null) {
+            return null;
+        }
+        @SuppressWarnings("unchecked")
+        List<Object> s = (List<Object>) a;
 
-    return StringUtils.join(s, ',');
-  }
+        return StringUtils.join(s, ',');
+    }
 
 
 }

@@ -38,95 +38,95 @@ private case class KillTask(taskId: Long, interruptThread: Boolean)
 private case class StopExecutor()
 
 /**
- * Calls to LocalBackend are all serialized through LocalActor. Using an actor makes the calls on
- * LocalBackend asynchronous, which is necessary to prevent deadlock between LocalBackend
- * and the TaskSchedulerImpl.
- */
+  * Calls to LocalBackend are all serialized through LocalActor. Using an actor makes the calls on
+  * LocalBackend asynchronous, which is necessary to prevent deadlock between LocalBackend
+  * and the TaskSchedulerImpl.
+  */
 private[spark] class LocalActor(
-    scheduler: TaskSchedulerImpl,
-    executorBackend: LocalBackend,
-    private val totalCores: Int)
-  extends Actor with ActorLogReceive with Logging {
+                                       scheduler: TaskSchedulerImpl,
+                                       executorBackend: LocalBackend,
+                                       private val totalCores: Int)
+        extends Actor with ActorLogReceive with Logging {
 
-  import context.dispatcher   // to use Akka's scheduler.scheduleOnce()
+    import context.dispatcher // to use Akka's scheduler.scheduleOnce()
 
-  private var freeCores = totalCores
+    private var freeCores = totalCores
 
-  private val localExecutorId = SparkContext.DRIVER_IDENTIFIER
-  private val localExecutorHostname = "localhost"
+    private val localExecutorId = SparkContext.DRIVER_IDENTIFIER
+    private val localExecutorHostname = "localhost"
 
-  private val executor = new Executor(
-    localExecutorId, localExecutorHostname, SparkEnv.get, isLocal = true)
+    private val executor = new Executor(
+        localExecutorId, localExecutorHostname, SparkEnv.get, isLocal = true)
 
-  override def receiveWithLogging = {
-    case ReviveOffers =>
-      reviveOffers()
+    override def receiveWithLogging = {
+        case ReviveOffers =>
+            reviveOffers()
 
-    case StatusUpdate(taskId, state, serializedData) =>
-      scheduler.statusUpdate(taskId, state, serializedData)
-      if (TaskState.isFinished(state)) {
-        freeCores += scheduler.CPUS_PER_TASK
-        reviveOffers()
-      }
+        case StatusUpdate(taskId, state, serializedData) =>
+            scheduler.statusUpdate(taskId, state, serializedData)
+            if (TaskState.isFinished(state)) {
+                freeCores += scheduler.CPUS_PER_TASK
+                reviveOffers()
+            }
 
-    case KillTask(taskId, interruptThread) =>
-      executor.killTask(taskId, interruptThread)
+        case KillTask(taskId, interruptThread) =>
+            executor.killTask(taskId, interruptThread)
 
-    case StopExecutor =>
-      executor.stop()
-  }
-
-  def reviveOffers() {
-    val offers = Seq(new WorkerOffer(localExecutorId, localExecutorHostname, freeCores))
-    val tasks = scheduler.resourceOffers(offers).flatten
-    for (task <- tasks) {
-      freeCores -= scheduler.CPUS_PER_TASK
-      executor.launchTask(executorBackend, taskId = task.taskId, attemptNumber = task.attemptNumber,
-        task.name, task.serializedTask)
+        case StopExecutor =>
+            executor.stop()
     }
-    if (tasks.isEmpty && scheduler.activeTaskSets.nonEmpty) {
-      // Try to reviveOffer after 1 second, because scheduler may wait for locality timeout
-      context.system.scheduler.scheduleOnce(1000 millis, self, ReviveOffers)
+
+    def reviveOffers() {
+        val offers = Seq(new WorkerOffer(localExecutorId, localExecutorHostname, freeCores))
+        val tasks = scheduler.resourceOffers(offers).flatten
+        for (task <- tasks) {
+            freeCores -= scheduler.CPUS_PER_TASK
+            executor.launchTask(executorBackend, taskId = task.taskId, attemptNumber = task.attemptNumber,
+                task.name, task.serializedTask)
+        }
+        if (tasks.isEmpty && scheduler.activeTaskSets.nonEmpty) {
+            // Try to reviveOffer after 1 second, because scheduler may wait for locality timeout
+            context.system.scheduler.scheduleOnce(1000 millis, self, ReviveOffers)
+        }
     }
-  }
 }
 
 /**
- * LocalBackend is used when running a local version of Spark where the executor, backend, and
- * master all run in the same JVM. It sits behind a TaskSchedulerImpl and handles launching tasks
- * on a single Executor (created by the LocalBackend) running locally.
- */
+  * LocalBackend is used when running a local version of Spark where the executor, backend, and
+  * master all run in the same JVM. It sits behind a TaskSchedulerImpl and handles launching tasks
+  * on a single Executor (created by the LocalBackend) running locally.
+  */
 private[spark] class LocalBackend(scheduler: TaskSchedulerImpl, val totalCores: Int)
-  extends SchedulerBackend with ExecutorBackend {
+        extends SchedulerBackend with ExecutorBackend {
 
-  private val appId = "local-" + System.currentTimeMillis
-  var localActor: ActorRef = null
+    private val appId = "local-" + System.currentTimeMillis
+    var localActor: ActorRef = null
 
-  override def start() {
-    localActor = SparkEnv.get.actorSystem.actorOf(
-      Props(new LocalActor(scheduler, this, totalCores)),
-      "LocalBackendActor")
-  }
+    override def start() {
+        localActor = SparkEnv.get.actorSystem.actorOf(
+            Props(new LocalActor(scheduler, this, totalCores)),
+            "LocalBackendActor")
+    }
 
-  override def stop() {
-    localActor ! StopExecutor
-  }
+    override def stop() {
+        localActor ! StopExecutor
+    }
 
-  override def reviveOffers() {
-    localActor ! ReviveOffers
-  }
+    override def reviveOffers() {
+        localActor ! ReviveOffers
+    }
 
-  override def defaultParallelism() =
-    scheduler.conf.getInt("spark.default.parallelism", totalCores)
+    override def defaultParallelism() =
+        scheduler.conf.getInt("spark.default.parallelism", totalCores)
 
-  override def killTask(taskId: Long, executorId: String, interruptThread: Boolean) {
-    localActor ! KillTask(taskId, interruptThread)
-  }
+    override def killTask(taskId: Long, executorId: String, interruptThread: Boolean) {
+        localActor ! KillTask(taskId, interruptThread)
+    }
 
-  override def statusUpdate(taskId: Long, state: TaskState, serializedData: ByteBuffer) {
-    localActor ! StatusUpdate(taskId, state, serializedData)
-  }
+    override def statusUpdate(taskId: Long, state: TaskState, serializedData: ByteBuffer) {
+        localActor ! StatusUpdate(taskId, state, serializedData)
+    }
 
-  override def applicationId(): String = appId
+    override def applicationId(): String = appId
 
 }

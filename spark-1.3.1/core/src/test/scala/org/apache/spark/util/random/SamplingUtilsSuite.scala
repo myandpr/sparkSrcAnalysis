@@ -24,44 +24,44 @@ import org.scalatest.FunSuite
 
 class SamplingUtilsSuite extends FunSuite {
 
-  test("reservoirSampleAndCount") {
-    val input = Seq.fill(100)(Random.nextInt())
+    test("reservoirSampleAndCount") {
+        val input = Seq.fill(100)(Random.nextInt())
 
-    // input size < k
-    val (sample1, count1) = SamplingUtils.reservoirSampleAndCount(input.iterator, 150)
-    assert(count1 === 100)
-    assert(input === sample1.toSeq)
+        // input size < k
+        val (sample1, count1) = SamplingUtils.reservoirSampleAndCount(input.iterator, 150)
+        assert(count1 === 100)
+        assert(input === sample1.toSeq)
 
-    // input size == k
-    val (sample2, count2) = SamplingUtils.reservoirSampleAndCount(input.iterator, 100)
-    assert(count2 === 100)
-    assert(input === sample2.toSeq)
+        // input size == k
+        val (sample2, count2) = SamplingUtils.reservoirSampleAndCount(input.iterator, 100)
+        assert(count2 === 100)
+        assert(input === sample2.toSeq)
 
-    // input size > k
-    val (sample3, count3) = SamplingUtils.reservoirSampleAndCount(input.iterator, 10)
-    assert(count3 === 100)
-    assert(sample3.length === 10)
-  }
-
-  test("computeFraction") {
-    // test that the computed fraction guarantees enough data points
-    // in the sample with a failure rate <= 0.0001
-    val n = 100000
-
-    for (s <- 1 to 15) {
-      val frac = SamplingUtils.computeFractionForSampleSize(s, n, true)
-      val poisson = new PoissonDistribution(frac * n)
-      assert(poisson.inverseCumulativeProbability(0.0001) >= s, "Computed fraction is too low")
+        // input size > k
+        val (sample3, count3) = SamplingUtils.reservoirSampleAndCount(input.iterator, 10)
+        assert(count3 === 100)
+        assert(sample3.length === 10)
     }
-    for (s <- List(20, 100, 1000)) {
-      val frac = SamplingUtils.computeFractionForSampleSize(s, n, true)
-      val poisson = new PoissonDistribution(frac * n)
-      assert(poisson.inverseCumulativeProbability(0.0001) >= s, "Computed fraction is too low")
+
+    test("computeFraction") {
+        // test that the computed fraction guarantees enough data points
+        // in the sample with a failure rate <= 0.0001
+        val n = 100000
+
+        for (s <- 1 to 15) {
+            val frac = SamplingUtils.computeFractionForSampleSize(s, n, true)
+            val poisson = new PoissonDistribution(frac * n)
+            assert(poisson.inverseCumulativeProbability(0.0001) >= s, "Computed fraction is too low")
+        }
+        for (s <- List(20, 100, 1000)) {
+            val frac = SamplingUtils.computeFractionForSampleSize(s, n, true)
+            val poisson = new PoissonDistribution(frac * n)
+            assert(poisson.inverseCumulativeProbability(0.0001) >= s, "Computed fraction is too low")
+        }
+        for (s <- List(1, 10, 100, 1000)) {
+            val frac = SamplingUtils.computeFractionForSampleSize(s, n, false)
+            val binomial = new BinomialDistribution(n, frac)
+            assert(binomial.inverseCumulativeProbability(0.0001) * n >= s, "Computed fraction is too low")
+        }
     }
-    for (s <- List(1, 10, 100, 1000)) {
-      val frac = SamplingUtils.computeFractionForSampleSize(s, n, false)
-      val binomial = new BinomialDistribution(n, frac)
-      assert(binomial.inverseCumulativeProbability(0.0001)*n >= s, "Computed fraction is too low")
-    }
-  }
 }

@@ -25,91 +25,91 @@ import org.apache.spark.sql.columnar.ColumnarTestUtils._
 import org.apache.spark.sql.types.NativeType
 
 class RunLengthEncodingSuite extends FunSuite {
-  testRunLengthEncoding(new NoopColumnStats, BOOLEAN)
-  testRunLengthEncoding(new ByteColumnStats,    BYTE)
-  testRunLengthEncoding(new ShortColumnStats,   SHORT)
-  testRunLengthEncoding(new IntColumnStats,     INT)
-  testRunLengthEncoding(new LongColumnStats,    LONG)
-  testRunLengthEncoding(new StringColumnStats,  STRING)
+    testRunLengthEncoding(new NoopColumnStats, BOOLEAN)
+    testRunLengthEncoding(new ByteColumnStats, BYTE)
+    testRunLengthEncoding(new ShortColumnStats, SHORT)
+    testRunLengthEncoding(new IntColumnStats, INT)
+    testRunLengthEncoding(new LongColumnStats, LONG)
+    testRunLengthEncoding(new StringColumnStats, STRING)
 
-  def testRunLengthEncoding[T <: NativeType](
-      columnStats: ColumnStats,
-      columnType: NativeColumnType[T]) {
+    def testRunLengthEncoding[T <: NativeType](
+                                                      columnStats: ColumnStats,
+                                                      columnType: NativeColumnType[T]) {
 
-    val typeName = columnType.getClass.getSimpleName.stripSuffix("$")
+        val typeName = columnType.getClass.getSimpleName.stripSuffix("$")
 
-    def skeleton(uniqueValueCount: Int, inputRuns: Seq[(Int, Int)]) {
-      // -------------
-      // Tests encoder
-      // -------------
+        def skeleton(uniqueValueCount: Int, inputRuns: Seq[(Int, Int)]) {
+            // -------------
+            // Tests encoder
+            // -------------
 
-      val builder = TestCompressibleColumnBuilder(columnStats, columnType, RunLengthEncoding)
-      val (values, rows) = makeUniqueValuesAndSingleValueRows(columnType, uniqueValueCount)
-      val inputSeq = inputRuns.flatMap { case (index, run) =>
-        Seq.fill(run)(index)
-      }
+            val builder = TestCompressibleColumnBuilder(columnStats, columnType, RunLengthEncoding)
+            val (values, rows) = makeUniqueValuesAndSingleValueRows(columnType, uniqueValueCount)
+            val inputSeq = inputRuns.flatMap { case (index, run) =>
+                Seq.fill(run)(index)
+            }
 
-      inputSeq.foreach(i => builder.appendFrom(rows(i), 0))
-      val buffer = builder.build()
+            inputSeq.foreach(i => builder.appendFrom(rows(i), 0))
+            val buffer = builder.build()
 
-      // Column type ID + null count + null positions
-      val headerSize = CompressionScheme.columnHeaderSize(buffer)
+            // Column type ID + null count + null positions
+            val headerSize = CompressionScheme.columnHeaderSize(buffer)
 
-      // Compression scheme ID + compressed contents
-      val compressedSize = 4 + inputRuns.map { case (index, _) =>
-        // 4 extra bytes each run for run length
-        columnType.actualSize(rows(index), 0) + 4
-      }.sum
+            // Compression scheme ID + compressed contents
+            val compressedSize = 4 + inputRuns.map { case (index, _) =>
+                // 4 extra bytes each run for run length
+                columnType.actualSize(rows(index), 0) + 4
+            }.sum
 
-      // 4 extra bytes for compression scheme type ID
-      assertResult(headerSize + compressedSize, "Wrong buffer capacity")(buffer.capacity)
+            // 4 extra bytes for compression scheme type ID
+            assertResult(headerSize + compressedSize, "Wrong buffer capacity")(buffer.capacity)
 
-      // Skips column header
-      buffer.position(headerSize)
-      assertResult(RunLengthEncoding.typeId, "Wrong compression scheme ID")(buffer.getInt())
+            // Skips column header
+            buffer.position(headerSize)
+            assertResult(RunLengthEncoding.typeId, "Wrong compression scheme ID")(buffer.getInt())
 
-      inputRuns.foreach { case (index, run) =>
-        assertResult(values(index), "Wrong column element value")(columnType.extract(buffer))
-        assertResult(run, "Wrong run length")(buffer.getInt())
-      }
+            inputRuns.foreach { case (index, run) =>
+                assertResult(values(index), "Wrong column element value")(columnType.extract(buffer))
+                assertResult(run, "Wrong run length")(buffer.getInt())
+            }
 
-      // -------------
-      // Tests decoder
-      // -------------
+            // -------------
+            // Tests decoder
+            // -------------
 
-      // Rewinds, skips column header and 4 more bytes for compression scheme ID
-      buffer.rewind().position(headerSize + 4)
+            // Rewinds, skips column header and 4 more bytes for compression scheme ID
+            buffer.rewind().position(headerSize + 4)
 
-      val decoder = RunLengthEncoding.decoder(buffer, columnType)
-      val mutableRow = new GenericMutableRow(1)
+            val decoder = RunLengthEncoding.decoder(buffer, columnType)
+            val mutableRow = new GenericMutableRow(1)
 
-      if (inputSeq.nonEmpty) {
-        inputSeq.foreach { i =>
-          assert(decoder.hasNext)
-          assertResult(values(i), "Wrong decoded value") {
-            decoder.next(mutableRow, 0)
-            columnType.getField(mutableRow, 0)
-          }
+            if (inputSeq.nonEmpty) {
+                inputSeq.foreach { i =>
+                    assert(decoder.hasNext)
+                    assertResult(values(i), "Wrong decoded value") {
+                        decoder.next(mutableRow, 0)
+                        columnType.getField(mutableRow, 0)
+                    }
+                }
+            }
+
+            assert(!decoder.hasNext)
         }
-      }
 
-      assert(!decoder.hasNext)
-    }
+        test(s"$RunLengthEncoding with $typeName: empty column") {
+            skeleton(0, Seq.empty)
+        }
 
-    test(s"$RunLengthEncoding with $typeName: empty column") {
-      skeleton(0, Seq.empty)
-    }
+        test(s"$RunLengthEncoding with $typeName: simple case") {
+            skeleton(2, Seq(0 -> 2, 1 -> 2))
+        }
 
-    test(s"$RunLengthEncoding with $typeName: simple case") {
-      skeleton(2, Seq(0 -> 2, 1 ->2))
-    }
+        test(s"$RunLengthEncoding with $typeName: run length == 1") {
+            skeleton(2, Seq(0 -> 1, 1 -> 1))
+        }
 
-    test(s"$RunLengthEncoding with $typeName: run length == 1") {
-      skeleton(2, Seq(0 -> 1, 1 ->1))
+        test(s"$RunLengthEncoding with $typeName: single long run") {
+            skeleton(1, Seq(0 -> 1000))
+        }
     }
-
-    test(s"$RunLengthEncoding with $typeName: single long run") {
-      skeleton(1, Seq(0 -> 1000))
-    }
-  }
 }

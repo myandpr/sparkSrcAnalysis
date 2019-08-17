@@ -30,155 +30,155 @@ import org.apache.spark.sql.catalyst.plans.physical._
 import scala.collection.mutable.ArrayBuffer
 
 object SparkPlan {
-  protected[sql] val currentContext = new ThreadLocal[SQLContext]()
+    protected[sql] val currentContext = new ThreadLocal[SQLContext]()
 }
 
 /**
- * :: DeveloperApi ::
- */
+  * :: DeveloperApi ::
+  */
 @DeveloperApi
 abstract class SparkPlan extends QueryPlan[SparkPlan] with Logging with Serializable {
-  self: Product =>
+    self: Product =>
 
-  /**
-   * A handle to the SQL Context that was used to create this plan.   Since many operators need
-   * access to the sqlContext for RDD operations or configuration this field is automatically
-   * populated by the query planning infrastructure.
-   */
-  @transient
-  protected[spark] final val sqlContext = SparkPlan.currentContext.get()
+    /**
+      * A handle to the SQL Context that was used to create this plan.   Since many operators need
+      * access to the sqlContext for RDD operations or configuration this field is automatically
+      * populated by the query planning infrastructure.
+      */
+    @transient
+    protected[spark] final val sqlContext = SparkPlan.currentContext.get()
 
-  protected def sparkContext = sqlContext.sparkContext
+    protected def sparkContext = sqlContext.sparkContext
 
-  // sqlContext will be null when we are being deserialized on the slaves.  In this instance
-  // the value of codegenEnabled will be set by the desserializer after the constructor has run.
-  val codegenEnabled: Boolean = if (sqlContext != null) {
-    sqlContext.conf.codegenEnabled
-  } else {
-    false
-  }
-
-  /** Overridden make copy also propogates sqlContext to copied plan. */
-  override def makeCopy(newArgs: Array[AnyRef]): this.type = {
-    SparkPlan.currentContext.set(sqlContext)
-    super.makeCopy(newArgs)
-  }
-
-  // TODO: Move to `DistributedPlan`
-  /** Specifies how data is partitioned across different nodes in the cluster. */
-  def outputPartitioning: Partitioning = UnknownPartitioning(0) // TODO: WRONG WIDTH!
-
-  /** Specifies any partition requirements on the input data for this operator. */
-  def requiredChildDistribution: Seq[Distribution] =
-    Seq.fill(children.size)(UnspecifiedDistribution)
-
-  /**
-   * Runs this query returning the result as an RDD.
-   */
-  def execute(): RDD[Row]
-
-  /**
-   * Runs this query returning the result as an array.
-   */
-  def executeCollect(): Array[Row] = {
-    execute().map(ScalaReflection.convertRowToScala(_, schema)).collect()
-  }
-
-  /**
-   * Runs this query returning the first `n` rows as an array.
-   *
-   * This is modeled after RDD.take but never runs any job locally on the driver.
-   */
-  def executeTake(n: Int): Array[Row] = {
-    if (n == 0) {
-      return new Array[Row](0)
+    // sqlContext will be null when we are being deserialized on the slaves.  In this instance
+    // the value of codegenEnabled will be set by the desserializer after the constructor has run.
+    val codegenEnabled: Boolean = if (sqlContext != null) {
+        sqlContext.conf.codegenEnabled
+    } else {
+        false
     }
 
-    val childRDD = execute().map(_.copy())
+    /** Overridden make copy also propogates sqlContext to copied plan. */
+    override def makeCopy(newArgs: Array[AnyRef]): this.type = {
+        SparkPlan.currentContext.set(sqlContext)
+        super.makeCopy(newArgs)
+    }
 
-    val buf = new ArrayBuffer[Row]
-    val totalParts = childRDD.partitions.length
-    var partsScanned = 0
-    while (buf.size < n && partsScanned < totalParts) {
-      // The number of partitions to try in this iteration. It is ok for this number to be
-      // greater than totalParts because we actually cap it at totalParts in runJob.
-      var numPartsToTry = 1
-      if (partsScanned > 0) {
-        // If we didn't find any rows after the first iteration, just try all partitions next.
-        // Otherwise, interpolate the number of partitions we need to try, but overestimate it
-        // by 50%.
-        if (buf.size == 0) {
-          numPartsToTry = totalParts - 1
-        } else {
-          numPartsToTry = (1.5 * n * partsScanned / buf.size).toInt
+    // TODO: Move to `DistributedPlan`
+    /** Specifies how data is partitioned across different nodes in the cluster. */
+    def outputPartitioning: Partitioning = UnknownPartitioning(0) // TODO: WRONG WIDTH!
+
+    /** Specifies any partition requirements on the input data for this operator. */
+    def requiredChildDistribution: Seq[Distribution] =
+        Seq.fill(children.size)(UnspecifiedDistribution)
+
+    /**
+      * Runs this query returning the result as an RDD.
+      */
+    def execute(): RDD[Row]
+
+    /**
+      * Runs this query returning the result as an array.
+      */
+    def executeCollect(): Array[Row] = {
+        execute().map(ScalaReflection.convertRowToScala(_, schema)).collect()
+    }
+
+    /**
+      * Runs this query returning the first `n` rows as an array.
+      *
+      * This is modeled after RDD.take but never runs any job locally on the driver.
+      */
+    def executeTake(n: Int): Array[Row] = {
+        if (n == 0) {
+            return new Array[Row](0)
         }
-      }
-      numPartsToTry = math.max(0, numPartsToTry)  // guard against negative num of partitions
 
-      val left = n - buf.size
-      val p = partsScanned until math.min(partsScanned + numPartsToTry, totalParts)
-      val sc = sqlContext.sparkContext
-      val res =
-        sc.runJob(childRDD, (it: Iterator[Row]) => it.take(left).toArray, p, allowLocal = false)
+        val childRDD = execute().map(_.copy())
 
-      res.foreach(buf ++= _.take(n - buf.size))
-      partsScanned += numPartsToTry
+        val buf = new ArrayBuffer[Row]
+        val totalParts = childRDD.partitions.length
+        var partsScanned = 0
+        while (buf.size < n && partsScanned < totalParts) {
+            // The number of partitions to try in this iteration. It is ok for this number to be
+            // greater than totalParts because we actually cap it at totalParts in runJob.
+            var numPartsToTry = 1
+            if (partsScanned > 0) {
+                // If we didn't find any rows after the first iteration, just try all partitions next.
+                // Otherwise, interpolate the number of partitions we need to try, but overestimate it
+                // by 50%.
+                if (buf.size == 0) {
+                    numPartsToTry = totalParts - 1
+                } else {
+                    numPartsToTry = (1.5 * n * partsScanned / buf.size).toInt
+                }
+            }
+            numPartsToTry = math.max(0, numPartsToTry) // guard against negative num of partitions
+
+            val left = n - buf.size
+            val p = partsScanned until math.min(partsScanned + numPartsToTry, totalParts)
+            val sc = sqlContext.sparkContext
+            val res =
+                sc.runJob(childRDD, (it: Iterator[Row]) => it.take(left).toArray, p, allowLocal = false)
+
+            res.foreach(buf ++= _.take(n - buf.size))
+            partsScanned += numPartsToTry
+        }
+
+        buf.toArray.map(ScalaReflection.convertRowToScala(_, this.schema))
     }
 
-    buf.toArray.map(ScalaReflection.convertRowToScala(_, this.schema))
-  }
-
-  protected def newProjection(
-      expressions: Seq[Expression], inputSchema: Seq[Attribute]): Projection = {
-    log.debug(
-      s"Creating Projection: $expressions, inputSchema: $inputSchema, codegen:$codegenEnabled")
-    if (codegenEnabled) {
-      GenerateProjection(expressions, inputSchema)
-    } else {
-      new InterpretedProjection(expressions, inputSchema)
+    protected def newProjection(
+                                       expressions: Seq[Expression], inputSchema: Seq[Attribute]): Projection = {
+        log.debug(
+            s"Creating Projection: $expressions, inputSchema: $inputSchema, codegen:$codegenEnabled")
+        if (codegenEnabled) {
+            GenerateProjection(expressions, inputSchema)
+        } else {
+            new InterpretedProjection(expressions, inputSchema)
+        }
     }
-  }
 
-  protected def newMutableProjection(
-      expressions: Seq[Expression],
-      inputSchema: Seq[Attribute]): () => MutableProjection = {
-    log.debug(
-      s"Creating MutableProj: $expressions, inputSchema: $inputSchema, codegen:$codegenEnabled")
-    if(codegenEnabled) {
-      GenerateMutableProjection(expressions, inputSchema)
-    } else {
-      () => new InterpretedMutableProjection(expressions, inputSchema)
+    protected def newMutableProjection(
+                                              expressions: Seq[Expression],
+                                              inputSchema: Seq[Attribute]): () => MutableProjection = {
+        log.debug(
+            s"Creating MutableProj: $expressions, inputSchema: $inputSchema, codegen:$codegenEnabled")
+        if (codegenEnabled) {
+            GenerateMutableProjection(expressions, inputSchema)
+        } else {
+            () => new InterpretedMutableProjection(expressions, inputSchema)
+        }
     }
-  }
 
 
-  protected def newPredicate(
-      expression: Expression, inputSchema: Seq[Attribute]): (Row) => Boolean = {
-    if (codegenEnabled) {
-      GeneratePredicate(expression, inputSchema)
-    } else {
-      InterpretedPredicate(expression, inputSchema)
+    protected def newPredicate(
+                                      expression: Expression, inputSchema: Seq[Attribute]): (Row) => Boolean = {
+        if (codegenEnabled) {
+            GeneratePredicate(expression, inputSchema)
+        } else {
+            InterpretedPredicate(expression, inputSchema)
+        }
     }
-  }
 
-  protected def newOrdering(order: Seq[SortOrder], inputSchema: Seq[Attribute]): Ordering[Row] = {
-    if (codegenEnabled) {
-      GenerateOrdering(order, inputSchema)
-    } else {
-      new RowOrdering(order, inputSchema)
+    protected def newOrdering(order: Seq[SortOrder], inputSchema: Seq[Attribute]): Ordering[Row] = {
+        if (codegenEnabled) {
+            GenerateOrdering(order, inputSchema)
+        } else {
+            new RowOrdering(order, inputSchema)
+        }
     }
-  }
 }
 
 private[sql] trait LeafNode extends SparkPlan with trees.LeafNode[SparkPlan] {
-  self: Product =>
+    self: Product =>
 }
 
 private[sql] trait UnaryNode extends SparkPlan with trees.UnaryNode[SparkPlan] {
-  self: Product =>
-  override def outputPartitioning: Partitioning = child.outputPartitioning
+    self: Product =>
+    override def outputPartitioning: Partitioning = child.outputPartitioning
 }
 
 private[sql] trait BinaryNode extends SparkPlan with trees.BinaryNode[SparkPlan] {
-  self: Product =>
+    self: Product =>
 }

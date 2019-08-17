@@ -38,103 +38,103 @@ import org.apache.spark.streaming.{Milliseconds, StreamingContext}
 
 class ReliableKafkaStreamSuite extends KafkaStreamSuiteBase with BeforeAndAfter with Eventually {
 
-  val sparkConf = new SparkConf()
-    .setMaster("local[4]")
-    .setAppName(this.getClass.getSimpleName)
-    .set("spark.streaming.receiver.writeAheadLog.enable", "true")
-  val data = Map("a" -> 10, "b" -> 10, "c" -> 10)
+    val sparkConf = new SparkConf()
+            .setMaster("local[4]")
+            .setAppName(this.getClass.getSimpleName)
+            .set("spark.streaming.receiver.writeAheadLog.enable", "true")
+    val data = Map("a" -> 10, "b" -> 10, "c" -> 10)
 
 
-  var groupId: String = _
-  var kafkaParams: Map[String, String] = _
-  var ssc: StreamingContext = _
-  var tempDirectory: File = null
+    var groupId: String = _
+    var kafkaParams: Map[String, String] = _
+    var ssc: StreamingContext = _
+    var tempDirectory: File = null
 
-  before {
-    setupKafka()
-    groupId = s"test-consumer-${Random.nextInt(10000)}"
-    kafkaParams = Map(
-      "zookeeper.connect" -> zkAddress,
-      "group.id" -> groupId,
-      "auto.offset.reset" -> "smallest"
-    )
+    before {
+        setupKafka()
+        groupId = s"test-consumer-${Random.nextInt(10000)}"
+        kafkaParams = Map(
+            "zookeeper.connect" -> zkAddress,
+            "group.id" -> groupId,
+            "auto.offset.reset" -> "smallest"
+        )
 
-    ssc = new StreamingContext(sparkConf, Milliseconds(500))
-    tempDirectory = Files.createTempDir()
-    ssc.checkpoint(tempDirectory.getAbsolutePath)
-  }
-
-  after {
-    if (ssc != null) {
-      ssc.stop()
+        ssc = new StreamingContext(sparkConf, Milliseconds(500))
+        tempDirectory = Files.createTempDir()
+        ssc.checkpoint(tempDirectory.getAbsolutePath)
     }
-    if (tempDirectory != null && tempDirectory.exists()) {
-      FileUtils.deleteDirectory(tempDirectory)
-      tempDirectory = null
-    }
-    tearDownKafka()
-  }
 
-
-  test("Reliable Kafka input stream with single topic") {
-    var topic = "test-topic"
-    createTopic(topic)
-    sendMessages(topic, data)
-
-    // Verify whether the offset of this group/topic/partition is 0 before starting.
-    assert(getCommitOffset(groupId, topic, 0) === None)
-
-    val stream = KafkaUtils.createStream[String, String, StringDecoder, StringDecoder](
-      ssc, kafkaParams, Map(topic -> 1), StorageLevel.MEMORY_ONLY)
-    val result = new mutable.HashMap[String, Long]()
-    stream.map { case (k, v) => v }.foreachRDD { r =>
-        val ret = r.collect()
-        ret.foreach { v =>
-          val count = result.getOrElseUpdate(v, 0) + 1
-          result.put(v, count)
+    after {
+        if (ssc != null) {
+            ssc.stop()
         }
-      }
-    ssc.start()
-    eventually(timeout(20000 milliseconds), interval(200 milliseconds)) {
-      // A basic process verification for ReliableKafkaReceiver.
-      // Verify whether received message number is equal to the sent message number.
-      assert(data.size === result.size)
-      // Verify whether each message is the same as the data to be verified.
-      data.keys.foreach { k => assert(data(k) === result(k).toInt) }
-      // Verify the offset number whether it is equal to the total message number.
-      assert(getCommitOffset(groupId, topic, 0) === Some(29L))
-    }
-    ssc.stop()
-  }
-
-  test("Reliable Kafka input stream with multiple topics") {
-    val topics = Map("topic1" -> 1, "topic2" -> 1, "topic3" -> 1)
-    topics.foreach { case (t, _) =>
-      createTopic(t)
-      sendMessages(t, data)
+        if (tempDirectory != null && tempDirectory.exists()) {
+            FileUtils.deleteDirectory(tempDirectory)
+            tempDirectory = null
+        }
+        tearDownKafka()
     }
 
-    // Before started, verify all the group/topic/partition offsets are 0.
-    topics.foreach { case (t, _) => assert(getCommitOffset(groupId, t, 0) === None) }
 
-    // Consuming all the data sent to the broker which will potential commit the offsets internally.
-    val stream = KafkaUtils.createStream[String, String, StringDecoder, StringDecoder](
-      ssc, kafkaParams, topics, StorageLevel.MEMORY_ONLY)
-    stream.foreachRDD(_ => Unit)
-    ssc.start()
-    eventually(timeout(20000 milliseconds), interval(100 milliseconds)) {
-      // Verify the offset for each group/topic to see whether they are equal to the expected one.
-      topics.foreach { case (t, _) => assert(getCommitOffset(groupId, t, 0) === Some(29L)) }
+    test("Reliable Kafka input stream with single topic") {
+        var topic = "test-topic"
+        createTopic(topic)
+        sendMessages(topic, data)
+
+        // Verify whether the offset of this group/topic/partition is 0 before starting.
+        assert(getCommitOffset(groupId, topic, 0) === None)
+
+        val stream = KafkaUtils.createStream[String, String, StringDecoder, StringDecoder](
+            ssc, kafkaParams, Map(topic -> 1), StorageLevel.MEMORY_ONLY)
+        val result = new mutable.HashMap[String, Long]()
+        stream.map { case (k, v) => v }.foreachRDD { r =>
+            val ret = r.collect()
+            ret.foreach { v =>
+                val count = result.getOrElseUpdate(v, 0) + 1
+                result.put(v, count)
+            }
+        }
+        ssc.start()
+        eventually(timeout(20000 milliseconds), interval(200 milliseconds)) {
+            // A basic process verification for ReliableKafkaReceiver.
+            // Verify whether received message number is equal to the sent message number.
+            assert(data.size === result.size)
+            // Verify whether each message is the same as the data to be verified.
+            data.keys.foreach { k => assert(data(k) === result(k).toInt) }
+            // Verify the offset number whether it is equal to the total message number.
+            assert(getCommitOffset(groupId, topic, 0) === Some(29L))
+        }
+        ssc.stop()
     }
-    ssc.stop()
-  }
+
+    test("Reliable Kafka input stream with multiple topics") {
+        val topics = Map("topic1" -> 1, "topic2" -> 1, "topic3" -> 1)
+        topics.foreach { case (t, _) =>
+            createTopic(t)
+            sendMessages(t, data)
+        }
+
+        // Before started, verify all the group/topic/partition offsets are 0.
+        topics.foreach { case (t, _) => assert(getCommitOffset(groupId, t, 0) === None) }
+
+        // Consuming all the data sent to the broker which will potential commit the offsets internally.
+        val stream = KafkaUtils.createStream[String, String, StringDecoder, StringDecoder](
+            ssc, kafkaParams, topics, StorageLevel.MEMORY_ONLY)
+        stream.foreachRDD(_ => Unit)
+        ssc.start()
+        eventually(timeout(20000 milliseconds), interval(100 milliseconds)) {
+            // Verify the offset for each group/topic to see whether they are equal to the expected one.
+            topics.foreach { case (t, _) => assert(getCommitOffset(groupId, t, 0) === Some(29L)) }
+        }
+        ssc.stop()
+    }
 
 
-  /** Getting partition offset from Zookeeper. */
-  private def getCommitOffset(groupId: String, topic: String, partition: Int): Option[Long] = {
-    assert(zkClient != null, "Zookeeper client is not initialized")
-    val topicDirs = new ZKGroupTopicDirs(groupId, topic)
-    val zkPath = s"${topicDirs.consumerOffsetDir}/$partition"
-    ZkUtils.readDataMaybeNull(zkClient, zkPath)._1.map(_.toLong)
-  }
+    /** Getting partition offset from Zookeeper. */
+    private def getCommitOffset(groupId: String, topic: String, partition: Int): Option[Long] = {
+        assert(zkClient != null, "Zookeeper client is not initialized")
+        val topicDirs = new ZKGroupTopicDirs(groupId, topic)
+        val zkPath = s"${topicDirs.consumerOffsetDir}/$partition"
+        ZkUtils.readDataMaybeNull(zkClient, zkPath)._1.map(_.toLong)
+    }
 }

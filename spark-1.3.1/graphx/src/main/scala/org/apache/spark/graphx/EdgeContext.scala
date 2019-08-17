@@ -18,34 +18,39 @@
 package org.apache.spark.graphx
 
 /**
- * Represents an edge along with its neighboring vertices and allows sending messages along the
- * edge. Used in [[Graph#aggregateMessages]].
- */
+  * Represents an edge along with its neighboring vertices and allows sending messages along the
+  * edge. Used in [[Graph#aggregateMessages]].
+  */
 abstract class EdgeContext[VD, ED, A] {
-  /** The vertex id of the edge's source vertex. */
-  def srcId: VertexId
-  /** The vertex id of the edge's destination vertex. */
-  def dstId: VertexId
-  /** The vertex attribute of the edge's source vertex. */
-  def srcAttr: VD
-  /** The vertex attribute of the edge's destination vertex. */
-  def dstAttr: VD
-  /** The attribute associated with the edge. */
-  def attr: ED
+    /** The vertex id of the edge's source vertex. */
+    def srcId: VertexId
 
-  /** Sends a message to the source vertex. */
-  def sendToSrc(msg: A): Unit
-  /** Sends a message to the destination vertex. */
-  def sendToDst(msg: A): Unit
+    /** The vertex id of the edge's destination vertex. */
+    def dstId: VertexId
 
-  /** Converts the edge and vertex properties into an [[EdgeTriplet]] for convenience. */
-  def toEdgeTriplet: EdgeTriplet[VD, ED] = {
-    val et = new EdgeTriplet[VD, ED]
-    et.srcId = srcId
-    et.srcAttr = srcAttr
-    et.dstId = dstId
-    et.dstAttr = dstAttr
-    et.attr = attr
-    et
-  }
+    /** The vertex attribute of the edge's source vertex. */
+    def srcAttr: VD
+
+    /** The vertex attribute of the edge's destination vertex. */
+    def dstAttr: VD
+
+    /** The attribute associated with the edge. */
+    def attr: ED
+
+    /** Sends a message to the source vertex. */
+    def sendToSrc(msg: A): Unit
+
+    /** Sends a message to the destination vertex. */
+    def sendToDst(msg: A): Unit
+
+    /** Converts the edge and vertex properties into an [[EdgeTriplet]] for convenience. */
+    def toEdgeTriplet: EdgeTriplet[VD, ED] = {
+        val et = new EdgeTriplet[VD, ED]
+        et.srcId = srcId
+        et.srcAttr = srcAttr
+        et.dstId = dstId
+        et.dstAttr = dstAttr
+        et.attr = attr
+        et
+    }
 }

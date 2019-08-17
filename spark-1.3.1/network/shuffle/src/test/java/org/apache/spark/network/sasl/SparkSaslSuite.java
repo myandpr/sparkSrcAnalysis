@@ -29,61 +29,63 @@ import static org.junit.Assert.*;
  */
 public class SparkSaslSuite {
 
-  /** Provides a secret key holder which returns secret key == appId */
-  private SecretKeyHolder secretKeyHolder = new SecretKeyHolder() {
-    @Override
-    public String getSaslUser(String appId) {
-      return "user";
+    /**
+     * Provides a secret key holder which returns secret key == appId
+     */
+    private SecretKeyHolder secretKeyHolder = new SecretKeyHolder() {
+        @Override
+        public String getSaslUser(String appId) {
+            return "user";
+        }
+
+        @Override
+        public String getSecretKey(String appId) {
+            return appId;
+        }
+    };
+
+    @Test
+    public void testMatching() {
+        SparkSaslClient client = new SparkSaslClient("shared-secret", secretKeyHolder);
+        SparkSaslServer server = new SparkSaslServer("shared-secret", secretKeyHolder);
+
+        assertFalse(client.isComplete());
+        assertFalse(server.isComplete());
+
+        byte[] clientMessage = client.firstToken();
+
+        while (!client.isComplete()) {
+            clientMessage = client.response(server.response(clientMessage));
+        }
+        assertTrue(server.isComplete());
+
+        // Disposal should invalidate
+        server.dispose();
+        assertFalse(server.isComplete());
+        client.dispose();
+        assertFalse(client.isComplete());
     }
 
-    @Override
-    public String getSecretKey(String appId) {
-      return appId;
+
+    @Test
+    public void testNonMatching() {
+        SparkSaslClient client = new SparkSaslClient("my-secret", secretKeyHolder);
+        SparkSaslServer server = new SparkSaslServer("your-secret", secretKeyHolder);
+
+        assertFalse(client.isComplete());
+        assertFalse(server.isComplete());
+
+        byte[] clientMessage = client.firstToken();
+
+        try {
+            while (!client.isComplete()) {
+                clientMessage = client.response(server.response(clientMessage));
+            }
+            fail("Should not have completed");
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Mismatched response"));
+            assertFalse(client.isComplete());
+            assertFalse(server.isComplete());
+        }
     }
-  };
-
-  @Test
-  public void testMatching() {
-    SparkSaslClient client = new SparkSaslClient("shared-secret", secretKeyHolder);
-    SparkSaslServer server = new SparkSaslServer("shared-secret", secretKeyHolder);
-
-    assertFalse(client.isComplete());
-    assertFalse(server.isComplete());
-
-    byte[] clientMessage = client.firstToken();
-
-    while (!client.isComplete()) {
-      clientMessage = client.response(server.response(clientMessage));
-    }
-    assertTrue(server.isComplete());
-
-    // Disposal should invalidate
-    server.dispose();
-    assertFalse(server.isComplete());
-    client.dispose();
-    assertFalse(client.isComplete());
-  }
-
-
-  @Test
-  public void testNonMatching() {
-    SparkSaslClient client = new SparkSaslClient("my-secret", secretKeyHolder);
-    SparkSaslServer server = new SparkSaslServer("your-secret", secretKeyHolder);
-
-    assertFalse(client.isComplete());
-    assertFalse(server.isComplete());
-
-    byte[] clientMessage = client.firstToken();
-
-    try {
-      while (!client.isComplete()) {
-        clientMessage = client.response(server.response(clientMessage));
-      }
-      fail("Should not have completed");
-    } catch (Exception e) {
-      assertTrue(e.getMessage().contains("Mismatched response"));
-      assertFalse(client.isComplete());
-      assertFalse(server.isComplete());
-    }
-  }
 }

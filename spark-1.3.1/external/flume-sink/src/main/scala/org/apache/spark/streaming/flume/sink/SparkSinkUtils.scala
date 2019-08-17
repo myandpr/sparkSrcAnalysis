@@ -17,12 +17,13 @@
 package org.apache.spark.streaming.flume.sink
 
 private[flume] object SparkSinkUtils {
-  /**
-   * This method determines if this batch represents an error or not.
-   * @param batch - The batch to check
-   * @return - true if the batch represents an error
-   */
-  def isErrorBatch(batch: EventBatch): Boolean = {
-    !batch.getErrorMsg.toString.equals("") // If there is an error message, it is an error batch.
-  }
+    /**
+      * This method determines if this batch represents an error or not.
+      *
+      * @param batch - The batch to check
+      * @return - true if the batch represents an error
+      */
+    def isErrorBatch(batch: EventBatch): Boolean = {
+        !batch.getErrorMsg.toString.equals("") // If there is an error message, it is an error batch.
+    }
 }

@@ -20,9 +20,9 @@ package org.apache.spark.executor
 import org.scalatest.FunSuite
 
 class TaskMetricsSuite extends FunSuite {
-  test("[SPARK-5701] updateShuffleReadMetrics: ShuffleReadMetrics not added when no shuffle deps") {
-    val taskMetrics = new TaskMetrics()
-    taskMetrics.updateShuffleReadMetrics()
-    assert(taskMetrics.shuffleReadMetrics.isEmpty)
-  }
+    test("[SPARK-5701] updateShuffleReadMetrics: ShuffleReadMetrics not added when no shuffle deps") {
+        val taskMetrics = new TaskMetrics()
+        taskMetrics.updateShuffleReadMetrics()
+        assert(taskMetrics.shuffleReadMetrics.isEmpty)
+    }
 }

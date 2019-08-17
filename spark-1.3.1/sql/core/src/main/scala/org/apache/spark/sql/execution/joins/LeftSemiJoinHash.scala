@@ -24,45 +24,45 @@ import org.apache.spark.sql.catalyst.plans.physical.ClusteredDistribution
 import org.apache.spark.sql.execution.{BinaryNode, SparkPlan}
 
 /**
- * :: DeveloperApi ::
- * Build the right table's join keys into a HashSet, and iteratively go through the left
- * table, to find the if join keys are in the Hash set.
- */
+  * :: DeveloperApi ::
+  * Build the right table's join keys into a HashSet, and iteratively go through the left
+  * table, to find the if join keys are in the Hash set.
+  */
 @DeveloperApi
 case class LeftSemiJoinHash(
-    leftKeys: Seq[Expression],
-    rightKeys: Seq[Expression],
-    left: SparkPlan,
-    right: SparkPlan) extends BinaryNode with HashJoin {
+                                   leftKeys: Seq[Expression],
+                                   rightKeys: Seq[Expression],
+                                   left: SparkPlan,
+                                   right: SparkPlan) extends BinaryNode with HashJoin {
 
-  override val buildSide: BuildSide = BuildRight
+    override val buildSide: BuildSide = BuildRight
 
-  override def requiredChildDistribution: Seq[ClusteredDistribution] =
-    ClusteredDistribution(leftKeys) :: ClusteredDistribution(rightKeys) :: Nil
+    override def requiredChildDistribution: Seq[ClusteredDistribution] =
+        ClusteredDistribution(leftKeys) :: ClusteredDistribution(rightKeys) :: Nil
 
-  override def output: Seq[Attribute] = left.output
+    override def output: Seq[Attribute] = left.output
 
-  override def execute(): RDD[Row] = {
-    buildPlan.execute().zipPartitions(streamedPlan.execute()) { (buildIter, streamIter) =>
-      val hashSet = new java.util.HashSet[Row]()
-      var currentRow: Row = null
+    override def execute(): RDD[Row] = {
+        buildPlan.execute().zipPartitions(streamedPlan.execute()) { (buildIter, streamIter) =>
+            val hashSet = new java.util.HashSet[Row]()
+            var currentRow: Row = null
 
-      // Create a Hash set of buildKeys
-      while (buildIter.hasNext) {
-        currentRow = buildIter.next()
-        val rowKey = buildSideKeyGenerator(currentRow)
-        if (!rowKey.anyNull) {
-          val keyExists = hashSet.contains(rowKey)
-          if (!keyExists) {
-            hashSet.add(rowKey)
-          }
+            // Create a Hash set of buildKeys
+            while (buildIter.hasNext) {
+                currentRow = buildIter.next()
+                val rowKey = buildSideKeyGenerator(currentRow)
+                if (!rowKey.anyNull) {
+                    val keyExists = hashSet.contains(rowKey)
+                    if (!keyExists) {
+                        hashSet.add(rowKey)
+                    }
+                }
+            }
+
+            val joinKeys = streamSideKeyGenerator()
+            streamIter.filter(current => {
+                !joinKeys(current).anyNull && hashSet.contains(joinKeys.currentValue)
+            })
         }
-      }
-
-      val joinKeys = streamSideKeyGenerator()
-      streamIter.filter(current => {
-        !joinKeys(current).anyNull && hashSet.contains(joinKeys.currentValue)
-      })
     }
-  }
 }

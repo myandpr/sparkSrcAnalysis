@@ -27,56 +27,56 @@ import org.apache.spark.sql.DataFrame
 
 class PipelineSuite extends FunSuite {
 
-  abstract class MyModel extends Model[MyModel]
+    abstract class MyModel extends Model[MyModel]
 
-  test("pipeline") {
-    val estimator0 = mock[Estimator[MyModel]]
-    val model0 = mock[MyModel]
-    val transformer1 = mock[Transformer]
-    val estimator2 = mock[Estimator[MyModel]]
-    val model2 = mock[MyModel]
-    val transformer3 = mock[Transformer]
-    val dataset0 = mock[DataFrame]
-    val dataset1 = mock[DataFrame]
-    val dataset2 = mock[DataFrame]
-    val dataset3 = mock[DataFrame]
-    val dataset4 = mock[DataFrame]
+    test("pipeline") {
+        val estimator0 = mock[Estimator[MyModel]]
+        val model0 = mock[MyModel]
+        val transformer1 = mock[Transformer]
+        val estimator2 = mock[Estimator[MyModel]]
+        val model2 = mock[MyModel]
+        val transformer3 = mock[Transformer]
+        val dataset0 = mock[DataFrame]
+        val dataset1 = mock[DataFrame]
+        val dataset2 = mock[DataFrame]
+        val dataset3 = mock[DataFrame]
+        val dataset4 = mock[DataFrame]
 
-    when(estimator0.fit(meq(dataset0), any[ParamMap]())).thenReturn(model0)
-    when(model0.transform(meq(dataset0), any[ParamMap]())).thenReturn(dataset1)
-    when(model0.parent).thenReturn(estimator0)
-    when(transformer1.transform(meq(dataset1), any[ParamMap])).thenReturn(dataset2)
-    when(estimator2.fit(meq(dataset2), any[ParamMap]())).thenReturn(model2)
-    when(model2.transform(meq(dataset2), any[ParamMap]())).thenReturn(dataset3)
-    when(model2.parent).thenReturn(estimator2)
-    when(transformer3.transform(meq(dataset3), any[ParamMap]())).thenReturn(dataset4)
+        when(estimator0.fit(meq(dataset0), any[ParamMap]())).thenReturn(model0)
+        when(model0.transform(meq(dataset0), any[ParamMap]())).thenReturn(dataset1)
+        when(model0.parent).thenReturn(estimator0)
+        when(transformer1.transform(meq(dataset1), any[ParamMap])).thenReturn(dataset2)
+        when(estimator2.fit(meq(dataset2), any[ParamMap]())).thenReturn(model2)
+        when(model2.transform(meq(dataset2), any[ParamMap]())).thenReturn(dataset3)
+        when(model2.parent).thenReturn(estimator2)
+        when(transformer3.transform(meq(dataset3), any[ParamMap]())).thenReturn(dataset4)
 
-    val pipeline = new Pipeline()
-      .setStages(Array(estimator0, transformer1, estimator2, transformer3))
-    val pipelineModel = pipeline.fit(dataset0)
+        val pipeline = new Pipeline()
+                .setStages(Array(estimator0, transformer1, estimator2, transformer3))
+        val pipelineModel = pipeline.fit(dataset0)
 
-    assert(pipelineModel.stages.size === 4)
-    assert(pipelineModel.stages(0).eq(model0))
-    assert(pipelineModel.stages(1).eq(transformer1))
-    assert(pipelineModel.stages(2).eq(model2))
-    assert(pipelineModel.stages(3).eq(transformer3))
+        assert(pipelineModel.stages.size === 4)
+        assert(pipelineModel.stages(0).eq(model0))
+        assert(pipelineModel.stages(1).eq(transformer1))
+        assert(pipelineModel.stages(2).eq(model2))
+        assert(pipelineModel.stages(3).eq(transformer3))
 
-    assert(pipelineModel.getModel(estimator0).eq(model0))
-    assert(pipelineModel.getModel(estimator2).eq(model2))
-    intercept[NoSuchElementException] {
-      pipelineModel.getModel(mock[Estimator[MyModel]])
+        assert(pipelineModel.getModel(estimator0).eq(model0))
+        assert(pipelineModel.getModel(estimator2).eq(model2))
+        intercept[NoSuchElementException] {
+            pipelineModel.getModel(mock[Estimator[MyModel]])
+        }
+        val output = pipelineModel.transform(dataset0)
+        assert(output.eq(dataset4))
     }
-    val output = pipelineModel.transform(dataset0)
-    assert(output.eq(dataset4))
-  }
 
-  test("pipeline with duplicate stages") {
-    val estimator = mock[Estimator[MyModel]]
-    val pipeline = new Pipeline()
-      .setStages(Array(estimator, estimator))
-    val dataset = mock[DataFrame]
-    intercept[IllegalArgumentException] {
-      pipeline.fit(dataset)
+    test("pipeline with duplicate stages") {
+        val estimator = mock[Estimator[MyModel]]
+        val pipeline = new Pipeline()
+                .setStages(Array(estimator, estimator))
+        val dataset = mock[DataFrame]
+        intercept[IllegalArgumentException] {
+            pipeline.fit(dataset)
+        }
     }
-  }
 }

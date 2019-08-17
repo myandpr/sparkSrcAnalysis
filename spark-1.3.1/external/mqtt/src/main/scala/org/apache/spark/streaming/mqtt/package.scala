@@ -18,6 +18,6 @@
 package org.apache.spark.streaming
 
 /**
- * MQTT receiver for Spark Streaming.
- */
+  * MQTT receiver for Spark Streaming.
+  */
 package object mqtt

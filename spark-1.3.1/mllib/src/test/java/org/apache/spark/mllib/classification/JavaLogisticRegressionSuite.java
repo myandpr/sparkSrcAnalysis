@@ -31,67 +31,67 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.mllib.regression.LabeledPoint;
 
 public class JavaLogisticRegressionSuite implements Serializable {
-  private transient JavaSparkContext sc;
+    private transient JavaSparkContext sc;
 
-  @Before
-  public void setUp() {
-    sc = new JavaSparkContext("local", "JavaLogisticRegressionSuite");
-  }
-
-  @After
-  public void tearDown() {
-    sc.stop();
-    sc = null;
-  }
-
-  int validatePrediction(List<LabeledPoint> validationData, LogisticRegressionModel model) {
-    int numAccurate = 0;
-    for (LabeledPoint point: validationData) {
-      Double prediction = model.predict(point.features());
-      if (prediction == point.label()) {
-        numAccurate++;
-      }
+    @Before
+    public void setUp() {
+        sc = new JavaSparkContext("local", "JavaLogisticRegressionSuite");
     }
-    return numAccurate;
-  }
 
-  @Test
-  public void runLRUsingConstructor() {
-    int nPoints = 10000;
-    double A = 2.0;
-    double B = -1.5;
+    @After
+    public void tearDown() {
+        sc.stop();
+        sc = null;
+    }
 
-    JavaRDD<LabeledPoint> testRDD = sc.parallelize(
-        LogisticRegressionSuite.generateLogisticInputAsList(A, B, nPoints, 42), 2).cache();
-    List<LabeledPoint> validationData =
-        LogisticRegressionSuite.generateLogisticInputAsList(A, B, nPoints, 17);
+    int validatePrediction(List<LabeledPoint> validationData, LogisticRegressionModel model) {
+        int numAccurate = 0;
+        for (LabeledPoint point : validationData) {
+            Double prediction = model.predict(point.features());
+            if (prediction == point.label()) {
+                numAccurate++;
+            }
+        }
+        return numAccurate;
+    }
 
-    LogisticRegressionWithSGD lrImpl = new LogisticRegressionWithSGD();
-    lrImpl.setIntercept(true);
-    lrImpl.optimizer().setStepSize(1.0)
-                      .setRegParam(1.0)
-                      .setNumIterations(100);
-    LogisticRegressionModel model = lrImpl.run(testRDD.rdd());
+    @Test
+    public void runLRUsingConstructor() {
+        int nPoints = 10000;
+        double A = 2.0;
+        double B = -1.5;
 
-    int numAccurate = validatePrediction(validationData, model);
-    Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
-  }
+        JavaRDD<LabeledPoint> testRDD = sc.parallelize(
+                LogisticRegressionSuite.generateLogisticInputAsList(A, B, nPoints, 42), 2).cache();
+        List<LabeledPoint> validationData =
+                LogisticRegressionSuite.generateLogisticInputAsList(A, B, nPoints, 17);
 
-  @Test
-  public void runLRUsingStaticMethods() {
-    int nPoints = 10000;
-    double A = 0.0;
-    double B = -2.5;
+        LogisticRegressionWithSGD lrImpl = new LogisticRegressionWithSGD();
+        lrImpl.setIntercept(true);
+        lrImpl.optimizer().setStepSize(1.0)
+                .setRegParam(1.0)
+                .setNumIterations(100);
+        LogisticRegressionModel model = lrImpl.run(testRDD.rdd());
 
-    JavaRDD<LabeledPoint> testRDD = sc.parallelize(
-        LogisticRegressionSuite.generateLogisticInputAsList(A, B, nPoints, 42), 2).cache();
-    List<LabeledPoint> validationData =
-        LogisticRegressionSuite.generateLogisticInputAsList(A, B, nPoints, 17);
+        int numAccurate = validatePrediction(validationData, model);
+        Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
+    }
 
-    LogisticRegressionModel model = LogisticRegressionWithSGD.train(
-        testRDD.rdd(), 100, 1.0, 1.0);
+    @Test
+    public void runLRUsingStaticMethods() {
+        int nPoints = 10000;
+        double A = 0.0;
+        double B = -2.5;
 
-    int numAccurate = validatePrediction(validationData, model);
-    Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
-  }
+        JavaRDD<LabeledPoint> testRDD = sc.parallelize(
+                LogisticRegressionSuite.generateLogisticInputAsList(A, B, nPoints, 42), 2).cache();
+        List<LabeledPoint> validationData =
+                LogisticRegressionSuite.generateLogisticInputAsList(A, B, nPoints, 17);
+
+        LogisticRegressionModel model = LogisticRegressionWithSGD.train(
+                testRDD.rdd(), 100, 1.0, 1.0);
+
+        int numAccurate = validatePrediction(validationData, model);
+        Assert.assertTrue(numAccurate > nPoints * 4.0 / 5.0);
+    }
 }

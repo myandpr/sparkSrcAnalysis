@@ -20,8 +20,8 @@ package org.apache.spark.api.java.function;
 import java.io.Serializable;
 
 /**
- *  A function that returns Doubles, and can be used to construct DoubleRDDs.
+ * A function that returns Doubles, and can be used to construct DoubleRDDs.
  */
 public interface DoubleFunction<T> extends Serializable {
-  public double call(T t) throws Exception;
+    public double call(T t) throws Exception;
 }

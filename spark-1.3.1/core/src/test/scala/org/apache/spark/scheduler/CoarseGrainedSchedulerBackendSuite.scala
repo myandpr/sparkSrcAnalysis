@@ -24,20 +24,20 @@ import org.scalatest.FunSuite
 
 class CoarseGrainedSchedulerBackendSuite extends FunSuite with LocalSparkContext {
 
-  test("serialized task larger than akka frame size") {
-    val conf = new SparkConf
-    conf.set("spark.akka.frameSize","1")
-    conf.set("spark.default.parallelism","1")
-    sc = new SparkContext("local-cluster[2 , 1 , 512]", "test", conf)
-    val frameSize = AkkaUtils.maxFrameSizeBytes(sc.conf)
-    val buffer = new SerializableBuffer(java.nio.ByteBuffer.allocate(2 * frameSize))
-    val larger = sc.parallelize(Seq(buffer))
-    val thrown = intercept[SparkException] {
-      larger.collect()
+    test("serialized task larger than akka frame size") {
+        val conf = new SparkConf
+        conf.set("spark.akka.frameSize", "1")
+        conf.set("spark.default.parallelism", "1")
+        sc = new SparkContext("local-cluster[2 , 1 , 512]", "test", conf)
+        val frameSize = AkkaUtils.maxFrameSizeBytes(sc.conf)
+        val buffer = new SerializableBuffer(java.nio.ByteBuffer.allocate(2 * frameSize))
+        val larger = sc.parallelize(Seq(buffer))
+        val thrown = intercept[SparkException] {
+            larger.collect()
+        }
+        assert(thrown.getMessage.contains("using broadcast variables for large values"))
+        val smaller = sc.parallelize(1 to 4).collect()
+        assert(smaller.size === 4)
     }
-    assert(thrown.getMessage.contains("using broadcast variables for large values"))
-    val smaller = sc.parallelize(1 to 4).collect()
-    assert(smaller.size === 4)
-  }
 
 }

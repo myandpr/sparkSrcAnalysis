@@ -25,108 +25,108 @@ import org.apache.spark.sql.columnar.ColumnarTestUtils._
 import org.apache.spark.sql.types.IntegralType
 
 class IntegralDeltaSuite extends FunSuite {
-  testIntegralDelta(new IntColumnStats,  INT,  IntDelta)
-  testIntegralDelta(new LongColumnStats, LONG, LongDelta)
+    testIntegralDelta(new IntColumnStats, INT, IntDelta)
+    testIntegralDelta(new LongColumnStats, LONG, LongDelta)
 
-  def testIntegralDelta[I <: IntegralType](
-      columnStats: ColumnStats,
-      columnType: NativeColumnType[I],
-      scheme: CompressionScheme) {
+    def testIntegralDelta[I <: IntegralType](
+                                                    columnStats: ColumnStats,
+                                                    columnType: NativeColumnType[I],
+                                                    scheme: CompressionScheme) {
 
-    def skeleton(input: Seq[I#JvmType]) {
-      // -------------
-      // Tests encoder
-      // -------------
+        def skeleton(input: Seq[I#JvmType]) {
+            // -------------
+            // Tests encoder
+            // -------------
 
-      val builder = TestCompressibleColumnBuilder(columnStats, columnType, scheme)
-      val deltas = if (input.isEmpty) {
-        Seq.empty[Long]
-      } else {
-        (input.tail, input.init).zipped.map {
-          case (x: Int, y: Int) => (x - y).toLong
-          case (x: Long, y: Long) => x - y
+            val builder = TestCompressibleColumnBuilder(columnStats, columnType, scheme)
+            val deltas = if (input.isEmpty) {
+                Seq.empty[Long]
+            } else {
+                (input.tail, input.init).zipped.map {
+                    case (x: Int, y: Int) => (x - y).toLong
+                    case (x: Long, y: Long) => x - y
+                }
+            }
+
+            input.map { value =>
+                val row = new GenericMutableRow(1)
+                columnType.setField(row, 0, value)
+                builder.appendFrom(row, 0)
+            }
+
+            val buffer = builder.build()
+            // Column type ID + null count + null positions
+            val headerSize = CompressionScheme.columnHeaderSize(buffer)
+
+            // Compression scheme ID + compressed contents
+            val compressedSize = 4 + (if (deltas.isEmpty) {
+                0
+            } else {
+                val oneBoolean = columnType.defaultSize
+                1 + oneBoolean + deltas.map {
+                    d => if (math.abs(d) <= Byte.MaxValue) 1 else 1 + oneBoolean
+                }.sum
+            })
+
+            // 4 extra bytes for compression scheme type ID
+            assertResult(headerSize + compressedSize, "Wrong buffer capacity")(buffer.capacity)
+
+            buffer.position(headerSize)
+            assertResult(scheme.typeId, "Wrong compression scheme ID")(buffer.getInt())
+
+            if (input.nonEmpty) {
+                assertResult(Byte.MinValue, "The first byte should be an escaping mark")(buffer.get())
+                assertResult(input.head, "The first value is wrong")(columnType.extract(buffer))
+
+                (input.tail, deltas).zipped.foreach { (value, delta) =>
+                    if (math.abs(delta) <= Byte.MaxValue) {
+                        assertResult(delta, "Wrong delta")(buffer.get())
+                    } else {
+                        assertResult(Byte.MinValue, "Expecting escaping mark here")(buffer.get())
+                        assertResult(value, "Wrong value")(columnType.extract(buffer))
+                    }
+                }
+            }
+
+            // -------------
+            // Tests decoder
+            // -------------
+
+            // Rewinds, skips column header and 4 more bytes for compression scheme ID
+            buffer.rewind().position(headerSize + 4)
+
+            val decoder = scheme.decoder(buffer, columnType)
+            val mutableRow = new GenericMutableRow(1)
+
+            if (input.nonEmpty) {
+                input.foreach {
+                    assert(decoder.hasNext)
+                    assertResult(_, "Wrong decoded value") {
+                        decoder.next(mutableRow, 0)
+                        columnType.getField(mutableRow, 0)
+                    }
+                }
+            }
+            assert(!decoder.hasNext)
         }
-      }
 
-      input.map { value =>
-        val row = new GenericMutableRow(1)
-        columnType.setField(row, 0, value)
-        builder.appendFrom(row, 0)
-      }
-
-      val buffer = builder.build()
-      // Column type ID + null count + null positions
-      val headerSize = CompressionScheme.columnHeaderSize(buffer)
-
-      // Compression scheme ID + compressed contents
-      val compressedSize = 4 + (if (deltas.isEmpty) {
-        0
-      } else {
-        val oneBoolean = columnType.defaultSize
-        1 + oneBoolean + deltas.map {
-          d => if (math.abs(d) <= Byte.MaxValue) 1 else 1 + oneBoolean
-        }.sum
-      })
-
-      // 4 extra bytes for compression scheme type ID
-      assertResult(headerSize + compressedSize, "Wrong buffer capacity")(buffer.capacity)
-
-      buffer.position(headerSize)
-      assertResult(scheme.typeId, "Wrong compression scheme ID")(buffer.getInt())
-
-      if (input.nonEmpty) {
-        assertResult(Byte.MinValue, "The first byte should be an escaping mark")(buffer.get())
-        assertResult(input.head, "The first value is wrong")(columnType.extract(buffer))
-
-        (input.tail, deltas).zipped.foreach { (value, delta) =>
-          if (math.abs(delta) <= Byte.MaxValue) {
-            assertResult(delta, "Wrong delta")(buffer.get())
-          } else {
-            assertResult(Byte.MinValue, "Expecting escaping mark here")(buffer.get())
-            assertResult(value, "Wrong value")(columnType.extract(buffer))
-          }
+        test(s"$scheme: empty column") {
+            skeleton(Seq.empty)
         }
-      }
 
-      // -------------
-      // Tests decoder
-      // -------------
+        test(s"$scheme: simple case") {
+            val input = columnType match {
+                case INT => Seq(2: Int, 1: Int, 2: Int, 130: Int)
+                case LONG => Seq(2: Long, 1: Long, 2: Long, 130: Long)
+            }
 
-      // Rewinds, skips column header and 4 more bytes for compression scheme ID
-      buffer.rewind().position(headerSize + 4)
-
-      val decoder = scheme.decoder(buffer, columnType)
-      val mutableRow = new GenericMutableRow(1)
-
-      if (input.nonEmpty) {
-        input.foreach{
-          assert(decoder.hasNext)
-          assertResult(_, "Wrong decoded value") {
-            decoder.next(mutableRow, 0)
-            columnType.getField(mutableRow, 0)
-          }
+            skeleton(input.map(_.asInstanceOf[I#JvmType]))
         }
-      }
-      assert(!decoder.hasNext)
-    }
 
-    test(s"$scheme: empty column") {
-      skeleton(Seq.empty)
+        test(s"$scheme: long random series") {
+            // Have to workaround with `Any` since no `ClassTag[I#JvmType]` available here.
+            val input = Array.fill[Any](10000)(makeRandomValue(columnType))
+            skeleton(input.map(_.asInstanceOf[I#JvmType]))
+        }
     }
-
-    test(s"$scheme: simple case") {
-      val input = columnType match {
-        case INT  => Seq(2: Int,  1: Int,  2: Int,  130: Int)
-        case LONG => Seq(2: Long, 1: Long, 2: Long, 130: Long)
-      }
-
-      skeleton(input.map(_.asInstanceOf[I#JvmType]))
-    }
-
-    test(s"$scheme: long random series") {
-      // Have to workaround with `Any` since no `ClassTag[I#JvmType]` available here.
-      val input = Array.fill[Any](10000)(makeRandomValue(columnType))
-      skeleton(input.map(_.asInstanceOf[I#JvmType]))
-    }
-  }
 }

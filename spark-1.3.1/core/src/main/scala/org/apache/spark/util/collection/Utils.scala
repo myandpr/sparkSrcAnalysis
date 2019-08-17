@@ -22,18 +22,18 @@ import scala.collection.JavaConversions.{collectionAsScalaIterable, asJavaIterat
 import com.google.common.collect.{Ordering => GuavaOrdering}
 
 /**
- * Utility functions for collections.
- */
+  * Utility functions for collections.
+  */
 private[spark] object Utils {
 
-  /**
-   * Returns the first K elements from the input as defined by the specified implicit Ordering[T]
-   * and maintains the ordering.
-   */
-  def takeOrdered[T](input: Iterator[T], num: Int)(implicit ord: Ordering[T]): Iterator[T] = {
-    val ordering = new GuavaOrdering[T] {
-      override def compare(l: T, r: T) = ord.compare(l, r)
+    /**
+      * Returns the first K elements from the input as defined by the specified implicit Ordering[T]
+      * and maintains the ordering.
+      */
+    def takeOrdered[T](input: Iterator[T], num: Int)(implicit ord: Ordering[T]): Iterator[T] = {
+        val ordering = new GuavaOrdering[T] {
+            override def compare(l: T, r: T) = ord.compare(l, r)
+        }
+        collectionAsScalaIterable(ordering.leastOf(asJavaIterator(input), num)).iterator
     }
-    collectionAsScalaIterable(ordering.leastOf(asJavaIterator(input), num)).iterator
-  }
 }

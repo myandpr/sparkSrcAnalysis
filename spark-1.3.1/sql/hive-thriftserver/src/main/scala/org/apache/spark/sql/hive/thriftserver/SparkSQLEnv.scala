@@ -25,47 +25,47 @@ import org.apache.spark.{Logging, SparkConf, SparkContext}
 
 /** A singleton object for the master program. The slaves should not access this. */
 private[hive] object SparkSQLEnv extends Logging {
-  logDebug("Initializing SparkSQLEnv")
+    logDebug("Initializing SparkSQLEnv")
 
-  var hiveContext: HiveContext = _
-  var sparkContext: SparkContext = _
+    var hiveContext: HiveContext = _
+    var sparkContext: SparkContext = _
 
-  def init() {
-    if (hiveContext == null) {
-      val sparkConf = new SparkConf(loadDefaults = true)
-      val maybeSerializer = sparkConf.getOption("spark.serializer")
-      val maybeKryoReferenceTracking = sparkConf.getOption("spark.kryo.referenceTracking")
+    def init() {
+        if (hiveContext == null) {
+            val sparkConf = new SparkConf(loadDefaults = true)
+            val maybeSerializer = sparkConf.getOption("spark.serializer")
+            val maybeKryoReferenceTracking = sparkConf.getOption("spark.kryo.referenceTracking")
 
-      sparkConf
-        .setAppName(s"SparkSQL::${java.net.InetAddress.getLocalHost.getHostName}")
-        .set("spark.sql.hive.version", HiveShim.version)
-        .set(
-          "spark.serializer",
-          maybeSerializer.getOrElse("org.apache.spark.serializer.KryoSerializer"))
-        .set(
-          "spark.kryo.referenceTracking",
-          maybeKryoReferenceTracking.getOrElse("false"))
+            sparkConf
+                    .setAppName(s"SparkSQL::${java.net.InetAddress.getLocalHost.getHostName}")
+                    .set("spark.sql.hive.version", HiveShim.version)
+                    .set(
+                        "spark.serializer",
+                        maybeSerializer.getOrElse("org.apache.spark.serializer.KryoSerializer"))
+                    .set(
+                        "spark.kryo.referenceTracking",
+                        maybeKryoReferenceTracking.getOrElse("false"))
 
-      sparkContext = new SparkContext(sparkConf)
-      sparkContext.addSparkListener(new StatsReportListener())
-      hiveContext = new HiveContext(sparkContext)
+            sparkContext = new SparkContext(sparkConf)
+            sparkContext.addSparkListener(new StatsReportListener())
+            hiveContext = new HiveContext(sparkContext)
 
-      if (log.isDebugEnabled) {
-        hiveContext.hiveconf.getAllProperties.toSeq.sorted.foreach { case (k, v) =>
-          logDebug(s"HiveConf var: $k=$v")
+            if (log.isDebugEnabled) {
+                hiveContext.hiveconf.getAllProperties.toSeq.sorted.foreach { case (k, v) =>
+                    logDebug(s"HiveConf var: $k=$v")
+                }
+            }
         }
-      }
     }
-  }
 
-  /** Cleans up and shuts down the Spark SQL environments. */
-  def stop() {
-    logDebug("Shutting down Spark SQL Environment")
-    // Stop the SparkContext
-    if (SparkSQLEnv.sparkContext != null) {
-      sparkContext.stop()
-      sparkContext = null
-      hiveContext = null
+    /** Cleans up and shuts down the Spark SQL environments. */
+    def stop() {
+        logDebug("Shutting down Spark SQL Environment")
+        // Stop the SparkContext
+        if (SparkSQLEnv.sparkContext != null) {
+            sparkContext.stop()
+            sparkContext = null
+            hiveContext = null
+        }
     }
-  }
 }

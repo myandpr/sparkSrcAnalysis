@@ -31,26 +31,26 @@ import org.apache.spark.ui.SparkUI
 
 class HistoryServerSuite extends FunSuite with Matchers with MockitoSugar {
 
-  test("generate history page with relative links") {
-    val historyServer = mock[HistoryServer]
-    val request = mock[HttpServletRequest]
-    val ui = mock[SparkUI]
-    val link = "/history/app1"
-    val info = new ApplicationHistoryInfo("app1", "app1", 0, 2, 1, "xxx", true)
-    when(historyServer.getApplicationList()).thenReturn(Seq(info))
-    when(ui.basePath).thenReturn(link)
-    when(historyServer.getProviderConfig()).thenReturn(Map[String, String]())
-    val page = new HistoryPage(historyServer)
+    test("generate history page with relative links") {
+        val historyServer = mock[HistoryServer]
+        val request = mock[HttpServletRequest]
+        val ui = mock[SparkUI]
+        val link = "/history/app1"
+        val info = new ApplicationHistoryInfo("app1", "app1", 0, 2, 1, "xxx", true)
+        when(historyServer.getApplicationList()).thenReturn(Seq(info))
+        when(ui.basePath).thenReturn(link)
+        when(historyServer.getProviderConfig()).thenReturn(Map[String, String]())
+        val page = new HistoryPage(historyServer)
 
-    //when
-    val response = page.render(request)
+        //when
+        val response = page.render(request)
 
-    //then
-    val links = response \\ "a"
-    val justHrefs = for {
-      l <- links
-      attrs <- l.attribute("href")
-    } yield (attrs.toString)
-    justHrefs should contain(link)
-  }
+        //then
+        val links = response \\ "a"
+        val justHrefs = for {
+            l <- links
+            attrs <- l.attribute("href")
+        } yield (attrs.toString)
+        justHrefs should contain(link)
+    }
 }

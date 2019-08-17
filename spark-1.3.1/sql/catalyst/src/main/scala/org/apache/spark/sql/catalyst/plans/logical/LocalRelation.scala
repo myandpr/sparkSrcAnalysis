@@ -23,38 +23,38 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.types.{DataTypeConversions, StructType, StructField}
 
 object LocalRelation {
-  def apply(output: Attribute*): LocalRelation = new LocalRelation(output)
+    def apply(output: Attribute*): LocalRelation = new LocalRelation(output)
 
-  def apply(output1: StructField, output: StructField*): LocalRelation = {
-    new LocalRelation(StructType(output1 +: output).toAttributes)
-  }
+    def apply(output1: StructField, output: StructField*): LocalRelation = {
+        new LocalRelation(StructType(output1 +: output).toAttributes)
+    }
 
-  def fromProduct(output: Seq[Attribute], data: Seq[Product]): LocalRelation = {
-    val schema = StructType.fromAttributes(output)
-    LocalRelation(output, data.map(row => DataTypeConversions.productToRow(row, schema)))
-  }
+    def fromProduct(output: Seq[Attribute], data: Seq[Product]): LocalRelation = {
+        val schema = StructType.fromAttributes(output)
+        LocalRelation(output, data.map(row => DataTypeConversions.productToRow(row, schema)))
+    }
 }
 
 case class LocalRelation(output: Seq[Attribute], data: Seq[Row] = Nil)
-  extends LeafNode with analysis.MultiInstanceRelation {
+        extends LeafNode with analysis.MultiInstanceRelation {
 
-  /**
-   * Returns an identical copy of this relation with new exprIds for all attributes.  Different
-   * attributes are required when a relation is going to be included multiple times in the same
-   * query.
-   */
-  override final def newInstance(): this.type = {
-    LocalRelation(output.map(_.newInstance()), data).asInstanceOf[this.type]
-  }
+    /**
+      * Returns an identical copy of this relation with new exprIds for all attributes.  Different
+      * attributes are required when a relation is going to be included multiple times in the same
+      * query.
+      */
+    override final def newInstance(): this.type = {
+        LocalRelation(output.map(_.newInstance()), data).asInstanceOf[this.type]
+    }
 
-  override protected def stringArgs = Iterator(output)
+    override protected def stringArgs = Iterator(output)
 
-  override def sameResult(plan: LogicalPlan): Boolean = plan match {
-    case LocalRelation(otherOutput, otherData) =>
-      otherOutput.map(_.dataType) == output.map(_.dataType) && otherData == data
-    case _ => false
-  }
+    override def sameResult(plan: LogicalPlan): Boolean = plan match {
+        case LocalRelation(otherOutput, otherData) =>
+            otherOutput.map(_.dataType) == output.map(_.dataType) && otherData == data
+        case _ => false
+    }
 
-  override lazy val statistics =
-    Statistics(sizeInBytes = output.map(_.dataType.defaultSize).sum * data.length)
+    override lazy val statistics =
+        Statistics(sizeInBytes = output.map(_.dataType.defaultSize).sum * data.length)
 }

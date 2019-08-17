@@ -23,42 +23,43 @@ import scala.collection.JavaConverters._
 import org.apache.spark.sql.types._
 
 /**
- * An example class to demonstrate UDT in Scala, Java, and Python.
- * @param x x coordinate
- * @param y y coordinate
- */
+  * An example class to demonstrate UDT in Scala, Java, and Python.
+  *
+  * @param x x coordinate
+  * @param y y coordinate
+  */
 @SQLUserDefinedType(udt = classOf[ExamplePointUDT])
 private[sql] class ExamplePoint(val x: Double, val y: Double) extends Serializable
 
 /**
- * User-defined type for [[ExamplePoint]].
- */
+  * User-defined type for [[ExamplePoint]].
+  */
 private[sql] class ExamplePointUDT extends UserDefinedType[ExamplePoint] {
 
-  override def sqlType: DataType = ArrayType(DoubleType, false)
+    override def sqlType: DataType = ArrayType(DoubleType, false)
 
-  override def pyUDT: String = "pyspark.sql.tests.ExamplePointUDT"
+    override def pyUDT: String = "pyspark.sql.tests.ExamplePointUDT"
 
-  override def serialize(obj: Any): Seq[Double] = {
-    obj match {
-      case p: ExamplePoint =>
-        Seq(p.x, p.y)
+    override def serialize(obj: Any): Seq[Double] = {
+        obj match {
+            case p: ExamplePoint =>
+                Seq(p.x, p.y)
+        }
     }
-  }
 
-  override def deserialize(datum: Any): ExamplePoint = {
-    datum match {
-      case values: Seq[_] =>
-        val xy = values.asInstanceOf[Seq[Double]]
-        assert(xy.length == 2)
-        new ExamplePoint(xy(0), xy(1))
-      case values: util.ArrayList[_] =>
-        val xy = values.asInstanceOf[util.ArrayList[Double]].asScala
-        new ExamplePoint(xy(0), xy(1))
+    override def deserialize(datum: Any): ExamplePoint = {
+        datum match {
+            case values: Seq[_] =>
+                val xy = values.asInstanceOf[Seq[Double]]
+                assert(xy.length == 2)
+                new ExamplePoint(xy(0), xy(1))
+            case values: util.ArrayList[_] =>
+                val xy = values.asInstanceOf[util.ArrayList[Double]].asScala
+                new ExamplePoint(xy(0), xy(1))
+        }
     }
-  }
 
-  override def userClass: Class[ExamplePoint] = classOf[ExamplePoint]
+    override def userClass: Class[ExamplePoint] = classOf[ExamplePoint]
 
-  private[spark] override def asNullable: ExamplePointUDT = this
+    private[spark] override def asNullable: ExamplePointUDT = this
 }

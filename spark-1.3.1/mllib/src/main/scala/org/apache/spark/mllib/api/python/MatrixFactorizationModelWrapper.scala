@@ -22,19 +22,19 @@ import org.apache.spark.mllib.recommendation.{MatrixFactorizationModel, Rating}
 import org.apache.spark.rdd.RDD
 
 /**
- * A Wrapper of MatrixFactorizationModel to provide helper method for Python.
- */
+  * A Wrapper of MatrixFactorizationModel to provide helper method for Python.
+  */
 private[python] class MatrixFactorizationModelWrapper(model: MatrixFactorizationModel)
-  extends MatrixFactorizationModel(model.rank, model.userFeatures, model.productFeatures) {
+        extends MatrixFactorizationModel(model.rank, model.userFeatures, model.productFeatures) {
 
-  def predict(userAndProducts: JavaRDD[Array[Any]]): RDD[Rating] =
-    predict(SerDe.asTupleRDD(userAndProducts.rdd))
+    def predict(userAndProducts: JavaRDD[Array[Any]]): RDD[Rating] =
+        predict(SerDe.asTupleRDD(userAndProducts.rdd))
 
-  def getUserFeatures: RDD[Array[Any]] = {
-    SerDe.fromTuple2RDD(userFeatures.asInstanceOf[RDD[(Any, Any)]])
-  }
+    def getUserFeatures: RDD[Array[Any]] = {
+        SerDe.fromTuple2RDD(userFeatures.asInstanceOf[RDD[(Any, Any)]])
+    }
 
-  def getProductFeatures: RDD[Array[Any]] = {
-    SerDe.fromTuple2RDD(productFeatures.asInstanceOf[RDD[(Any, Any)]])
-  }
+    def getProductFeatures: RDD[Array[Any]] = {
+        SerDe.fromTuple2RDD(productFeatures.asInstanceOf[RDD[(Any, Any)]])
+    }
 }

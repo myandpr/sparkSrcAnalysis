@@ -392,10 +392,10 @@ private[spark] class Worker(
             logInfo(s"Master with url $masterUrl requested this worker to reconnect.")
             registerWithMaster()
 
-            //接收master发送的启动Executor的消息，execId和需要的参数都已经确定了
-            /*
-            * 该消息有appDesc参数，传给了ExecutorRunner，启动线程
-            * */
+        //接收master发送的启动Executor的消息，execId和需要的参数都已经确定了
+        /*
+        * 该消息有appDesc参数，传给了ExecutorRunner，启动线程
+        * */
         case LaunchExecutor(masterUrl, appId, execId, appDesc, cores_, memory_) =>
             //判断master是否活着
             if (masterUrl != activeMasterUrl) {
@@ -503,9 +503,9 @@ private[spark] class Worker(
                 }
             }
 
-            /*
-            * worker上不仅可以启动Executor，也可以启动Driver（在cluster模式下的情况）
-            * */
+        /*
+        * worker上不仅可以启动Executor，也可以启动Driver（在cluster模式下的情况）
+        * */
         case LaunchDriver(driverId, driverDesc) => {
             logInfo(s"Asked to launch driver $driverId")
             val driver = new DriverRunner(

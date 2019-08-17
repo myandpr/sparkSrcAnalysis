@@ -23,84 +23,85 @@ import org.apache.spark.sql.execution.SparkSqlSerializer
 import org.apache.spark.sql.types._
 
 class TestNullableColumnBuilder[T <: DataType, JvmType](columnType: ColumnType[T, JvmType])
-  extends BasicColumnBuilder[T, JvmType](new NoopColumnStats, columnType)
-  with NullableColumnBuilder
+        extends BasicColumnBuilder[T, JvmType](new NoopColumnStats, columnType)
+                with NullableColumnBuilder
 
 object TestNullableColumnBuilder {
-  def apply[T <: DataType, JvmType](columnType: ColumnType[T, JvmType], initialSize: Int = 0) = {
-    val builder = new TestNullableColumnBuilder(columnType)
-    builder.initialize(initialSize)
-    builder
-  }
+    def apply[T <: DataType, JvmType](columnType: ColumnType[T, JvmType], initialSize: Int = 0) = {
+        val builder = new TestNullableColumnBuilder(columnType)
+        builder.initialize(initialSize)
+        builder
+    }
 }
 
 class NullableColumnBuilderSuite extends FunSuite {
-  import ColumnarTestUtils._
 
-  Seq(
-    INT, LONG, SHORT, BOOLEAN, BYTE, STRING, DOUBLE, FLOAT, BINARY, GENERIC, DATE, TIMESTAMP
-  ).foreach {
-    testNullableColumnBuilder(_)
-  }
+    import ColumnarTestUtils._
 
-  def testNullableColumnBuilder[T <: DataType, JvmType](
-      columnType: ColumnType[T, JvmType]): Unit = {
-
-    val typeName = columnType.getClass.getSimpleName.stripSuffix("$")
-
-    test(s"$typeName column builder: empty column") {
-      val columnBuilder = TestNullableColumnBuilder(columnType)
-      val buffer = columnBuilder.build()
-
-      assertResult(columnType.typeId, "Wrong column type ID")(buffer.getInt())
-      assertResult(0, "Wrong null count")(buffer.getInt())
-      assert(!buffer.hasRemaining)
+    Seq(
+        INT, LONG, SHORT, BOOLEAN, BYTE, STRING, DOUBLE, FLOAT, BINARY, GENERIC, DATE, TIMESTAMP
+    ).foreach {
+        testNullableColumnBuilder(_)
     }
 
-    test(s"$typeName column builder: buffer size auto growth") {
-      val columnBuilder = TestNullableColumnBuilder(columnType)
-      val randomRow = makeRandomRow(columnType)
+    def testNullableColumnBuilder[T <: DataType, JvmType](
+                                                                 columnType: ColumnType[T, JvmType]): Unit = {
 
-      (0 until 4).foreach { _ =>
-        columnBuilder.appendFrom(randomRow, 0)
-      }
+        val typeName = columnType.getClass.getSimpleName.stripSuffix("$")
 
-      val buffer = columnBuilder.build()
+        test(s"$typeName column builder: empty column") {
+            val columnBuilder = TestNullableColumnBuilder(columnType)
+            val buffer = columnBuilder.build()
 
-      assertResult(columnType.typeId, "Wrong column type ID")(buffer.getInt())
-      assertResult(0, "Wrong null count")(buffer.getInt())
-    }
-
-    test(s"$typeName column builder: null values") {
-      val columnBuilder = TestNullableColumnBuilder(columnType)
-      val randomRow = makeRandomRow(columnType)
-      val nullRow = makeNullRow(1)
-
-      (0 until 4).foreach { _ =>
-        columnBuilder.appendFrom(randomRow, 0)
-        columnBuilder.appendFrom(nullRow, 0)
-      }
-
-      val buffer = columnBuilder.build()
-
-      assertResult(columnType.typeId, "Wrong column type ID")(buffer.getInt())
-      assertResult(4, "Wrong null count")(buffer.getInt())
-
-      // For null positions
-      (1 to 7 by 2).foreach(assertResult(_, "Wrong null position")(buffer.getInt()))
-
-      // For non-null values
-      (0 until 4).foreach { _ =>
-        val actual = if (columnType == GENERIC) {
-          SparkSqlSerializer.deserialize[Any](GENERIC.extract(buffer))
-        } else {
-          columnType.extract(buffer)
+            assertResult(columnType.typeId, "Wrong column type ID")(buffer.getInt())
+            assertResult(0, "Wrong null count")(buffer.getInt())
+            assert(!buffer.hasRemaining)
         }
 
-        assert(actual === randomRow(0), "Extracted value didn't equal to the original one")
-      }
+        test(s"$typeName column builder: buffer size auto growth") {
+            val columnBuilder = TestNullableColumnBuilder(columnType)
+            val randomRow = makeRandomRow(columnType)
 
-      assert(!buffer.hasRemaining)
+            (0 until 4).foreach { _ =>
+                columnBuilder.appendFrom(randomRow, 0)
+            }
+
+            val buffer = columnBuilder.build()
+
+            assertResult(columnType.typeId, "Wrong column type ID")(buffer.getInt())
+            assertResult(0, "Wrong null count")(buffer.getInt())
+        }
+
+        test(s"$typeName column builder: null values") {
+            val columnBuilder = TestNullableColumnBuilder(columnType)
+            val randomRow = makeRandomRow(columnType)
+            val nullRow = makeNullRow(1)
+
+            (0 until 4).foreach { _ =>
+                columnBuilder.appendFrom(randomRow, 0)
+                columnBuilder.appendFrom(nullRow, 0)
+            }
+
+            val buffer = columnBuilder.build()
+
+            assertResult(columnType.typeId, "Wrong column type ID")(buffer.getInt())
+            assertResult(4, "Wrong null count")(buffer.getInt())
+
+            // For null positions
+            (1 to 7 by 2).foreach(assertResult(_, "Wrong null position")(buffer.getInt()))
+
+            // For non-null values
+            (0 until 4).foreach { _ =>
+                val actual = if (columnType == GENERIC) {
+                    SparkSqlSerializer.deserialize[Any](GENERIC.extract(buffer))
+                } else {
+                    columnType.extract(buffer)
+                }
+
+                assert(actual === randomRow(0), "Extracted value didn't equal to the original one")
+            }
+
+            assert(!buffer.hasRemaining)
+        }
     }
-  }
 }

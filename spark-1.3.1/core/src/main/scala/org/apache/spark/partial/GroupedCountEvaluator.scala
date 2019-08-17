@@ -29,44 +29,44 @@ import org.apache.commons.math3.distribution.NormalDistribution
 import org.apache.spark.util.collection.OpenHashMap
 
 /**
- * An ApproximateEvaluator for counts by key. Returns a map of key to confidence interval.
- */
-private[spark] class GroupedCountEvaluator[T : ClassTag](totalOutputs: Int, confidence: Double)
-  extends ApproximateEvaluator[OpenHashMap[T,Long], Map[T, BoundedDouble]] {
+  * An ApproximateEvaluator for counts by key. Returns a map of key to confidence interval.
+  */
+private[spark] class GroupedCountEvaluator[T: ClassTag](totalOutputs: Int, confidence: Double)
+        extends ApproximateEvaluator[OpenHashMap[T, Long], Map[T, BoundedDouble]] {
 
-  var outputsMerged = 0
-  var sums = new OpenHashMap[T,Long]()   // Sum of counts for each key
+    var outputsMerged = 0
+    var sums = new OpenHashMap[T, Long]() // Sum of counts for each key
 
-  override def merge(outputId: Int, taskResult: OpenHashMap[T,Long]) {
-    outputsMerged += 1
-    taskResult.foreach { case (key, value) =>
-      sums.changeValue(key, value, _ + value)
+    override def merge(outputId: Int, taskResult: OpenHashMap[T, Long]) {
+        outputsMerged += 1
+        taskResult.foreach { case (key, value) =>
+            sums.changeValue(key, value, _ + value)
+        }
     }
-  }
 
-  override def currentResult(): Map[T, BoundedDouble] = {
-    if (outputsMerged == totalOutputs) {
-      val result = new JHashMap[T, BoundedDouble](sums.size)
-      sums.foreach { case (key, sum) =>
-        result(key) = new BoundedDouble(sum, 1.0, sum, sum)
-      }
-      result
-    } else if (outputsMerged == 0) {
-      new HashMap[T, BoundedDouble]
-    } else {
-      val p = outputsMerged.toDouble / totalOutputs
-      val confFactor = new NormalDistribution().
-        inverseCumulativeProbability(1 - (1 - confidence) / 2)
-      val result = new JHashMap[T, BoundedDouble](sums.size)
-      sums.foreach { case (key, sum) =>
-        val mean = (sum + 1 - p) / p
-        val variance = (sum + 1) * (1 - p) / (p * p)
-        val stdev = math.sqrt(variance)
-        val low = mean - confFactor * stdev
-        val high = mean + confFactor * stdev
-        result(key) = new BoundedDouble(mean, confidence, low, high)
-      }
-      result
+    override def currentResult(): Map[T, BoundedDouble] = {
+        if (outputsMerged == totalOutputs) {
+            val result = new JHashMap[T, BoundedDouble](sums.size)
+            sums.foreach { case (key, sum) =>
+                result(key) = new BoundedDouble(sum, 1.0, sum, sum)
+            }
+            result
+        } else if (outputsMerged == 0) {
+            new HashMap[T, BoundedDouble]
+        } else {
+            val p = outputsMerged.toDouble / totalOutputs
+            val confFactor = new NormalDistribution().
+                    inverseCumulativeProbability(1 - (1 - confidence) / 2)
+            val result = new JHashMap[T, BoundedDouble](sums.size)
+            sums.foreach { case (key, sum) =>
+                val mean = (sum + 1 - p) / p
+                val variance = (sum + 1) * (1 - p) / (p * p)
+                val stdev = math.sqrt(variance)
+                val low = mean - confFactor * stdev
+                val high = mean + confFactor * stdev
+                result(key) = new BoundedDouble(mean, confidence, low, high)
+            }
+            result
+        }
     }
-  }
 }

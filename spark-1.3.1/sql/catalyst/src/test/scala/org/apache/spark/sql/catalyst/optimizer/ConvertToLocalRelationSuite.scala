@@ -28,30 +28,30 @@ import org.apache.spark.sql.catalyst.rules.RuleExecutor
 
 class ConvertToLocalRelationSuite extends PlanTest {
 
-  object Optimize extends RuleExecutor[LogicalPlan] {
-    val batches =
-      Batch("LocalRelation", FixedPoint(100),
-        ConvertToLocalRelation) :: Nil
-  }
+    object Optimize extends RuleExecutor[LogicalPlan] {
+        val batches =
+            Batch("LocalRelation", FixedPoint(100),
+                ConvertToLocalRelation) :: Nil
+    }
 
-  test("Project on LocalRelation should be turned into a single LocalRelation") {
-    val testRelation = LocalRelation(
-      LocalRelation('a.int, 'b.int).output,
-      Row(1, 2) ::
-      Row(4, 5) :: Nil)
+    test("Project on LocalRelation should be turned into a single LocalRelation") {
+        val testRelation = LocalRelation(
+            LocalRelation('a.int, 'b.int).output,
+            Row(1, 2) ::
+                    Row(4, 5) :: Nil)
 
-    val correctAnswer = LocalRelation(
-      LocalRelation('a1.int, 'b1.int).output,
-      Row(1, 3) ::
-      Row(4, 6) :: Nil)
+        val correctAnswer = LocalRelation(
+            LocalRelation('a1.int, 'b1.int).output,
+            Row(1, 3) ::
+                    Row(4, 6) :: Nil)
 
-    val projectOnLocal = testRelation.select(
-      UnresolvedAttribute("a").as("a1"),
-      (UnresolvedAttribute("b") + 1).as("b1"))
+        val projectOnLocal = testRelation.select(
+            UnresolvedAttribute("a").as("a1"),
+            (UnresolvedAttribute("b") + 1).as("b1"))
 
-    val optimized = Optimize(projectOnLocal.analyze)
+        val optimized = Optimize(projectOnLocal.analyze)
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 
 }

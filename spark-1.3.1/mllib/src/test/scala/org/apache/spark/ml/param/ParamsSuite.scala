@@ -21,88 +21,89 @@ import org.scalatest.FunSuite
 
 class ParamsSuite extends FunSuite {
 
-  val solver = new TestParams()
-  import solver.{inputCol, maxIter}
+    val solver = new TestParams()
 
-  test("param") {
-    assert(maxIter.name === "maxIter")
-    assert(maxIter.doc === "max number of iterations")
-    assert(maxIter.defaultValue.get === 100)
-    assert(maxIter.parent.eq(solver))
-    assert(maxIter.toString === "maxIter: max number of iterations (default: 100)")
-    assert(inputCol.defaultValue === None)
-  }
+    import solver.{inputCol, maxIter}
 
-  test("param pair") {
-    val pair0 = maxIter -> 5
-    val pair1 = maxIter.w(5)
-    val pair2 = ParamPair(maxIter, 5)
-    for (pair <- Seq(pair0, pair1, pair2)) {
-      assert(pair.param.eq(maxIter))
-      assert(pair.value === 5)
+    test("param") {
+        assert(maxIter.name === "maxIter")
+        assert(maxIter.doc === "max number of iterations")
+        assert(maxIter.defaultValue.get === 100)
+        assert(maxIter.parent.eq(solver))
+        assert(maxIter.toString === "maxIter: max number of iterations (default: 100)")
+        assert(inputCol.defaultValue === None)
     }
-  }
 
-  test("param map") {
-    val map0 = ParamMap.empty
+    test("param pair") {
+        val pair0 = maxIter -> 5
+        val pair1 = maxIter.w(5)
+        val pair2 = ParamPair(maxIter, 5)
+        for (pair <- Seq(pair0, pair1, pair2)) {
+            assert(pair.param.eq(maxIter))
+            assert(pair.value === 5)
+        }
+    }
 
-    assert(!map0.contains(maxIter))
-    assert(map0(maxIter) === maxIter.defaultValue.get)
-    map0.put(maxIter, 10)
-    assert(map0.contains(maxIter))
-    assert(map0(maxIter) === 10)
+    test("param map") {
+        val map0 = ParamMap.empty
 
-    assert(!map0.contains(inputCol))
-    intercept[NoSuchElementException] {
-      map0(inputCol)
-    }
-    map0.put(inputCol -> "input")
-    assert(map0.contains(inputCol))
-    assert(map0(inputCol) === "input")
+        assert(!map0.contains(maxIter))
+        assert(map0(maxIter) === maxIter.defaultValue.get)
+        map0.put(maxIter, 10)
+        assert(map0.contains(maxIter))
+        assert(map0(maxIter) === 10)
 
-    val map1 = map0.copy
-    val map2 = ParamMap(maxIter -> 10, inputCol -> "input")
-    val map3 = new ParamMap()
-      .put(maxIter, 10)
-      .put(inputCol, "input")
-    val map4 = ParamMap.empty ++ map0
-    val map5 = ParamMap.empty
-    map5 ++= map0
+        assert(!map0.contains(inputCol))
+        intercept[NoSuchElementException] {
+            map0(inputCol)
+        }
+        map0.put(inputCol -> "input")
+        assert(map0.contains(inputCol))
+        assert(map0(inputCol) === "input")
 
-    for (m <- Seq(map1, map2, map3, map4, map5)) {
-      assert(m.contains(maxIter))
-      assert(m(maxIter) === 10)
-      assert(m.contains(inputCol))
-      assert(m(inputCol) === "input")
-    }
-  }
+        val map1 = map0.copy
+        val map2 = ParamMap(maxIter -> 10, inputCol -> "input")
+        val map3 = new ParamMap()
+                .put(maxIter, 10)
+                .put(inputCol, "input")
+        val map4 = ParamMap.empty ++ map0
+        val map5 = ParamMap.empty
+        map5 ++= map0
 
-  test("params") {
-    val params = solver.params
-    assert(params.size === 2)
-    assert(params(0).eq(inputCol), "params must be ordered by name")
-    assert(params(1).eq(maxIter))
-    assert(solver.explainParams() === Seq(inputCol, maxIter).mkString("\n"))
-    assert(solver.getParam("inputCol").eq(inputCol))
-    assert(solver.getParam("maxIter").eq(maxIter))
-    intercept[NoSuchMethodException] {
-      solver.getParam("abc")
+        for (m <- Seq(map1, map2, map3, map4, map5)) {
+            assert(m.contains(maxIter))
+            assert(m(maxIter) === 10)
+            assert(m.contains(inputCol))
+            assert(m(inputCol) === "input")
+        }
     }
-    assert(!solver.isSet(inputCol))
-    intercept[IllegalArgumentException] {
-      solver.validate()
+
+    test("params") {
+        val params = solver.params
+        assert(params.size === 2)
+        assert(params(0).eq(inputCol), "params must be ordered by name")
+        assert(params(1).eq(maxIter))
+        assert(solver.explainParams() === Seq(inputCol, maxIter).mkString("\n"))
+        assert(solver.getParam("inputCol").eq(inputCol))
+        assert(solver.getParam("maxIter").eq(maxIter))
+        intercept[NoSuchMethodException] {
+            solver.getParam("abc")
+        }
+        assert(!solver.isSet(inputCol))
+        intercept[IllegalArgumentException] {
+            solver.validate()
+        }
+        solver.validate(ParamMap(inputCol -> "input"))
+        solver.setInputCol("input")
+        assert(solver.isSet(inputCol))
+        assert(solver.getInputCol === "input")
+        solver.validate()
+        intercept[IllegalArgumentException] {
+            solver.validate(ParamMap(maxIter -> -10))
+        }
+        solver.setMaxIter(-10)
+        intercept[IllegalArgumentException] {
+            solver.validate()
+        }
     }
-    solver.validate(ParamMap(inputCol -> "input"))
-    solver.setInputCol("input")
-    assert(solver.isSet(inputCol))
-    assert(solver.getInputCol === "input")
-    solver.validate()
-    intercept[IllegalArgumentException] {
-      solver.validate(ParamMap(maxIter -> -10))
-    }
-    solver.setMaxIter(-10)
-    intercept[IllegalArgumentException] {
-      solver.validate()
-    }
-  }
 }

@@ -23,68 +23,69 @@ import org.apache.spark.sql.catalyst.plans.PlanTest
 import org.apache.spark.sql.catalyst.rules._
 
 /* Implicit conversions */
+
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 
 class LikeSimplificationSuite extends PlanTest {
 
-  object Optimize extends RuleExecutor[LogicalPlan] {
-    val batches =
-      Batch("Like Simplification", Once,
-        LikeSimplification) :: Nil
-  }
+    object Optimize extends RuleExecutor[LogicalPlan] {
+        val batches =
+            Batch("Like Simplification", Once,
+                LikeSimplification) :: Nil
+    }
 
-  val testRelation = LocalRelation('a.string)
+    val testRelation = LocalRelation('a.string)
 
-  test("simplify Like into StartsWith") {
-    val originalQuery =
-      testRelation
-        .where(('a like "abc%") || ('a like "abc\\%"))
+    test("simplify Like into StartsWith") {
+        val originalQuery =
+            testRelation
+                    .where(('a like "abc%") || ('a like "abc\\%"))
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer = testRelation
-      .where(StartsWith('a, "abc") || ('a like "abc\\%"))
-      .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer = testRelation
+                .where(StartsWith('a, "abc") || ('a like "abc\\%"))
+                .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 
-  test("simplify Like into EndsWith") {
-    val originalQuery =
-      testRelation
-        .where('a like "%xyz")
+    test("simplify Like into EndsWith") {
+        val originalQuery =
+            testRelation
+                    .where('a like "%xyz")
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer = testRelation
-      .where(EndsWith('a, "xyz"))
-      .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer = testRelation
+                .where(EndsWith('a, "xyz"))
+                .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 
-  test("simplify Like into Contains") {
-    val originalQuery =
-      testRelation
-        .where(('a like "%mn%") || ('a like "%mn\\%"))
+    test("simplify Like into Contains") {
+        val originalQuery =
+            testRelation
+                    .where(('a like "%mn%") || ('a like "%mn\\%"))
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer = testRelation
-      .where(Contains('a, "mn") || ('a like "%mn\\%"))
-      .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer = testRelation
+                .where(Contains('a, "mn") || ('a like "%mn\\%"))
+                .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 
-  test("simplify Like into EqualTo") {
-    val originalQuery =
-      testRelation
-        .where(('a like "") || ('a like "abc"))
+    test("simplify Like into EqualTo") {
+        val originalQuery =
+            testRelation
+                    .where(('a like "") || ('a like "abc"))
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer = testRelation
-      .where(('a === "") || ('a === "abc"))
-      .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer = testRelation
+                .where(('a === "") || ('a === "abc"))
+                .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 }

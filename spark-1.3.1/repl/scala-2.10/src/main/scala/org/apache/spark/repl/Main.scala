@@ -20,14 +20,16 @@ package org.apache.spark.repl
 import scala.collection.mutable.Set
 
 object Main {
-  private var _interp: SparkILoop = _
+    private var _interp: SparkILoop = _
 
-  def interp = _interp
+    def interp = _interp
 
-  def interp_=(i: SparkILoop) { _interp = i }
+    def interp_=(i: SparkILoop) {
+        _interp = i
+    }
 
-  def main(args: Array[String]) {
-    _interp = new SparkILoop
-    _interp.process(args)
-  }
+    def main(args: Array[String]) {
+        _interp = new SparkILoop
+        _interp.process(args)
+    }
 }

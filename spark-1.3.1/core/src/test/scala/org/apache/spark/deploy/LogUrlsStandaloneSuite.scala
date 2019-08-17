@@ -30,64 +30,65 @@ import org.apache.spark.{SparkConf, SparkContext, LocalSparkContext}
 
 class LogUrlsStandaloneSuite extends FunSuite with LocalSparkContext {
 
-  /** Length of time to wait while draining listener events. */
-  private val WAIT_TIMEOUT_MILLIS = 10000
+    /** Length of time to wait while draining listener events. */
+    private val WAIT_TIMEOUT_MILLIS = 10000
 
-  test("verify that correct log urls get propagated from workers") {
-    sc = new SparkContext("local-cluster[2,1,512]", "test")
+    test("verify that correct log urls get propagated from workers") {
+        sc = new SparkContext("local-cluster[2,1,512]", "test")
 
-    val listener = new SaveExecutorInfo
-    sc.addSparkListener(listener)
+        val listener = new SaveExecutorInfo
+        sc.addSparkListener(listener)
 
-    // Trigger a job so that executors get added
-    sc.parallelize(1 to 100, 4).map(_.toString).count()
+        // Trigger a job so that executors get added
+        sc.parallelize(1 to 100, 4).map(_.toString).count()
 
-    assert(sc.listenerBus.waitUntilEmpty(WAIT_TIMEOUT_MILLIS))
-    listener.addedExecutorInfos.values.foreach { info =>
-      assert(info.logUrlMap.nonEmpty)
-      // Browse to each URL to check that it's valid
-      info.logUrlMap.foreach { case (logType, logUrl) =>
-        val html = Source.fromURL(logUrl).mkString
-        assert(html.contains(s"$logType log page"))
-      }
+        assert(sc.listenerBus.waitUntilEmpty(WAIT_TIMEOUT_MILLIS))
+        listener.addedExecutorInfos.values.foreach { info =>
+            assert(info.logUrlMap.nonEmpty)
+            // Browse to each URL to check that it's valid
+            info.logUrlMap.foreach { case (logType, logUrl) =>
+                val html = Source.fromURL(logUrl).mkString
+                assert(html.contains(s"$logType log page"))
+            }
+        }
     }
-  }
 
-  test("verify that log urls reflect SPARK_PUBLIC_DNS (SPARK-6175)") {
-    val SPARK_PUBLIC_DNS = "public_dns"
-    class MySparkConf extends SparkConf(false) {
-      override def getenv(name: String) = {
-        if (name == "SPARK_PUBLIC_DNS") SPARK_PUBLIC_DNS
-        else super.getenv(name)
-      }
+    test("verify that log urls reflect SPARK_PUBLIC_DNS (SPARK-6175)") {
+        val SPARK_PUBLIC_DNS = "public_dns"
+        class MySparkConf extends SparkConf(false) {
+            override def getenv(name: String) = {
+                if (name == "SPARK_PUBLIC_DNS") SPARK_PUBLIC_DNS
+                else super.getenv(name)
+            }
 
-      override def clone: SparkConf = {
-        new MySparkConf().setAll(getAll)
-      }
+            override def clone: SparkConf = {
+                new MySparkConf().setAll(getAll)
+            }
+        }
+        val conf = new MySparkConf()
+        sc = new SparkContext("local-cluster[2,1,512]", "test", conf)
+
+        val listener = new SaveExecutorInfo
+        sc.addSparkListener(listener)
+
+        // Trigger a job so that executors get added
+        sc.parallelize(1 to 100, 4).map(_.toString).count()
+
+        assert(sc.listenerBus.waitUntilEmpty(WAIT_TIMEOUT_MILLIS))
+        listener.addedExecutorInfos.values.foreach { info =>
+            assert(info.logUrlMap.nonEmpty)
+            info.logUrlMap.values.foreach { logUrl =>
+                assert(new URL(logUrl).getHost === SPARK_PUBLIC_DNS)
+            }
+        }
     }
-    val conf = new MySparkConf()
-    sc = new SparkContext("local-cluster[2,1,512]", "test", conf)
 
-    val listener = new SaveExecutorInfo
-    sc.addSparkListener(listener)
+    private class SaveExecutorInfo extends SparkListener {
+        val addedExecutorInfos = mutable.Map[String, ExecutorInfo]()
 
-    // Trigger a job so that executors get added
-    sc.parallelize(1 to 100, 4).map(_.toString).count()
-
-    assert(sc.listenerBus.waitUntilEmpty(WAIT_TIMEOUT_MILLIS))
-    listener.addedExecutorInfos.values.foreach { info =>
-      assert(info.logUrlMap.nonEmpty)
-      info.logUrlMap.values.foreach { logUrl =>
-        assert(new URL(logUrl).getHost === SPARK_PUBLIC_DNS)
-      }
+        override def onExecutorAdded(executor: SparkListenerExecutorAdded) {
+            addedExecutorInfos(executor.executorId) = executor.executorInfo
+        }
     }
-  }
 
-  private class SaveExecutorInfo extends SparkListener {
-    val addedExecutorInfos = mutable.Map[String, ExecutorInfo]()
-
-    override def onExecutorAdded(executor: SparkListenerExecutorAdded) {
-      addedExecutorInfos(executor.executorId) = executor.executorInfo
-    }
-  }
 }

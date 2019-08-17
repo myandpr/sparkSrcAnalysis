@@ -27,22 +27,22 @@ import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
 /**
- * This is a output stream just for the testsuites. All the output is collected into a
- * ArrayBuffer. This buffer is wiped clean on being restored from checkpoint.
- *
- * The buffer contains a sequence of RDD's, each containing a sequence of items
- */
+  * This is a output stream just for the testsuites. All the output is collected into a
+  * ArrayBuffer. This buffer is wiped clean on being restored from checkpoint.
+  *
+  * The buffer contains a sequence of RDD's, each containing a sequence of items
+  */
 class TestOutputStream[T: ClassTag](parent: DStream[T],
-    val output: ArrayBuffer[Seq[T]] = ArrayBuffer[Seq[T]]())
-  extends ForEachDStream[T](parent, (rdd: RDD[T], t: Time) => {
-    val collected = rdd.collect()
-    output += collected
-  }) {
+                                    val output: ArrayBuffer[Seq[T]] = ArrayBuffer[Seq[T]]())
+        extends ForEachDStream[T](parent, (rdd: RDD[T], t: Time) => {
+            val collected = rdd.collect()
+            output += collected
+        }) {
 
-  // This is to clear the output buffer every it is read from a checkpoint
-  @throws(classOf[IOException])
-  private def readObject(ois: ObjectInputStream): Unit = Utils.tryOrIOException {
-    ois.defaultReadObject()
-    output.clear()
-  }
+    // This is to clear the output buffer every it is read from a checkpoint
+    @throws(classOf[IOException])
+    private def readObject(ois: ObjectInputStream): Unit = Utils.tryOrIOException {
+        ois.defaultReadObject()
+        output.clear()
+    }
 }

@@ -23,33 +23,33 @@ import org.apache.spark.sql.test.TestSQLContext.implicits._
 
 class DataFrameImplicitsSuite extends QueryTest {
 
-  test("RDD of tuples") {
-    checkAnswer(
-      sc.parallelize(1 to 10).map(i => (i, i.toString)).toDF("intCol", "strCol"),
-      (1 to 10).map(i => Row(i, i.toString)))
-  }
+    test("RDD of tuples") {
+        checkAnswer(
+            sc.parallelize(1 to 10).map(i => (i, i.toString)).toDF("intCol", "strCol"),
+            (1 to 10).map(i => Row(i, i.toString)))
+    }
 
-  test("Seq of tuples") {
-    checkAnswer(
-      (1 to 10).map(i => (i, i.toString)).toDF("intCol", "strCol"),
-      (1 to 10).map(i => Row(i, i.toString)))
-  }
+    test("Seq of tuples") {
+        checkAnswer(
+            (1 to 10).map(i => (i, i.toString)).toDF("intCol", "strCol"),
+            (1 to 10).map(i => Row(i, i.toString)))
+    }
 
-  test("RDD[Int]") {
-    checkAnswer(
-      sc.parallelize(1 to 10).toDF("intCol"),
-      (1 to 10).map(i => Row(i)))
-  }
+    test("RDD[Int]") {
+        checkAnswer(
+            sc.parallelize(1 to 10).toDF("intCol"),
+            (1 to 10).map(i => Row(i)))
+    }
 
-  test("RDD[Long]") {
-    checkAnswer(
-      sc.parallelize(1L to 10L).toDF("longCol"),
-      (1L to 10L).map(i => Row(i)))
-  }
+    test("RDD[Long]") {
+        checkAnswer(
+            sc.parallelize(1L to 10L).toDF("longCol"),
+            (1L to 10L).map(i => Row(i)))
+    }
 
-  test("RDD[String]") {
-    checkAnswer(
-      sc.parallelize(1 to 10).map(_.toString).toDF("stringCol"),
-      (1 to 10).map(i => Row(i.toString)))
-  }
+    test("RDD[String]") {
+        checkAnswer(
+            sc.parallelize(1 to 10).map(_.toString).toDF("stringCol"),
+            (1 to 10).map(i => Row(i.toString)))
+    }
 }

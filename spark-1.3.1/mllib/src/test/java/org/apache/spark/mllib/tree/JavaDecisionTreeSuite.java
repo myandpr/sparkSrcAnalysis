@@ -36,67 +36,67 @@ import org.apache.spark.mllib.tree.model.DecisionTreeModel;
 
 
 public class JavaDecisionTreeSuite implements Serializable {
-  private transient JavaSparkContext sc;
+    private transient JavaSparkContext sc;
 
-  @Before
-  public void setUp() {
-    sc = new JavaSparkContext("local", "JavaDecisionTreeSuite");
-  }
-
-  @After
-  public void tearDown() {
-    sc.stop();
-    sc = null;
-  }
-
-  int validatePrediction(List<LabeledPoint> validationData, DecisionTreeModel model) {
-    int numCorrect = 0;
-    for (LabeledPoint point: validationData) {
-      Double prediction = model.predict(point.features());
-      if (prediction == point.label()) {
-        numCorrect++;
-      }
+    @Before
+    public void setUp() {
+        sc = new JavaSparkContext("local", "JavaDecisionTreeSuite");
     }
-    return numCorrect;
-  }
 
-  @Test
-  public void runDTUsingConstructor() {
-    List<LabeledPoint> arr = DecisionTreeSuite.generateCategoricalDataPointsAsJavaList();
-    JavaRDD<LabeledPoint> rdd = sc.parallelize(arr);
-    HashMap<Integer, Integer> categoricalFeaturesInfo = new HashMap<Integer, Integer>();
-    categoricalFeaturesInfo.put(1, 2); // feature 1 has 2 categories
+    @After
+    public void tearDown() {
+        sc.stop();
+        sc = null;
+    }
 
-    int maxDepth = 4;
-    int numClasses = 2;
-    int maxBins = 100;
-    Strategy strategy = new Strategy(Algo.Classification(), Gini.instance(), maxDepth, numClasses,
-        maxBins, categoricalFeaturesInfo);
+    int validatePrediction(List<LabeledPoint> validationData, DecisionTreeModel model) {
+        int numCorrect = 0;
+        for (LabeledPoint point : validationData) {
+            Double prediction = model.predict(point.features());
+            if (prediction == point.label()) {
+                numCorrect++;
+            }
+        }
+        return numCorrect;
+    }
 
-    DecisionTree learner = new DecisionTree(strategy);
-    DecisionTreeModel model = learner.run(rdd.rdd());
+    @Test
+    public void runDTUsingConstructor() {
+        List<LabeledPoint> arr = DecisionTreeSuite.generateCategoricalDataPointsAsJavaList();
+        JavaRDD<LabeledPoint> rdd = sc.parallelize(arr);
+        HashMap<Integer, Integer> categoricalFeaturesInfo = new HashMap<Integer, Integer>();
+        categoricalFeaturesInfo.put(1, 2); // feature 1 has 2 categories
 
-    int numCorrect = validatePrediction(arr, model);
-    Assert.assertTrue(numCorrect == rdd.count());
-  }
+        int maxDepth = 4;
+        int numClasses = 2;
+        int maxBins = 100;
+        Strategy strategy = new Strategy(Algo.Classification(), Gini.instance(), maxDepth, numClasses,
+                maxBins, categoricalFeaturesInfo);
 
-  @Test
-  public void runDTUsingStaticMethods() {
-    List<LabeledPoint> arr = DecisionTreeSuite.generateCategoricalDataPointsAsJavaList();
-    JavaRDD<LabeledPoint> rdd = sc.parallelize(arr);
-    HashMap<Integer, Integer> categoricalFeaturesInfo = new HashMap<Integer, Integer>();
-    categoricalFeaturesInfo.put(1, 2); // feature 1 has 2 categories
+        DecisionTree learner = new DecisionTree(strategy);
+        DecisionTreeModel model = learner.run(rdd.rdd());
 
-    int maxDepth = 4;
-    int numClasses = 2;
-    int maxBins = 100;
-    Strategy strategy = new Strategy(Algo.Classification(), Gini.instance(), maxDepth, numClasses,
-        maxBins, categoricalFeaturesInfo);
+        int numCorrect = validatePrediction(arr, model);
+        Assert.assertTrue(numCorrect == rdd.count());
+    }
 
-    DecisionTreeModel model = DecisionTree$.MODULE$.train(rdd.rdd(), strategy);
+    @Test
+    public void runDTUsingStaticMethods() {
+        List<LabeledPoint> arr = DecisionTreeSuite.generateCategoricalDataPointsAsJavaList();
+        JavaRDD<LabeledPoint> rdd = sc.parallelize(arr);
+        HashMap<Integer, Integer> categoricalFeaturesInfo = new HashMap<Integer, Integer>();
+        categoricalFeaturesInfo.put(1, 2); // feature 1 has 2 categories
 
-    int numCorrect = validatePrediction(arr, model);
-    Assert.assertTrue(numCorrect == rdd.count());
-  }
+        int maxDepth = 4;
+        int numClasses = 2;
+        int maxBins = 100;
+        Strategy strategy = new Strategy(Algo.Classification(), Gini.instance(), maxDepth, numClasses,
+                maxBins, categoricalFeaturesInfo);
+
+        DecisionTreeModel model = DecisionTree$.MODULE$.train(rdd.rdd(), strategy);
+
+        int numCorrect = validatePrediction(arr, model);
+        Assert.assertTrue(numCorrect == rdd.count());
+    }
 
 }

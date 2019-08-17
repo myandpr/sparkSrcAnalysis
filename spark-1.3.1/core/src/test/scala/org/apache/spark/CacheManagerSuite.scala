@@ -27,73 +27,79 @@ import org.apache.spark.storage._
 
 // TODO: Test the CacheManager's thread-safety aspects
 class CacheManagerSuite extends FunSuite with LocalSparkContext with BeforeAndAfter
-  with MockitoSugar {
+        with MockitoSugar {
 
-  var blockManager: BlockManager = _
-  var cacheManager: CacheManager = _
-  var split: Partition = _
-  /** An RDD which returns the values [1, 2, 3, 4]. */
-  var rdd: RDD[Int] = _
-  var rdd2: RDD[Int] = _
-  var rdd3: RDD[Int] = _
+    var blockManager: BlockManager = _
+    var cacheManager: CacheManager = _
+    var split: Partition = _
+    /** An RDD which returns the values [1, 2, 3, 4]. */
+    var rdd: RDD[Int] = _
+    var rdd2: RDD[Int] = _
+    var rdd3: RDD[Int] = _
 
-  before {
-    sc = new SparkContext("local", "test")
-    blockManager = mock[BlockManager]
-    cacheManager = new CacheManager(blockManager)
-    split = new Partition { override def index: Int = 0 }
-    rdd = new RDD[Int](sc, Nil) {
-      override def getPartitions: Array[Partition] = Array(split)
-      override val getDependencies = List[Dependency[_]]()
-      override def compute(split: Partition, context: TaskContext) = Array(1, 2, 3, 4).iterator
+    before {
+        sc = new SparkContext("local", "test")
+        blockManager = mock[BlockManager]
+        cacheManager = new CacheManager(blockManager)
+        split = new Partition {
+            override def index: Int = 0
+        }
+        rdd = new RDD[Int](sc, Nil) {
+            override def getPartitions: Array[Partition] = Array(split)
+
+            override val getDependencies = List[Dependency[_]]()
+
+            override def compute(split: Partition, context: TaskContext) = Array(1, 2, 3, 4).iterator
+        }
+        rdd2 = new RDD[Int](sc, List(new OneToOneDependency(rdd))) {
+            override def getPartitions: Array[Partition] = firstParent[Int].partitions
+
+            override def compute(split: Partition, context: TaskContext) =
+                firstParent[Int].iterator(split, context)
+        }.cache()
+        rdd3 = new RDD[Int](sc, List(new OneToOneDependency(rdd2))) {
+            override def getPartitions: Array[Partition] = firstParent[Int].partitions
+
+            override def compute(split: Partition, context: TaskContext) =
+                firstParent[Int].iterator(split, context)
+        }.cache()
     }
-    rdd2 = new RDD[Int](sc, List(new OneToOneDependency(rdd))) {
-      override def getPartitions: Array[Partition] = firstParent[Int].partitions
-      override def compute(split: Partition, context: TaskContext) =
-        firstParent[Int].iterator(split, context)
-    }.cache()
-    rdd3 = new RDD[Int](sc, List(new OneToOneDependency(rdd2))) {
-      override def getPartitions: Array[Partition] = firstParent[Int].partitions
-      override def compute(split: Partition, context: TaskContext) =
-        firstParent[Int].iterator(split, context)
-    }.cache()
-  }
 
-  test("get uncached rdd") {
-    // Do not mock this test, because attempting to match Array[Any], which is not covariant,
-    // in blockManager.put is a losing battle. You have been warned.
-    blockManager = sc.env.blockManager
-    cacheManager = sc.env.cacheManager
-    val context = new TaskContextImpl(0, 0, 0, 0)
-    val computeValue = cacheManager.getOrCompute(rdd, split, context, StorageLevel.MEMORY_ONLY)
-    val getValue = blockManager.get(RDDBlockId(rdd.id, split.index))
-    assert(computeValue.toList === List(1, 2, 3, 4))
-    assert(getValue.isDefined, "Block cached from getOrCompute is not found!")
-    assert(getValue.get.data.toList === List(1, 2, 3, 4))
-  }
+    test("get uncached rdd") {
+        // Do not mock this test, because attempting to match Array[Any], which is not covariant,
+        // in blockManager.put is a losing battle. You have been warned.
+        blockManager = sc.env.blockManager
+        cacheManager = sc.env.cacheManager
+        val context = new TaskContextImpl(0, 0, 0, 0)
+        val computeValue = cacheManager.getOrCompute(rdd, split, context, StorageLevel.MEMORY_ONLY)
+        val getValue = blockManager.get(RDDBlockId(rdd.id, split.index))
+        assert(computeValue.toList === List(1, 2, 3, 4))
+        assert(getValue.isDefined, "Block cached from getOrCompute is not found!")
+        assert(getValue.get.data.toList === List(1, 2, 3, 4))
+    }
 
-  test("get cached rdd") {
-    val result = new BlockResult(Array(5, 6, 7).iterator, DataReadMethod.Memory, 12)
-    when(blockManager.get(RDDBlockId(0, 0))).thenReturn(Some(result))
+    test("get cached rdd") {
+        val result = new BlockResult(Array(5, 6, 7).iterator, DataReadMethod.Memory, 12)
+        when(blockManager.get(RDDBlockId(0, 0))).thenReturn(Some(result))
 
-    val context = new TaskContextImpl(0, 0, 0, 0)
-    val value = cacheManager.getOrCompute(rdd, split, context, StorageLevel.MEMORY_ONLY)
-    assert(value.toList === List(5, 6, 7))
-  }
+        val context = new TaskContextImpl(0, 0, 0, 0)
+        val value = cacheManager.getOrCompute(rdd, split, context, StorageLevel.MEMORY_ONLY)
+        assert(value.toList === List(5, 6, 7))
+    }
 
-  test("get uncached local rdd") {
-    // Local computation should not persist the resulting value, so don't expect a put().
-    when(blockManager.get(RDDBlockId(0, 0))).thenReturn(None)
+    test("get uncached local rdd") {
+        // Local computation should not persist the resulting value, so don't expect a put().
+        when(blockManager.get(RDDBlockId(0, 0))).thenReturn(None)
 
-    val context = new TaskContextImpl(0, 0, 0, 0, true)
-    val value = cacheManager.getOrCompute(rdd, split, context, StorageLevel.MEMORY_ONLY)
-    assert(value.toList === List(1, 2, 3, 4))
-  }
+        val context = new TaskContextImpl(0, 0, 0, 0, true)
+        val value = cacheManager.getOrCompute(rdd, split, context, StorageLevel.MEMORY_ONLY)
+        assert(value.toList === List(1, 2, 3, 4))
+    }
 
-  test("verify task metrics updated correctly") {
-    cacheManager = sc.env.cacheManager
-    val context = new TaskContextImpl(0, 0, 0, 0)
-    cacheManager.getOrCompute(rdd3, split, context, StorageLevel.MEMORY_ONLY)
-    assert(context.taskMetrics.updatedBlocks.getOrElse(Seq()).size === 2)
-  }
+    test("verify task metrics updated correctly") {
+        cacheManager = sc.env.cacheManager
+        val context = new TaskContextImpl(0, 0, 0, 0)
+        cacheManager.getOrCompute(rdd3, split, context, StorageLevel.MEMORY_ONLY)
+        assert(context.taskMetrics.updatedBlocks.getOrElse(Seq()).size === 2)
+    }
 }

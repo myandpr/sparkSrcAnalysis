@@ -26,14 +26,14 @@ import scalariform.lexer.Token
 import scalariform.parser.CompilationUnit
 
 class NonASCIICharacterChecker extends ScalariformChecker {
-  val errorKey: String = "non.ascii.character.disallowed"
+    val errorKey: String = "non.ascii.character.disallowed"
 
-  override def verify(ast: CompilationUnit): List[ScalastyleError] = {
-    ast.tokens.filter(hasNonAsciiChars).map(x => PositionError(x.offset)).toList
-  }
+    override def verify(ast: CompilationUnit): List[ScalastyleError] = {
+        ast.tokens.filter(hasNonAsciiChars).map(x => PositionError(x.offset)).toList
+    }
 
-  private def hasNonAsciiChars(x: Token) =
-    x.rawText.trim.nonEmpty && !Pattern.compile( """\p{ASCII}+""", Pattern.DOTALL)
-    .matcher(x.text.trim).matches()
+    private def hasNonAsciiChars(x: Token) =
+        x.rawText.trim.nonEmpty && !Pattern.compile( """\p{ASCII}+""", Pattern.DOTALL)
+                .matcher(x.text.trim).matches()
 
 }

@@ -18,6 +18,6 @@
 package org.apache.spark.streaming
 
 /**
- * Zeromq receiver for spark streaming.
- */
+  * Zeromq receiver for spark streaming.
+  */
 package object zeromq

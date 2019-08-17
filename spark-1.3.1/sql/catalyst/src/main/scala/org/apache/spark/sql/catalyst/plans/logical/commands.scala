@@ -20,10 +20,10 @@ package org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.catalyst.expressions.Attribute
 
 /**
- * A logical node that represents a non-query command to be executed by the system.  For example,
- * commands can be used by parsers to represent DDL operations.
- */
+  * A logical node that represents a non-query command to be executed by the system.  For example,
+  * commands can be used by parsers to represent DDL operations.
+  */
 abstract class Command extends LeafNode {
-  self: Product =>
-  def output: Seq[Attribute] = Seq.empty
+    self: Product =>
+    def output: Seq[Attribute] = Seq.empty
 }

@@ -22,48 +22,54 @@ import java.util.Arrays;
 import com.google.common.base.Objects;
 import io.netty.buffer.ByteBuf;
 
-/** Response to {@link RpcRequest} for a successful RPC. */
+/**
+ * Response to {@link RpcRequest} for a successful RPC.
+ */
 public final class RpcResponse implements ResponseMessage {
-  public final long requestId;
-  public final byte[] response;
+    public final long requestId;
+    public final byte[] response;
 
-  public RpcResponse(long requestId, byte[] response) {
-    this.requestId = requestId;
-    this.response = response;
-  }
-
-  @Override
-  public Type type() { return Type.RpcResponse; }
-
-  @Override
-  public int encodedLength() { return 8 + Encoders.ByteArrays.encodedLength(response); }
-
-  @Override
-  public void encode(ByteBuf buf) {
-    buf.writeLong(requestId);
-    Encoders.ByteArrays.encode(buf, response);
-  }
-
-  public static RpcResponse decode(ByteBuf buf) {
-    long requestId = buf.readLong();
-    byte[] response = Encoders.ByteArrays.decode(buf);
-    return new RpcResponse(requestId, response);
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    if (other instanceof RpcResponse) {
-      RpcResponse o = (RpcResponse) other;
-      return requestId == o.requestId && Arrays.equals(response, o.response);
+    public RpcResponse(long requestId, byte[] response) {
+        this.requestId = requestId;
+        this.response = response;
     }
-    return false;
-  }
 
-  @Override
-  public String toString() {
-    return Objects.toStringHelper(this)
-      .add("requestId", requestId)
-      .add("response", response)
-      .toString();
-  }
+    @Override
+    public Type type() {
+        return Type.RpcResponse;
+    }
+
+    @Override
+    public int encodedLength() {
+        return 8 + Encoders.ByteArrays.encodedLength(response);
+    }
+
+    @Override
+    public void encode(ByteBuf buf) {
+        buf.writeLong(requestId);
+        Encoders.ByteArrays.encode(buf, response);
+    }
+
+    public static RpcResponse decode(ByteBuf buf) {
+        long requestId = buf.readLong();
+        byte[] response = Encoders.ByteArrays.decode(buf);
+        return new RpcResponse(requestId, response);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof RpcResponse) {
+            RpcResponse o = (RpcResponse) other;
+            return requestId == o.requestId && Arrays.equals(response, o.response);
+        }
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("requestId", requestId)
+                .add("response", response)
+                .toString();
+    }
 }

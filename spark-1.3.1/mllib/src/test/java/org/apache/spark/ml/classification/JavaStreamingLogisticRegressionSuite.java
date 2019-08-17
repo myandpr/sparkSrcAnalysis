@@ -36,47 +36,48 @@ import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+
 import static org.apache.spark.streaming.JavaTestUtils.*;
 
 public class JavaStreamingLogisticRegressionSuite implements Serializable {
 
-  protected transient JavaStreamingContext ssc;
+    protected transient JavaStreamingContext ssc;
 
-  @Before
-  public void setUp() {
-    SparkConf conf = new SparkConf()
-      .setMaster("local[2]")
-      .setAppName("test")
-      .set("spark.streaming.clock", "org.apache.spark.util.ManualClock");
-    ssc = new JavaStreamingContext(conf, new Duration(1000));
-    ssc.checkpoint("checkpoint");
-  }
+    @Before
+    public void setUp() {
+        SparkConf conf = new SparkConf()
+                .setMaster("local[2]")
+                .setAppName("test")
+                .set("spark.streaming.clock", "org.apache.spark.util.ManualClock");
+        ssc = new JavaStreamingContext(conf, new Duration(1000));
+        ssc.checkpoint("checkpoint");
+    }
 
-  @After
-  public void tearDown() {
-    ssc.stop();
-    ssc = null;
-  }
+    @After
+    public void tearDown() {
+        ssc.stop();
+        ssc = null;
+    }
 
-  @Test
-  @SuppressWarnings("unchecked")
-  public void javaAPI() {
-    List<LabeledPoint> trainingBatch = Lists.newArrayList(
-      new LabeledPoint(1.0, Vectors.dense(1.0)),
-      new LabeledPoint(0.0, Vectors.dense(0.0)));
-    JavaDStream<LabeledPoint> training =
-      attachTestInputStream(ssc, Lists.newArrayList(trainingBatch, trainingBatch), 2);
-    List<Tuple2<Integer, Vector>> testBatch = Lists.newArrayList(
-      new Tuple2<Integer, Vector>(10, Vectors.dense(1.0)),
-      new Tuple2<Integer, Vector>(11, Vectors.dense(0.0)));
-    JavaPairDStream<Integer, Vector> test = JavaPairDStream.fromJavaDStream(
-      attachTestInputStream(ssc, Lists.newArrayList(testBatch, testBatch), 2));
-    StreamingLogisticRegressionWithSGD slr = new StreamingLogisticRegressionWithSGD()
-      .setNumIterations(2)
-      .setInitialWeights(Vectors.dense(0.0));
-    slr.trainOn(training);
-    JavaPairDStream<Integer, Double> prediction = slr.predictOnValues(test);
-    attachTestOutputStream(prediction.count());
-    runStreams(ssc, 2, 2);
-  }
+    @Test
+    @SuppressWarnings("unchecked")
+    public void javaAPI() {
+        List<LabeledPoint> trainingBatch = Lists.newArrayList(
+                new LabeledPoint(1.0, Vectors.dense(1.0)),
+                new LabeledPoint(0.0, Vectors.dense(0.0)));
+        JavaDStream<LabeledPoint> training =
+                attachTestInputStream(ssc, Lists.newArrayList(trainingBatch, trainingBatch), 2);
+        List<Tuple2<Integer, Vector>> testBatch = Lists.newArrayList(
+                new Tuple2<Integer, Vector>(10, Vectors.dense(1.0)),
+                new Tuple2<Integer, Vector>(11, Vectors.dense(0.0)));
+        JavaPairDStream<Integer, Vector> test = JavaPairDStream.fromJavaDStream(
+                attachTestInputStream(ssc, Lists.newArrayList(testBatch, testBatch), 2));
+        StreamingLogisticRegressionWithSGD slr = new StreamingLogisticRegressionWithSGD()
+                .setNumIterations(2)
+                .setInitialWeights(Vectors.dense(0.0));
+        slr.trainOn(training);
+        JavaPairDStream<Integer, Double> prediction = slr.predictOnValues(test);
+        attachTestOutputStream(prediction.count());
+        runStreams(ssc, 2, 2);
+    }
 }

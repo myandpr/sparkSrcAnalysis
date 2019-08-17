@@ -19,40 +19,61 @@ package org.apache.spark.network.protocol;
 
 import io.netty.buffer.ByteBuf;
 
-/** An on-the-wire transmittable message. */
+/**
+ * An on-the-wire transmittable message.
+ */
 public interface Message extends Encodable {
-  /** Used to identify this request type. */
-  Type type();
+    /**
+     * Used to identify this request type.
+     */
+    Type type();
 
-  /** Preceding every serialized Message is its type, which allows us to deserialize it. */
-  public static enum Type implements Encodable {
-    ChunkFetchRequest(0), ChunkFetchSuccess(1), ChunkFetchFailure(2),
-    RpcRequest(3), RpcResponse(4), RpcFailure(5);
+    /**
+     * Preceding every serialized Message is its type, which allows us to deserialize it.
+     */
+    public static enum Type implements Encodable {
+        ChunkFetchRequest(0), ChunkFetchSuccess(1), ChunkFetchFailure(2),
+        RpcRequest(3), RpcResponse(4), RpcFailure(5);
 
-    private final byte id;
+        private final byte id;
 
-    private Type(int id) {
-      assert id < 128 : "Cannot have more than 128 message types";
-      this.id = (byte) id;
+        private Type(int id) {
+            assert id < 128 : "Cannot have more than 128 message types";
+            this.id = (byte) id;
+        }
+
+        public byte id() {
+            return id;
+        }
+
+        @Override
+        public int encodedLength() {
+            return 1;
+        }
+
+        @Override
+        public void encode(ByteBuf buf) {
+            buf.writeByte(id);
+        }
+
+        public static Type decode(ByteBuf buf) {
+            byte id = buf.readByte();
+            switch (id) {
+                case 0:
+                    return ChunkFetchRequest;
+                case 1:
+                    return ChunkFetchSuccess;
+                case 2:
+                    return ChunkFetchFailure;
+                case 3:
+                    return RpcRequest;
+                case 4:
+                    return RpcResponse;
+                case 5:
+                    return RpcFailure;
+                default:
+                    throw new IllegalArgumentException("Unknown message type: " + id);
+            }
+        }
     }
-
-    public byte id() { return id; }
-
-    @Override public int encodedLength() { return 1; }
-
-    @Override public void encode(ByteBuf buf) { buf.writeByte(id); }
-
-    public static Type decode(ByteBuf buf) {
-      byte id = buf.readByte();
-      switch (id) {
-        case 0: return ChunkFetchRequest;
-        case 1: return ChunkFetchSuccess;
-        case 2: return ChunkFetchFailure;
-        case 3: return RpcRequest;
-        case 4: return RpcResponse;
-        case 5: return RpcFailure;
-        default: throw new IllegalArgumentException("Unknown message type: " + id);
-      }
-    }
-  }
 }

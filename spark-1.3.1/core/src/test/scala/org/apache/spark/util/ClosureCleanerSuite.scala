@@ -23,46 +23,46 @@ import org.apache.spark.LocalSparkContext._
 import org.apache.spark.{SparkContext, SparkException}
 
 class ClosureCleanerSuite extends FunSuite {
-  test("closures inside an object") {
-    assert(TestObject.run() === 30) // 6 + 7 + 8 + 9
-  }
-
-  test("closures inside a class") {
-    val obj = new TestClass
-    assert(obj.run() === 30) // 6 + 7 + 8 + 9
-  }
-
-  test("closures inside a class with no default constructor") {
-    val obj = new TestClassWithoutDefaultConstructor(5)
-    assert(obj.run() === 30) // 6 + 7 + 8 + 9
-  }
-
-  test("closures that don't use fields of the outer class") {
-    val obj = new TestClassWithoutFieldAccess
-    assert(obj.run() === 30) // 6 + 7 + 8 + 9
-  }
-
-  test("nested closures inside an object") {
-    assert(TestObjectWithNesting.run() === 96) // 4 * (1+2+3+4) + 4 * (1+2+3+4) + 16 * 1
-  }
-
-  test("nested closures inside a class") {
-    val obj = new TestClassWithNesting(1)
-    assert(obj.run() === 96) // 4 * (1+2+3+4) + 4 * (1+2+3+4) + 16 * 1
-  }
-  
-  test("toplevel return statements in closures are identified at cleaning time") {
-    val ex = intercept[SparkException] {
-      TestObjectWithBogusReturns.run()
+    test("closures inside an object") {
+        assert(TestObject.run() === 30) // 6 + 7 + 8 + 9
     }
-    
-    assert(ex.getMessage.contains("Return statements aren't allowed in Spark closures"))
-  }
 
-  test("return statements from named functions nested in closures don't raise exceptions") {
-    val result = TestObjectWithNestedReturns.run()
-    assert(result == 1)
-  }
+    test("closures inside a class") {
+        val obj = new TestClass
+        assert(obj.run() === 30) // 6 + 7 + 8 + 9
+    }
+
+    test("closures inside a class with no default constructor") {
+        val obj = new TestClassWithoutDefaultConstructor(5)
+        assert(obj.run() === 30) // 6 + 7 + 8 + 9
+    }
+
+    test("closures that don't use fields of the outer class") {
+        val obj = new TestClassWithoutFieldAccess
+        assert(obj.run() === 30) // 6 + 7 + 8 + 9
+    }
+
+    test("nested closures inside an object") {
+        assert(TestObjectWithNesting.run() === 96) // 4 * (1+2+3+4) + 4 * (1+2+3+4) + 16 * 1
+    }
+
+    test("nested closures inside a class") {
+        val obj = new TestClassWithNesting(1)
+        assert(obj.run() === 96) // 4 * (1+2+3+4) + 4 * (1+2+3+4) + 16 * 1
+    }
+
+    test("toplevel return statements in closures are identified at cleaning time") {
+        val ex = intercept[SparkException] {
+            TestObjectWithBogusReturns.run()
+        }
+
+        assert(ex.getMessage.contains("Return statements aren't allowed in Spark closures"))
+    }
+
+    test("return statements from named functions nested in closures don't raise exceptions") {
+        val result = TestObjectWithNestedReturns.run()
+        assert(result == 1)
+    }
 }
 
 // A non-serializable class we create in closures to make sure that we aren't
@@ -70,113 +70,116 @@ class ClosureCleanerSuite extends FunSuite {
 class NonSerializable {}
 
 object TestObject {
-  def run(): Int = {
-    var nonSer = new NonSerializable
-    val x = 5
-    withSpark(new SparkContext("local", "test")) { sc =>
-      val nums = sc.parallelize(Array(1, 2, 3, 4))
-      nums.map(_ + x).reduce(_ + _)
+    def run(): Int = {
+        var nonSer = new NonSerializable
+        val x = 5
+        withSpark(new SparkContext("local", "test")) { sc =>
+            val nums = sc.parallelize(Array(1, 2, 3, 4))
+            nums.map(_ + x).reduce(_ + _)
+        }
     }
-  }
 }
 
 class TestClass extends Serializable {
-  var x = 5
+    var x = 5
 
-  def getX = x
+    def getX = x
 
-  def run(): Int = {
-    var nonSer = new NonSerializable
-    withSpark(new SparkContext("local", "test")) { sc =>
-      val nums = sc.parallelize(Array(1, 2, 3, 4))
-      nums.map(_ + getX).reduce(_ + _)
+    def run(): Int = {
+        var nonSer = new NonSerializable
+        withSpark(new SparkContext("local", "test")) { sc =>
+            val nums = sc.parallelize(Array(1, 2, 3, 4))
+            nums.map(_ + getX).reduce(_ + _)
+        }
     }
-  }
 }
 
 class TestClassWithoutDefaultConstructor(x: Int) extends Serializable {
-  def getX = x
+    def getX = x
 
-  def run(): Int = {
-    var nonSer = new NonSerializable
-    withSpark(new SparkContext("local", "test")) { sc =>
-      val nums = sc.parallelize(Array(1, 2, 3, 4))
-      nums.map(_ + getX).reduce(_ + _)
+    def run(): Int = {
+        var nonSer = new NonSerializable
+        withSpark(new SparkContext("local", "test")) { sc =>
+            val nums = sc.parallelize(Array(1, 2, 3, 4))
+            nums.map(_ + getX).reduce(_ + _)
+        }
     }
-  }
 }
 
 // This class is not serializable, but we aren't using any of its fields in our
 // closures, so they won't have a $outer pointing to it and should still work.
 class TestClassWithoutFieldAccess {
-  var nonSer = new NonSerializable
+    var nonSer = new NonSerializable
 
-  def run(): Int = {
-    var nonSer2 = new NonSerializable
-    var x = 5
-    withSpark(new SparkContext("local", "test")) { sc =>
-      val nums = sc.parallelize(Array(1, 2, 3, 4))
-      nums.map(_ + x).reduce(_ + _)
+    def run(): Int = {
+        var nonSer2 = new NonSerializable
+        var x = 5
+        withSpark(new SparkContext("local", "test")) { sc =>
+            val nums = sc.parallelize(Array(1, 2, 3, 4))
+            nums.map(_ + x).reduce(_ + _)
+        }
     }
-  }
 }
 
 object TestObjectWithBogusReturns {
-  def run(): Int = {
-    withSpark(new SparkContext("local", "test")) { sc =>
-      val nums = sc.parallelize(Array(1, 2, 3, 4))
-      // this return is invalid since it will transfer control outside the closure
-      nums.map {x => return 1 ; x * 2}
-      1
+    def run(): Int = {
+        withSpark(new SparkContext("local", "test")) { sc =>
+            val nums = sc.parallelize(Array(1, 2, 3, 4))
+            // this return is invalid since it will transfer control outside the closure
+            nums.map { x => return 1; x * 2 }
+            1
+        }
     }
-  }
 }
 
 object TestObjectWithNestedReturns {
-  def run(): Int = {
-    withSpark(new SparkContext("local", "test")) { sc =>
-      val nums = sc.parallelize(Array(1, 2, 3, 4))
-      nums.map {x => 
-        // this return is fine since it will not transfer control outside the closure
-        def foo(): Int = { return 5; 1 }
-        foo()
-      }
-      1
+    def run(): Int = {
+        withSpark(new SparkContext("local", "test")) { sc =>
+            val nums = sc.parallelize(Array(1, 2, 3, 4))
+            nums.map { x =>
+                // this return is fine since it will not transfer control outside the closure
+                def foo(): Int = {
+                    return 5; 1
+                }
+
+                foo()
+            }
+            1
+        }
     }
-  }
 }
 
 object TestObjectWithNesting {
-  def run(): Int = {
-    var nonSer = new NonSerializable
-    var answer = 0
-    withSpark(new SparkContext("local", "test")) { sc =>
-      val nums = sc.parallelize(Array(1, 2, 3, 4))
-      var y = 1
-      for (i <- 1 to 4) {
-        var nonSer2 = new NonSerializable
-        var x = i
-        answer += nums.map(_ + x + y).reduce(_ + _)
-      }
-      answer
+    def run(): Int = {
+        var nonSer = new NonSerializable
+        var answer = 0
+        withSpark(new SparkContext("local", "test")) { sc =>
+            val nums = sc.parallelize(Array(1, 2, 3, 4))
+            var y = 1
+            for (i <- 1 to 4) {
+                var nonSer2 = new NonSerializable
+                var x = i
+                answer += nums.map(_ + x + y).reduce(_ + _)
+            }
+            answer
+        }
     }
-  }
 }
 
 class TestClassWithNesting(val y: Int) extends Serializable {
-  def getY = y
+    def getY = y
 
-  def run(): Int = {
-    var nonSer = new NonSerializable
-    var answer = 0
-    withSpark(new SparkContext("local", "test")) { sc =>
-      val nums = sc.parallelize(Array(1, 2, 3, 4))
-      for (i <- 1 to 4) {
-        var nonSer2 = new NonSerializable
-        var x = i
-        answer += nums.map(_ + x + getY).reduce(_ + _)
-      }
-      answer
+    def run(): Int = {
+        var nonSer = new NonSerializable
+        var answer = 0
+        withSpark(new SparkContext("local", "test")) { sc =>
+            val nums = sc.parallelize(Array(1, 2, 3, 4))
+            for (i <- 1 to 4) {
+                var nonSer2 = new NonSerializable
+                var x = i
+                answer += nums.map(_ + x + getY).reduce(_ + _)
+            }
+            answer
+        }
     }
-  }
 }

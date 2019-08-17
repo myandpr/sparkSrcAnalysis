@@ -23,42 +23,44 @@ import org.apache.spark.mllib.tree.model.TreeEnsembleModel
 import org.apache.spark.rdd.RDD
 
 /**
- * :: DeveloperApi ::
- * Class for squared error loss calculation.
- *
- * The squared (L2) error is defined as:
- *   (y - F(x))**2
- * where y is the label and F(x) is the model prediction for features x.
- */
+  * :: DeveloperApi ::
+  * Class for squared error loss calculation.
+  *
+  * The squared (L2) error is defined as:
+  * (y - F(x))**2
+  * where y is the label and F(x) is the model prediction for features x.
+  */
 @DeveloperApi
 object SquaredError extends Loss {
 
-  /**
-   * Method to calculate the gradients for the gradient boosting calculation for least
-   * squares error calculation.
-   * The gradient with respect to F(x) is: - 2 (y - F(x))
-   * @param model Ensemble model
-   * @param point Instance of the training dataset
-   * @return Loss gradient
-   */
-  override def gradient(
-    model: TreeEnsembleModel,
-    point: LabeledPoint): Double = {
-    2.0 * (model.predict(point.features) - point.label)
-  }
+    /**
+      * Method to calculate the gradients for the gradient boosting calculation for least
+      * squares error calculation.
+      * The gradient with respect to F(x) is: - 2 (y - F(x))
+      *
+      * @param model Ensemble model
+      * @param point Instance of the training dataset
+      * @return Loss gradient
+      */
+    override def gradient(
+                                 model: TreeEnsembleModel,
+                                 point: LabeledPoint): Double = {
+        2.0 * (model.predict(point.features) - point.label)
+    }
 
-  /**
-   * Method to calculate loss of the base learner for the gradient boosting calculation.
-   * Note: This method is not used by the gradient boosting algorithm but is useful for debugging
-   * purposes.
-   * @param model Ensemble model
-   * @param data Training dataset: RDD of [[org.apache.spark.mllib.regression.LabeledPoint]].
-   * @return  Mean squared error of model on data
-   */
-  override def computeError(model: TreeEnsembleModel, data: RDD[LabeledPoint]): Double = {
-    data.map { y =>
-      val err = model.predict(y.features) - y.label
-      err * err
-    }.mean()
-  }
+    /**
+      * Method to calculate loss of the base learner for the gradient boosting calculation.
+      * Note: This method is not used by the gradient boosting algorithm but is useful for debugging
+      * purposes.
+      *
+      * @param model Ensemble model
+      * @param data  Training dataset: RDD of [[org.apache.spark.mllib.regression.LabeledPoint]].
+      * @return Mean squared error of model on data
+      */
+    override def computeError(model: TreeEnsembleModel, data: RDD[LabeledPoint]): Double = {
+        data.map { y =>
+            val err = model.predict(y.features) - y.label
+            err * err
+        }.mean()
+    }
 }

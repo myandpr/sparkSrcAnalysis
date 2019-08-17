@@ -23,70 +23,71 @@ import org.apache.spark.sql.catalyst.plans.PlanTest
 import org.apache.spark.sql.catalyst.rules._
 
 /* Implicit conversions */
+
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.dsl.plans._
 
 class SimplifyCaseConversionExpressionsSuite extends PlanTest {
 
-  object Optimize extends RuleExecutor[LogicalPlan] {
-    val batches =
-      Batch("Simplify CaseConversionExpressions", Once,
-        SimplifyCaseConversionExpressions) :: Nil
-  }
+    object Optimize extends RuleExecutor[LogicalPlan] {
+        val batches =
+            Batch("Simplify CaseConversionExpressions", Once,
+                SimplifyCaseConversionExpressions) :: Nil
+    }
 
-  val testRelation = LocalRelation('a.string)
+    val testRelation = LocalRelation('a.string)
 
-  test("simplify UPPER(UPPER(str))") {
-    val originalQuery =
-      testRelation
-        .select(Upper(Upper('a)) as 'u)
+    test("simplify UPPER(UPPER(str))") {
+        val originalQuery =
+            testRelation
+                    .select(Upper(Upper('a)) as 'u)
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer =
-      testRelation
-        .select(Upper('a) as 'u)
-        .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer =
+            testRelation
+                    .select(Upper('a) as 'u)
+                    .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 
-  test("simplify UPPER(LOWER(str))") {
-    val originalQuery =
-      testRelation
-        .select(Upper(Lower('a)) as 'u)
+    test("simplify UPPER(LOWER(str))") {
+        val originalQuery =
+            testRelation
+                    .select(Upper(Lower('a)) as 'u)
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer =
-      testRelation
-        .select(Upper('a) as 'u)
-        .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer =
+            testRelation
+                    .select(Upper('a) as 'u)
+                    .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 
-  test("simplify LOWER(UPPER(str))") {
-    val originalQuery =
-      testRelation
-        .select(Lower(Upper('a)) as 'l)
+    test("simplify LOWER(UPPER(str))") {
+        val originalQuery =
+            testRelation
+                    .select(Lower(Upper('a)) as 'l)
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer = testRelation
-      .select(Lower('a) as 'l)
-      .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer = testRelation
+                .select(Lower('a) as 'l)
+                .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 
-  test("simplify LOWER(LOWER(str))") {
-    val originalQuery =
-      testRelation
-        .select(Lower(Lower('a)) as 'l)
+    test("simplify LOWER(LOWER(str))") {
+        val originalQuery =
+            testRelation
+                    .select(Lower(Lower('a)) as 'l)
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer = testRelation
-      .select(Lower('a) as 'l)
-      .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer = testRelation
+                .select(Lower('a) as 'l)
+                .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 }

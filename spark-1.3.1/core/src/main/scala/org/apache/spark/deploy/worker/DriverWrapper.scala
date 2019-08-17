@@ -25,44 +25,44 @@ import org.apache.spark.{SecurityManager, SparkConf}
 import org.apache.spark.util.{AkkaUtils, ChildFirstURLClassLoader, MutableURLClassLoader, Utils}
 
 /**
- * Utility object for launching driver programs such that they share fate with the Worker process.
- * This is used in standalone cluster mode only.
- */
+  * Utility object for launching driver programs such that they share fate with the Worker process.
+  * This is used in standalone cluster mode only.
+  */
 object DriverWrapper {
-  def main(args: Array[String]) {
-    args.toList match {
-      /*
-       * IMPORTANT: Spark 1.3 provides a stable application submission gateway that is both
-       * backward and forward compatible across future Spark versions. Because this gateway
-       * uses this class to launch the driver, the ordering and semantics of the arguments
-       * here must also remain consistent across versions.
-       */
-      case workerUrl :: userJar :: mainClass :: extraArgs =>
-        val conf = new SparkConf()
-        val (actorSystem, _) = AkkaUtils.createActorSystem("Driver",
-          Utils.localHostName(), 0, conf, new SecurityManager(conf))
-        actorSystem.actorOf(Props(classOf[WorkerWatcher], workerUrl), name = "workerWatcher")
+    def main(args: Array[String]) {
+        args.toList match {
+            /*
+             * IMPORTANT: Spark 1.3 provides a stable application submission gateway that is both
+             * backward and forward compatible across future Spark versions. Because this gateway
+             * uses this class to launch the driver, the ordering and semantics of the arguments
+             * here must also remain consistent across versions.
+             */
+            case workerUrl :: userJar :: mainClass :: extraArgs =>
+                val conf = new SparkConf()
+                val (actorSystem, _) = AkkaUtils.createActorSystem("Driver",
+                    Utils.localHostName(), 0, conf, new SecurityManager(conf))
+                actorSystem.actorOf(Props(classOf[WorkerWatcher], workerUrl), name = "workerWatcher")
 
-        val currentLoader = Thread.currentThread.getContextClassLoader
-        val userJarUrl = new File(userJar).toURI().toURL()
-        val loader =
-          if (sys.props.getOrElse("spark.driver.userClassPathFirst", "false").toBoolean) {
-            new ChildFirstURLClassLoader(Array(userJarUrl), currentLoader)
-          } else {
-            new MutableURLClassLoader(Array(userJarUrl), currentLoader)
-          }
-        Thread.currentThread.setContextClassLoader(loader)
+                val currentLoader = Thread.currentThread.getContextClassLoader
+                val userJarUrl = new File(userJar).toURI().toURL()
+                val loader =
+                    if (sys.props.getOrElse("spark.driver.userClassPathFirst", "false").toBoolean) {
+                        new ChildFirstURLClassLoader(Array(userJarUrl), currentLoader)
+                    } else {
+                        new MutableURLClassLoader(Array(userJarUrl), currentLoader)
+                    }
+                Thread.currentThread.setContextClassLoader(loader)
 
-        // Delegate to supplied main class
-        val clazz = Class.forName(mainClass, true, loader)
-        val mainMethod = clazz.getMethod("main", classOf[Array[String]])
-        mainMethod.invoke(null, extraArgs.toArray[String])
+                // Delegate to supplied main class
+                val clazz = Class.forName(mainClass, true, loader)
+                val mainMethod = clazz.getMethod("main", classOf[Array[String]])
+                mainMethod.invoke(null, extraArgs.toArray[String])
 
-        actorSystem.shutdown()
+                actorSystem.shutdown()
 
-      case _ =>
-        System.err.println("Usage: DriverWrapper <workerUrl> <userJar> <driverMainClass> [options]")
-        System.exit(-1)
+            case _ =>
+                System.err.println("Usage: DriverWrapper <workerUrl> <userJar> <driverMainClass> [options]")
+                System.exit(-1)
+        }
     }
-  }
 }

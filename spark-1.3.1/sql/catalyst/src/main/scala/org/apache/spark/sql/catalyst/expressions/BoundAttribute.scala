@@ -23,39 +23,39 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.catalyst.trees
 
 /**
- * A bound reference points to a specific slot in the input tuple, allowing the actual value
- * to be retrieved more efficiently.  However, since operations like column pruning can change
- * the layout of intermediate tuples, BindReferences should be run after all such transformations.
- */
+  * A bound reference points to a specific slot in the input tuple, allowing the actual value
+  * to be retrieved more efficiently.  However, since operations like column pruning can change
+  * the layout of intermediate tuples, BindReferences should be run after all such transformations.
+  */
 case class BoundReference(ordinal: Int, dataType: DataType, nullable: Boolean)
-  extends Expression with trees.LeafNode[Expression] {
+        extends Expression with trees.LeafNode[Expression] {
 
-  type EvaluatedType = Any
+    type EvaluatedType = Any
 
-  override def toString: String = s"input[$ordinal]"
+    override def toString: String = s"input[$ordinal]"
 
-  override def eval(input: Row): Any = input(ordinal)
+    override def eval(input: Row): Any = input(ordinal)
 }
 
 object BindReferences extends Logging {
 
-  def bindReference[A <: Expression](
-      expression: A,
-      input: Seq[Attribute],
-      allowFailures: Boolean = false): A = {
-    expression.transform { case a: AttributeReference =>
-      attachTree(a, "Binding attribute") {
-        val ordinal = input.indexWhere(_.exprId == a.exprId)
-        if (ordinal == -1) {
-          if (allowFailures) {
-            a
-          } else {
-            sys.error(s"Couldn't find $a in ${input.mkString("[", ",", "]")}")
-          }
-        } else {
-          BoundReference(ordinal, a.dataType, a.nullable)
-        }
-      }
-    }.asInstanceOf[A] // Kind of a hack, but safe.  TODO: Tighten return type when possible.
-  }
+    def bindReference[A <: Expression](
+                                              expression: A,
+                                              input: Seq[Attribute],
+                                              allowFailures: Boolean = false): A = {
+        expression.transform { case a: AttributeReference =>
+            attachTree(a, "Binding attribute") {
+                val ordinal = input.indexWhere(_.exprId == a.exprId)
+                if (ordinal == -1) {
+                    if (allowFailures) {
+                        a
+                    } else {
+                        sys.error(s"Couldn't find $a in ${input.mkString("[", ",", "]")}")
+                    }
+                } else {
+                    BoundReference(ordinal, a.dataType, a.nullable)
+                }
+            }
+        }.asInstanceOf[A] // Kind of a hack, but safe.  TODO: Tighten return type when possible.
+    }
 }

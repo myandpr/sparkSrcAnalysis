@@ -20,36 +20,37 @@ package org.apache.spark.sql.catalyst.expressions.codegen
 import org.apache.spark.sql.catalyst.expressions._
 
 /**
- * Generates byte code that produces a [[MutableRow]] object that can update itself based on a new
- * input [[Row]] for a fixed set of [[Expression Expressions]].
- */
+  * Generates byte code that produces a [[MutableRow]] object that can update itself based on a new
+  * input [[Row]] for a fixed set of [[Expression Expressions]].
+  */
 object GenerateMutableProjection extends CodeGenerator[Seq[Expression], () => MutableProjection] {
-  import scala.reflect.runtime.{universe => ru}
-  import scala.reflect.runtime.universe._
 
-  val mutableRowName = newTermName("mutableRow")
+    import scala.reflect.runtime.{universe => ru}
+    import scala.reflect.runtime.universe._
 
-  protected def canonicalize(in: Seq[Expression]): Seq[Expression] =
-    in.map(ExpressionCanonicalizer(_))
+    val mutableRowName = newTermName("mutableRow")
 
-  protected def bind(in: Seq[Expression], inputSchema: Seq[Attribute]): Seq[Expression] =
-    in.map(BindReferences.bindReference(_, inputSchema))
+    protected def canonicalize(in: Seq[Expression]): Seq[Expression] =
+        in.map(ExpressionCanonicalizer(_))
 
-  protected def create(expressions: Seq[Expression]): (() => MutableProjection) = {
-    val projectionCode = expressions.zipWithIndex.flatMap { case (e, i) =>
-      val evaluationCode = expressionEvaluator(e)
+    protected def bind(in: Seq[Expression], inputSchema: Seq[Attribute]): Seq[Expression] =
+        in.map(BindReferences.bindReference(_, inputSchema))
 
-      evaluationCode.code :+
-      q"""
+    protected def create(expressions: Seq[Expression]): (() => MutableProjection) = {
+        val projectionCode = expressions.zipWithIndex.flatMap { case (e, i) =>
+            val evaluationCode = expressionEvaluator(e)
+
+            evaluationCode.code :+
+                    q"""
         if(${evaluationCode.nullTerm})
           mutableRow.setNullAt($i)
         else
           ${setColumn(mutableRowName, e.dataType, i, evaluationCode.primitiveTerm)}
       """
-    }
+        }
 
-    val code =
-      q"""
+        val code =
+            q"""
         () => { new $mutableProjectionType {
 
           private[this] var $mutableRowName: $mutableRowType =
@@ -70,7 +71,7 @@ object GenerateMutableProjection extends CodeGenerator[Seq[Expression], () => Mu
         } }
       """
 
-    log.debug(s"code for ${expressions.mkString(",")}:\n$code")
-    toolBox.eval(code).asInstanceOf[() => MutableProjection]
-  }
+        log.debug(s"code for ${expressions.mkString(",")}:\n$code")
+        toolBox.eval(code).asInstanceOf[() => MutableProjection]
+    }
 }

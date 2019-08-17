@@ -34,176 +34,176 @@ import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory
 import org.scalatest.FunSuite
 
 class SparkSinkSuite extends FunSuite {
-  val eventsPerBatch = 1000
-  val channelCapacity = 5000
+    val eventsPerBatch = 1000
+    val channelCapacity = 5000
 
-  test("Success with ack") {
-    val (channel, sink, latch) = initializeChannelAndSink()
-    channel.start()
-    sink.start()
+    test("Success with ack") {
+        val (channel, sink, latch) = initializeChannelAndSink()
+        channel.start()
+        sink.start()
 
-    putEvents(channel, eventsPerBatch)
+        putEvents(channel, eventsPerBatch)
 
-    val port = sink.getPort
-    val address = new InetSocketAddress("0.0.0.0", port)
+        val port = sink.getPort
+        val address = new InetSocketAddress("0.0.0.0", port)
 
-    val (transceiver, client) = getTransceiverAndClient(address, 1)(0)
-    val events = client.getEventBatch(1000)
-    client.ack(events.getSequenceNumber)
-    assert(events.getEvents.size() === 1000)
-    latch.await(1, TimeUnit.SECONDS)
-    assertChannelIsEmpty(channel)
-    sink.stop()
-    channel.stop()
-    transceiver.close()
-  }
-
-  test("Failure with nack") {
-    val (channel, sink, latch) = initializeChannelAndSink()
-    channel.start()
-    sink.start()
-    putEvents(channel, eventsPerBatch)
-
-    val port = sink.getPort
-    val address = new InetSocketAddress("0.0.0.0", port)
-
-    val (transceiver, client) = getTransceiverAndClient(address, 1)(0)
-    val events = client.getEventBatch(1000)
-    assert(events.getEvents.size() === 1000)
-    client.nack(events.getSequenceNumber)
-    latch.await(1, TimeUnit.SECONDS)
-    assert(availableChannelSlots(channel) === 4000)
-    sink.stop()
-    channel.stop()
-    transceiver.close()
-  }
-
-  test("Failure with timeout") {
-    val (channel, sink, latch) = initializeChannelAndSink(Map(SparkSinkConfig
-      .CONF_TRANSACTION_TIMEOUT -> 1.toString))
-    channel.start()
-    sink.start()
-    putEvents(channel, eventsPerBatch)
-    val port = sink.getPort
-    val address = new InetSocketAddress("0.0.0.0", port)
-
-    val (transceiver, client) = getTransceiverAndClient(address, 1)(0)
-    val events = client.getEventBatch(1000)
-    assert(events.getEvents.size() === 1000)
-    latch.await(1, TimeUnit.SECONDS)
-    assert(availableChannelSlots(channel) === 4000)
-    sink.stop()
-    channel.stop()
-    transceiver.close()
-  }
-
-  test("Multiple consumers") {
-    testMultipleConsumers(failSome = false)
-  }
-
-  test("Multiple consumers with some failures") {
-    testMultipleConsumers(failSome = true)
-  }
-
-  def testMultipleConsumers(failSome: Boolean): Unit = {
-    implicit val executorContext = ExecutionContext
-      .fromExecutorService(Executors.newFixedThreadPool(5))
-    val (channel, sink, latch) = initializeChannelAndSink(Map.empty, 5)
-    channel.start()
-    sink.start()
-    (1 to 5).foreach(_ => putEvents(channel, eventsPerBatch))
-    val port = sink.getPort
-    val address = new InetSocketAddress("0.0.0.0", port)
-    val transceiversAndClients = getTransceiverAndClient(address, 5)
-    val batchCounter = new CountDownLatch(5)
-    val counter = new AtomicInteger(0)
-    transceiversAndClients.foreach(x => {
-      Future {
-        val client = x._2
+        val (transceiver, client) = getTransceiverAndClient(address, 1)(0)
         val events = client.getEventBatch(1000)
-        if (!failSome || counter.getAndIncrement() % 2 == 0) {
-          client.ack(events.getSequenceNumber)
-        } else {
-          client.nack(events.getSequenceNumber)
-          throw new RuntimeException("Sending NACK for failure!")
-        }
-        events
-      }.onComplete {
-        case Success(events) =>
-          assert(events.getEvents.size() === 1000)
-          batchCounter.countDown()
-        case Failure(t) =>
-          // Don't re-throw the exception, causes a nasty unnecessary stack trace on stdout
-          batchCounter.countDown()
-      }
-    })
-    batchCounter.await()
-    latch.await(1, TimeUnit.SECONDS)
-    executorContext.shutdown()
-    if(failSome) {
-      assert(availableChannelSlots(channel) === 3000)
-    } else {
-      assertChannelIsEmpty(channel)
+        client.ack(events.getSequenceNumber)
+        assert(events.getEvents.size() === 1000)
+        latch.await(1, TimeUnit.SECONDS)
+        assertChannelIsEmpty(channel)
+        sink.stop()
+        channel.stop()
+        transceiver.close()
     }
-    sink.stop()
-    channel.stop()
-    transceiversAndClients.foreach(x => x._1.close())
-  }
 
-  private def initializeChannelAndSink(overrides: Map[String, String] = Map.empty,
-    batchCounter: Int = 1): (MemoryChannel, SparkSink, CountDownLatch) = {
-    val channel = new MemoryChannel()
-    val channelContext = new Context()
+    test("Failure with nack") {
+        val (channel, sink, latch) = initializeChannelAndSink()
+        channel.start()
+        sink.start()
+        putEvents(channel, eventsPerBatch)
 
-    channelContext.put("capacity", channelCapacity.toString)
-    channelContext.put("transactionCapacity", 1000.toString)
-    channelContext.put("keep-alive", 0.toString)
-    channelContext.putAll(overrides)
-    channel.setName(scala.util.Random.nextString(10))
-    channel.configure(channelContext)
+        val port = sink.getPort
+        val address = new InetSocketAddress("0.0.0.0", port)
 
-    val sink = new SparkSink()
-    val sinkContext = new Context()
-    sinkContext.put(SparkSinkConfig.CONF_HOSTNAME, "0.0.0.0")
-    sinkContext.put(SparkSinkConfig.CONF_PORT, 0.toString)
-    sink.configure(sinkContext)
-    sink.setChannel(channel)
-    val latch = new CountDownLatch(batchCounter)
-    sink.countdownWhenBatchReceived(latch)
-    (channel, sink, latch)
-  }
+        val (transceiver, client) = getTransceiverAndClient(address, 1)(0)
+        val events = client.getEventBatch(1000)
+        assert(events.getEvents.size() === 1000)
+        client.nack(events.getSequenceNumber)
+        latch.await(1, TimeUnit.SECONDS)
+        assert(availableChannelSlots(channel) === 4000)
+        sink.stop()
+        channel.stop()
+        transceiver.close()
+    }
 
-  private def putEvents(ch: MemoryChannel, count: Int): Unit = {
-    val tx = ch.getTransaction
-    tx.begin()
-    (1 to count).foreach(x => ch.put(EventBuilder.withBody(x.toString.getBytes)))
-    tx.commit()
-    tx.close()
-  }
+    test("Failure with timeout") {
+        val (channel, sink, latch) = initializeChannelAndSink(Map(SparkSinkConfig
+                .CONF_TRANSACTION_TIMEOUT -> 1.toString))
+        channel.start()
+        sink.start()
+        putEvents(channel, eventsPerBatch)
+        val port = sink.getPort
+        val address = new InetSocketAddress("0.0.0.0", port)
 
-  private def getTransceiverAndClient(address: InetSocketAddress,
-    count: Int): Seq[(NettyTransceiver, SparkFlumeProtocol.Callback)] = {
+        val (transceiver, client) = getTransceiverAndClient(address, 1)(0)
+        val events = client.getEventBatch(1000)
+        assert(events.getEvents.size() === 1000)
+        latch.await(1, TimeUnit.SECONDS)
+        assert(availableChannelSlots(channel) === 4000)
+        sink.stop()
+        channel.stop()
+        transceiver.close()
+    }
 
-    (1 to count).map(_ => {
-      lazy val channelFactoryExecutor =
-        Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).
-          setNameFormat("Flume Receiver Channel Thread - %d").build())
-      lazy val channelFactory =
-        new NioClientSocketChannelFactory(channelFactoryExecutor, channelFactoryExecutor)
-      val transceiver = new NettyTransceiver(address, channelFactory)
-      val client = SpecificRequestor.getClient(classOf[SparkFlumeProtocol.Callback], transceiver)
-      (transceiver, client)
-    })
-  }
+    test("Multiple consumers") {
+        testMultipleConsumers(failSome = false)
+    }
 
-  private def assertChannelIsEmpty(channel: MemoryChannel): Unit = {
-    assert(availableChannelSlots(channel) === channelCapacity)
-  }
+    test("Multiple consumers with some failures") {
+        testMultipleConsumers(failSome = true)
+    }
 
-  private def availableChannelSlots(channel: MemoryChannel): Int = {
-    val queueRemaining = channel.getClass.getDeclaredField("queueRemaining")
-    queueRemaining.setAccessible(true)
-    val m = queueRemaining.get(channel).getClass.getDeclaredMethod("availablePermits")
-    m.invoke(queueRemaining.get(channel)).asInstanceOf[Int]
-  }
+    def testMultipleConsumers(failSome: Boolean): Unit = {
+        implicit val executorContext = ExecutionContext
+                .fromExecutorService(Executors.newFixedThreadPool(5))
+        val (channel, sink, latch) = initializeChannelAndSink(Map.empty, 5)
+        channel.start()
+        sink.start()
+        (1 to 5).foreach(_ => putEvents(channel, eventsPerBatch))
+        val port = sink.getPort
+        val address = new InetSocketAddress("0.0.0.0", port)
+        val transceiversAndClients = getTransceiverAndClient(address, 5)
+        val batchCounter = new CountDownLatch(5)
+        val counter = new AtomicInteger(0)
+        transceiversAndClients.foreach(x => {
+            Future {
+                val client = x._2
+                val events = client.getEventBatch(1000)
+                if (!failSome || counter.getAndIncrement() % 2 == 0) {
+                    client.ack(events.getSequenceNumber)
+                } else {
+                    client.nack(events.getSequenceNumber)
+                    throw new RuntimeException("Sending NACK for failure!")
+                }
+                events
+            }.onComplete {
+                case Success(events) =>
+                    assert(events.getEvents.size() === 1000)
+                    batchCounter.countDown()
+                case Failure(t) =>
+                    // Don't re-throw the exception, causes a nasty unnecessary stack trace on stdout
+                    batchCounter.countDown()
+            }
+        })
+        batchCounter.await()
+        latch.await(1, TimeUnit.SECONDS)
+        executorContext.shutdown()
+        if (failSome) {
+            assert(availableChannelSlots(channel) === 3000)
+        } else {
+            assertChannelIsEmpty(channel)
+        }
+        sink.stop()
+        channel.stop()
+        transceiversAndClients.foreach(x => x._1.close())
+    }
+
+    private def initializeChannelAndSink(overrides: Map[String, String] = Map.empty,
+                                         batchCounter: Int = 1): (MemoryChannel, SparkSink, CountDownLatch) = {
+        val channel = new MemoryChannel()
+        val channelContext = new Context()
+
+        channelContext.put("capacity", channelCapacity.toString)
+        channelContext.put("transactionCapacity", 1000.toString)
+        channelContext.put("keep-alive", 0.toString)
+        channelContext.putAll(overrides)
+        channel.setName(scala.util.Random.nextString(10))
+        channel.configure(channelContext)
+
+        val sink = new SparkSink()
+        val sinkContext = new Context()
+        sinkContext.put(SparkSinkConfig.CONF_HOSTNAME, "0.0.0.0")
+        sinkContext.put(SparkSinkConfig.CONF_PORT, 0.toString)
+        sink.configure(sinkContext)
+        sink.setChannel(channel)
+        val latch = new CountDownLatch(batchCounter)
+        sink.countdownWhenBatchReceived(latch)
+        (channel, sink, latch)
+    }
+
+    private def putEvents(ch: MemoryChannel, count: Int): Unit = {
+        val tx = ch.getTransaction
+        tx.begin()
+        (1 to count).foreach(x => ch.put(EventBuilder.withBody(x.toString.getBytes)))
+        tx.commit()
+        tx.close()
+    }
+
+    private def getTransceiverAndClient(address: InetSocketAddress,
+                                        count: Int): Seq[(NettyTransceiver, SparkFlumeProtocol.Callback)] = {
+
+        (1 to count).map(_ => {
+            lazy val channelFactoryExecutor =
+                Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).
+                        setNameFormat("Flume Receiver Channel Thread - %d").build())
+            lazy val channelFactory =
+                new NioClientSocketChannelFactory(channelFactoryExecutor, channelFactoryExecutor)
+            val transceiver = new NettyTransceiver(address, channelFactory)
+            val client = SpecificRequestor.getClient(classOf[SparkFlumeProtocol.Callback], transceiver)
+            (transceiver, client)
+        })
+    }
+
+    private def assertChannelIsEmpty(channel: MemoryChannel): Unit = {
+        assert(availableChannelSlots(channel) === channelCapacity)
+    }
+
+    private def availableChannelSlots(channel: MemoryChannel): Int = {
+        val queueRemaining = channel.getClass.getDeclaredField("queueRemaining")
+        queueRemaining.setAccessible(true)
+        val m = queueRemaining.get(channel).getClass.getDeclaredMethod("availablePermits")
+        m.invoke(queueRemaining.get(channel)).asInstanceOf[Int]
+    }
 }

@@ -21,37 +21,37 @@ import org.apache.spark.sql.catalyst.expressions.{AttributeReference, AttributeM
 import org.apache.spark.sql.catalyst.plans.logical.{Statistics, LeafNode, LogicalPlan}
 
 /**
- * Used to link a [[BaseRelation]] in to a logical query plan.
- */
+  * Used to link a [[BaseRelation]] in to a logical query plan.
+  */
 private[sql] case class LogicalRelation(relation: BaseRelation)
-  extends LeafNode
-  with MultiInstanceRelation {
+        extends LeafNode
+                with MultiInstanceRelation {
 
-  override val output: Seq[AttributeReference] = relation.schema.toAttributes
+    override val output: Seq[AttributeReference] = relation.schema.toAttributes
 
-  // Logical Relations are distinct if they have different output for the sake of transformations.
-  override def equals(other: Any): Boolean = other match {
-    case l @ LogicalRelation(otherRelation) => relation == otherRelation && output == l.output
-    case  _ => false
-  }
+    // Logical Relations are distinct if they have different output for the sake of transformations.
+    override def equals(other: Any): Boolean = other match {
+        case l@LogicalRelation(otherRelation) => relation == otherRelation && output == l.output
+        case _ => false
+    }
 
-  override def hashCode: Int = {
-    com.google.common.base.Objects.hashCode(relation, output)
-  }
+    override def hashCode: Int = {
+        com.google.common.base.Objects.hashCode(relation, output)
+    }
 
-  override def sameResult(otherPlan: LogicalPlan): Boolean = otherPlan match {
-    case LogicalRelation(otherRelation) => relation == otherRelation
-    case _ => false
-  }
+    override def sameResult(otherPlan: LogicalPlan): Boolean = otherPlan match {
+        case LogicalRelation(otherRelation) => relation == otherRelation
+        case _ => false
+    }
 
-  @transient override lazy val statistics: Statistics = Statistics(
-    sizeInBytes = BigInt(relation.sizeInBytes)
-  )
+    @transient override lazy val statistics: Statistics = Statistics(
+        sizeInBytes = BigInt(relation.sizeInBytes)
+    )
 
-  /** Used to lookup original attribute capitalization */
-  val attributeMap: AttributeMap[AttributeReference] = AttributeMap(output.map(o => (o, o)))
+    /** Used to lookup original attribute capitalization */
+    val attributeMap: AttributeMap[AttributeReference] = AttributeMap(output.map(o => (o, o)))
 
-  def newInstance(): this.type = LogicalRelation(relation).asInstanceOf[this.type]
+    def newInstance(): this.type = LogicalRelation(relation).asInstanceOf[this.type]
 
-  override def simpleString: String = s"Relation[${output.mkString(",")}] $relation"
+    override def simpleString: String = s"Relation[${output.mkString(",")}] $relation"
 }

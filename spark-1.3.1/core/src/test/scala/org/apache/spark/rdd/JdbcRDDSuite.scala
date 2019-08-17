@@ -25,51 +25,56 @@ import org.apache.spark.{LocalSparkContext, SparkContext}
 
 class JdbcRDDSuite extends FunSuite with BeforeAndAfter with LocalSparkContext {
 
-  before {
-    Class.forName("org.apache.derby.jdbc.EmbeddedDriver")
-    val conn = DriverManager.getConnection("jdbc:derby:target/JdbcRDDSuiteDb;create=true")
-    try {
-      val create = conn.createStatement
-      create.execute("""
+    before {
+        Class.forName("org.apache.derby.jdbc.EmbeddedDriver")
+        val conn = DriverManager.getConnection("jdbc:derby:target/JdbcRDDSuiteDb;create=true")
+        try {
+            val create = conn.createStatement
+            create.execute(
+                """
         CREATE TABLE FOO(
           ID INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1),
           DATA INTEGER
         )""")
-      create.close()
-      val insert = conn.prepareStatement("INSERT INTO FOO(DATA) VALUES(?)")
-      (1 to 100).foreach { i =>
-        insert.setInt(1, i * 2)
-        insert.executeUpdate
-      }
-      insert.close()
-    } catch {
-      case e: SQLException if e.getSQLState == "X0Y32" =>
-        // table exists
-    } finally {
-      conn.close()
+            create.close()
+            val insert = conn.prepareStatement("INSERT INTO FOO(DATA) VALUES(?)")
+            (1 to 100).foreach { i =>
+                insert.setInt(1, i * 2)
+                insert.executeUpdate
+            }
+            insert.close()
+        } catch {
+            case e: SQLException if e.getSQLState == "X0Y32" =>
+            // table exists
+        } finally {
+            conn.close()
+        }
     }
-  }
 
-  test("basic functionality") {
-    sc = new SparkContext("local", "test")
-    val rdd = new JdbcRDD(
-      sc,
-      () => { DriverManager.getConnection("jdbc:derby:target/JdbcRDDSuiteDb") },
-      "SELECT DATA FROM FOO WHERE ? <= ID AND ID <= ?",
-      1, 100, 3,
-      (r: ResultSet) => { r.getInt(1) } ).cache()
+    test("basic functionality") {
+        sc = new SparkContext("local", "test")
+        val rdd = new JdbcRDD(
+            sc,
+            () => {
+                DriverManager.getConnection("jdbc:derby:target/JdbcRDDSuiteDb")
+            },
+            "SELECT DATA FROM FOO WHERE ? <= ID AND ID <= ?",
+            1, 100, 3,
+            (r: ResultSet) => {
+                r.getInt(1)
+            }).cache()
 
-    assert(rdd.count === 100)
-    assert(rdd.reduce(_+_) === 10100)
-  }
-
-  after {
-    try {
-      DriverManager.getConnection("jdbc:derby:target/JdbcRDDSuiteDb;shutdown=true")
-    } catch {
-      case se: SQLException if se.getSQLState == "08006" =>
-        // Normal single database shutdown
-        // https://db.apache.org/derby/docs/10.2/ref/rrefexcept71493.html
+        assert(rdd.count === 100)
+        assert(rdd.reduce(_ + _) === 10100)
     }
-  }
+
+    after {
+        try {
+            DriverManager.getConnection("jdbc:derby:target/JdbcRDDSuiteDb;shutdown=true")
+        } catch {
+            case se: SQLException if se.getSQLState == "08006" =>
+            // Normal single database shutdown
+            // https://db.apache.org/derby/docs/10.2/ref/rrefexcept71493.html
+        }
+    }
 }

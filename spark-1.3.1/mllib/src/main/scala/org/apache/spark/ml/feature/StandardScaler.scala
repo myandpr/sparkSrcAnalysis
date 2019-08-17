@@ -27,78 +27,80 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StructField, StructType}
 
 /**
- * Params for [[StandardScaler]] and [[StandardScalerModel]].
- */
+  * Params for [[StandardScaler]] and [[StandardScalerModel]].
+  */
 private[feature] trait StandardScalerParams extends Params with HasInputCol with HasOutputCol
 
 /**
- * :: AlphaComponent ::
- * Standardizes features by removing the mean and scaling to unit variance using column summary
- * statistics on the samples in the training set.
- */
+  * :: AlphaComponent ::
+  * Standardizes features by removing the mean and scaling to unit variance using column summary
+  * statistics on the samples in the training set.
+  */
 @AlphaComponent
 class StandardScaler extends Estimator[StandardScalerModel] with StandardScalerParams {
 
-  /** @group setParam */
-  def setInputCol(value: String): this.type = set(inputCol, value)
+    /** @group setParam */
+    def setInputCol(value: String): this.type = set(inputCol, value)
 
-  /** @group setParam */
-  def setOutputCol(value: String): this.type = set(outputCol, value)
+    /** @group setParam */
+    def setOutputCol(value: String): this.type = set(outputCol, value)
 
-  override def fit(dataset: DataFrame, paramMap: ParamMap): StandardScalerModel = {
-    transformSchema(dataset.schema, paramMap, logging = true)
-    val map = this.paramMap ++ paramMap
-    val input = dataset.select(map(inputCol)).map { case Row(v: Vector) => v }
-    val scaler = new feature.StandardScaler().fit(input)
-    val model = new StandardScalerModel(this, map, scaler)
-    Params.inheritValues(map, this, model)
-    model
-  }
+    override def fit(dataset: DataFrame, paramMap: ParamMap): StandardScalerModel = {
+        transformSchema(dataset.schema, paramMap, logging = true)
+        val map = this.paramMap ++ paramMap
+        val input = dataset.select(map(inputCol)).map { case Row(v: Vector) => v }
+        val scaler = new feature.StandardScaler().fit(input)
+        val model = new StandardScalerModel(this, map, scaler)
+        Params.inheritValues(map, this, model)
+        model
+    }
 
-  override def transformSchema(schema: StructType, paramMap: ParamMap): StructType = {
-    val map = this.paramMap ++ paramMap
-    val inputType = schema(map(inputCol)).dataType
-    require(inputType.isInstanceOf[VectorUDT],
-      s"Input column ${map(inputCol)} must be a vector column")
-    require(!schema.fieldNames.contains(map(outputCol)),
-      s"Output column ${map(outputCol)} already exists.")
-    val outputFields = schema.fields :+ StructField(map(outputCol), new VectorUDT, false)
-    StructType(outputFields)
-  }
+    override def transformSchema(schema: StructType, paramMap: ParamMap): StructType = {
+        val map = this.paramMap ++ paramMap
+        val inputType = schema(map(inputCol)).dataType
+        require(inputType.isInstanceOf[VectorUDT],
+            s"Input column ${map(inputCol)} must be a vector column")
+        require(!schema.fieldNames.contains(map(outputCol)),
+            s"Output column ${map(outputCol)} already exists.")
+        val outputFields = schema.fields :+ StructField(map(outputCol), new VectorUDT, false)
+        StructType(outputFields)
+    }
 }
 
 /**
- * :: AlphaComponent ::
- * Model fitted by [[StandardScaler]].
- */
+  * :: AlphaComponent ::
+  * Model fitted by [[StandardScaler]].
+  */
 @AlphaComponent
-class StandardScalerModel private[ml] (
-    override val parent: StandardScaler,
-    override val fittingParamMap: ParamMap,
-    scaler: feature.StandardScalerModel)
-  extends Model[StandardScalerModel] with StandardScalerParams {
+class StandardScalerModel private[ml](
+                                             override val parent: StandardScaler,
+                                             override val fittingParamMap: ParamMap,
+                                             scaler: feature.StandardScalerModel)
+        extends Model[StandardScalerModel] with StandardScalerParams {
 
-  /** @group setParam */
-  def setInputCol(value: String): this.type = set(inputCol, value)
+    /** @group setParam */
+    def setInputCol(value: String): this.type = set(inputCol, value)
 
-  /** @group setParam */
-  def setOutputCol(value: String): this.type = set(outputCol, value)
+    /** @group setParam */
+    def setOutputCol(value: String): this.type = set(outputCol, value)
 
-  override def transform(dataset: DataFrame, paramMap: ParamMap): DataFrame = {
-    transformSchema(dataset.schema, paramMap, logging = true)
-    val map = this.paramMap ++ paramMap
-    val scale = udf((v: Vector) => { scaler.transform(v) } : Vector)
-    dataset.withColumn(map(outputCol), scale(col(map(inputCol))))
-  }
+    override def transform(dataset: DataFrame, paramMap: ParamMap): DataFrame = {
+        transformSchema(dataset.schema, paramMap, logging = true)
+        val map = this.paramMap ++ paramMap
+        val scale = udf((v: Vector) => {
+            scaler.transform(v)
+        }: Vector)
+        dataset.withColumn(map(outputCol), scale(col(map(inputCol))))
+    }
 
-  override def transformSchema(schema: StructType, paramMap: ParamMap): StructType = {
-    val map = this.paramMap ++ paramMap
-    val inputType = schema(map(inputCol)).dataType
-    require(inputType.isInstanceOf[VectorUDT],
-      s"Input column ${map(inputCol)} must be a vector column")
-    require(!schema.fieldNames.contains(map(outputCol)),
-      s"Output column ${map(outputCol)} already exists.")
-    val outputFields = schema.fields :+ StructField(map(outputCol), new VectorUDT, false)
-    StructType(outputFields)
-  }
+    override def transformSchema(schema: StructType, paramMap: ParamMap): StructType = {
+        val map = this.paramMap ++ paramMap
+        val inputType = schema(map(inputCol)).dataType
+        require(inputType.isInstanceOf[VectorUDT],
+            s"Input column ${map(inputCol)} must be a vector column")
+        require(!schema.fieldNames.contains(map(outputCol)),
+            s"Output column ${map(outputCol)} already exists.")
+        val outputFields = schema.fields :+ StructField(map(outputCol), new VectorUDT, false)
+        StructType(outputFields)
+    }
 }

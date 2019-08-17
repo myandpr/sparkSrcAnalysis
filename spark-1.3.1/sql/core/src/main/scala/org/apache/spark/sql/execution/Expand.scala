@@ -25,56 +25,57 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.physical.{UnknownPartitioning, Partitioning}
 
 /**
- * Apply the all of the GroupExpressions to every input row, hence we will get
- * multiple output rows for a input row.
- * @param projections The group of expressions, all of the group expressions should
- *                    output the same schema specified bye the parameter `output`
- * @param output      The output Schema
- * @param child       Child operator
- */
+  * Apply the all of the GroupExpressions to every input row, hence we will get
+  * multiple output rows for a input row.
+  *
+  * @param projections The group of expressions, all of the group expressions should
+  *                    output the same schema specified bye the parameter `output`
+  * @param output      The output Schema
+  * @param child       Child operator
+  */
 @DeveloperApi
 case class Expand(
-    projections: Seq[GroupExpression],
-    output: Seq[Attribute],
-    child: SparkPlan)
-  extends UnaryNode {
+                         projections: Seq[GroupExpression],
+                         output: Seq[Attribute],
+                         child: SparkPlan)
+        extends UnaryNode {
 
-  // The GroupExpressions can output data with arbitrary partitioning, so set it
-  // as UNKNOWN partitioning
-  override def outputPartitioning: Partitioning = UnknownPartitioning(0)
+    // The GroupExpressions can output data with arbitrary partitioning, so set it
+    // as UNKNOWN partitioning
+    override def outputPartitioning: Partitioning = UnknownPartitioning(0)
 
-  override def execute(): RDD[Row] = attachTree(this, "execute") {
-    child.execute().mapPartitions { iter =>
-      // TODO Move out projection objects creation and transfer to
-      // workers via closure. However we can't assume the Projection
-      // is serializable because of the code gen, so we have to
-      // create the projections within each of the partition processing.
-      val groups = projections.map(ee => newProjection(ee.children, child.output)).toArray
+    override def execute(): RDD[Row] = attachTree(this, "execute") {
+        child.execute().mapPartitions { iter =>
+            // TODO Move out projection objects creation and transfer to
+            // workers via closure. However we can't assume the Projection
+            // is serializable because of the code gen, so we have to
+            // create the projections within each of the partition processing.
+            val groups = projections.map(ee => newProjection(ee.children, child.output)).toArray
 
-      new Iterator[Row] {
-        private[this] var result: Row = _
-        private[this] var idx = -1  // -1 means the initial state
-        private[this] var input: Row = _
+            new Iterator[Row] {
+                private[this] var result: Row = _
+                private[this] var idx = -1 // -1 means the initial state
+                private[this] var input: Row = _
 
-        override final def hasNext: Boolean = (-1 < idx && idx < groups.length) || iter.hasNext
+                override final def hasNext: Boolean = (-1 < idx && idx < groups.length) || iter.hasNext
 
-        override final def next(): Row = {
-          if (idx <= 0) {
-            // in the initial (-1) or beginning(0) of a new input row, fetch the next input tuple
-            input = iter.next()
-            idx = 0
-          }
+                override final def next(): Row = {
+                    if (idx <= 0) {
+                        // in the initial (-1) or beginning(0) of a new input row, fetch the next input tuple
+                        input = iter.next()
+                        idx = 0
+                    }
 
-          result = groups(idx)(input)
-          idx += 1
+                    result = groups(idx)(input)
+                    idx += 1
 
-          if (idx == groups.length && iter.hasNext) {
-            idx = 0
-          }
+                    if (idx == groups.length && iter.hasNext) {
+                        idx = 0
+                    }
 
-          result
+                    result
+                }
+            }
         }
-      }
     }
-  }
 }

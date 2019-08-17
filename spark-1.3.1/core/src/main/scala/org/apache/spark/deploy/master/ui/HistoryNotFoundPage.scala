@@ -25,49 +25,58 @@ import scala.xml.Node
 import org.apache.spark.ui.{UIUtils, WebUIPage}
 
 private[spark] class HistoryNotFoundPage(parent: MasterWebUI)
-  extends WebUIPage("history/not-found") {
+        extends WebUIPage("history/not-found") {
 
-  /**
-   * Render a page that conveys failure in loading application history.
-   *
-   * This accepts 3 HTTP parameters:
-   *   msg = message to display to the user
-   *   title = title of the page
-   *   exception = detailed description of the exception in loading application history (if any)
-   *
-   * Parameters "msg" and "exception" are assumed to be UTF-8 encoded.
-   */
-  def render(request: HttpServletRequest): Seq[Node] = {
-    val titleParam = request.getParameter("title")
-    val msgParam = request.getParameter("msg")
-    val exceptionParam = request.getParameter("exception")
+    /**
+      * Render a page that conveys failure in loading application history.
+      *
+      * This accepts 3 HTTP parameters:
+      * msg = message to display to the user
+      * title = title of the page
+      * exception = detailed description of the exception in loading application history (if any)
+      *
+      * Parameters "msg" and "exception" are assumed to be UTF-8 encoded.
+      */
+    def render(request: HttpServletRequest): Seq[Node] = {
+        val titleParam = request.getParameter("title")
+        val msgParam = request.getParameter("msg")
+        val exceptionParam = request.getParameter("exception")
 
-    // If no parameters are specified, assume the user did not enable event logging
-    val defaultTitle = "Event logging is not enabled"
-    val defaultContent =
-      <div class="row-fluid">
-        <div class="span12" style="font-size:14px">
-          No event logs were found for this application! To
-          <a href="http://spark.apache.org/docs/latest/monitoring.html">enable event logging</a>,
-          set <span style="font-style:italic">spark.eventLog.enabled</span> to true and
-          <span style="font-style:italic">spark.eventLog.dir</span> to the directory to which your
-          event logs are written.
-        </div>
-      </div>
+        // If no parameters are specified, assume the user did not enable event logging
+        val defaultTitle = "Event logging is not enabled"
+        val defaultContent =
+            <div class="row-fluid">
+                <div class="span12" style="font-size:14px">
+                    No event logs were found for this application! To
+                    <a href="http://spark.apache.org/docs/latest/monitoring.html">enable event logging</a>
+                    ,
+                    set
+                    <span style="font-style:italic">spark.eventLog.enabled</span>
+                    to true and
+                    <span style="font-style:italic">spark.eventLog.dir</span>
+                    to the directory to which your
+                    event logs are written.
+                </div>
+            </div>
 
-    val title = Option(titleParam).getOrElse(defaultTitle)
-    val content = Option(msgParam)
-      .map { msg => URLDecoder.decode(msg, "UTF-8") }
-      .map { msg =>
-        <div class="row-fluid">
-          <div class="span12" style="font-size:14px">{msg}</div>
-        </div> ++
-        Option(exceptionParam)
-          .map { e => URLDecoder.decode(e, "UTF-8") }
-          .map { e => <pre>{e}</pre> }
-          .getOrElse(Seq.empty)
-      }.getOrElse(defaultContent)
+        val title = Option(titleParam).getOrElse(defaultTitle)
+        val content = Option(msgParam)
+                .map { msg => URLDecoder.decode(msg, "UTF-8") }
+                .map { msg =>
+                    <div class="row-fluid">
+                        <div class="span12" style="font-size:14px">
+                            {msg}
+                        </div>
+                    </div> ++
+                            Option(exceptionParam)
+                                    .map { e => URLDecoder.decode(e, "UTF-8") }
+                                    .map { e => <pre>
+                                        {e}
+                                    </pre>
+                                    }
+                                    .getOrElse(Seq.empty)
+                }.getOrElse(defaultContent)
 
-    UIUtils.basicSparkPage(content, title)
-  }
+        UIUtils.basicSparkPage(content, title)
+    }
 }

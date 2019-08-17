@@ -23,10 +23,10 @@ import org.apache.spark.streaming.receiver.Receiver
 
 private[streaming]
 class PluggableInputDStream[T: ClassTag](
-  @transient ssc_ : StreamingContext,
-  receiver: Receiver[T]) extends ReceiverInputDStream[T](ssc_) {
+                                                @transient ssc_ : StreamingContext,
+                                                receiver: Receiver[T]) extends ReceiverInputDStream[T](ssc_) {
 
-  def getReceiver(): Receiver[T] = {
-    receiver
-  }
+    def getReceiver(): Receiver[T] = {
+        receiver
+    }
 }

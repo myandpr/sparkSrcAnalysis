@@ -21,14 +21,16 @@ import java.util.NoSuchElementException;
 
 import org.apache.spark.network.util.ConfigProvider;
 
-/** Uses System properties to obtain config values. */
+/**
+ * Uses System properties to obtain config values.
+ */
 public class SystemPropertyConfigProvider extends ConfigProvider {
-  @Override
-  public String get(String name) {
-    String value = System.getProperty(name);
-    if (value == null) {
-      throw new NoSuchElementException(name);
+    @Override
+    public String get(String name) {
+        String value = System.getProperty(name);
+        if (value == null) {
+            throw new NoSuchElementException(name);
+        }
+        return value;
     }
-    return value;
-  }
 }

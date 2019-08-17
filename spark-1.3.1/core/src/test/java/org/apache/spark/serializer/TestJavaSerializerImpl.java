@@ -30,66 +30,66 @@ import scala.reflect.ClassTag;
  */
 class TestJavaSerializerImpl extends Serializer {
 
-  @Override
-  public SerializerInstance newInstance() {
-    return null;
-  }
-
-  static class SerializerInstanceImpl extends SerializerInstance {
-      @Override
-      public <T> ByteBuffer serialize(T t, ClassTag<T> evidence$1) {
+    @Override
+    public SerializerInstance newInstance() {
         return null;
-      }
-
-      @Override
-    public <T> T deserialize(ByteBuffer bytes, ClassLoader loader, ClassTag<T> evidence$1) {
-      return null;
     }
 
-    @Override
-    public <T> T deserialize(ByteBuffer bytes, ClassTag<T> evidence$1) {
-      return null;
+    static class SerializerInstanceImpl extends SerializerInstance {
+        @Override
+        public <T> ByteBuffer serialize(T t, ClassTag<T> evidence$1) {
+            return null;
+        }
+
+        @Override
+        public <T> T deserialize(ByteBuffer bytes, ClassLoader loader, ClassTag<T> evidence$1) {
+            return null;
+        }
+
+        @Override
+        public <T> T deserialize(ByteBuffer bytes, ClassTag<T> evidence$1) {
+            return null;
+        }
+
+        @Override
+        public SerializationStream serializeStream(OutputStream s) {
+            return null;
+        }
+
+        @Override
+        public DeserializationStream deserializeStream(InputStream s) {
+            return null;
+        }
     }
 
-    @Override
-    public SerializationStream serializeStream(OutputStream s) {
-      return null;
+    static class SerializationStreamImpl extends SerializationStream {
+
+        @Override
+        public <T> SerializationStream writeObject(T t, ClassTag<T> evidence$1) {
+            return null;
+        }
+
+        @Override
+        public void flush() {
+
+        }
+
+        @Override
+        public void close() {
+
+        }
     }
 
-    @Override
-    public DeserializationStream deserializeStream(InputStream s) {
-      return null;
+    static class DeserializationStreamImpl extends DeserializationStream {
+
+        @Override
+        public <T> T readObject(ClassTag<T> evidence$1) {
+            return null;
+        }
+
+        @Override
+        public void close() {
+
+        }
     }
-  }
-
-  static class SerializationStreamImpl extends SerializationStream {
-
-    @Override
-    public <T> SerializationStream writeObject(T t, ClassTag<T> evidence$1) {
-      return null;
-    }
-
-    @Override
-    public void flush() {
-
-    }
-
-    @Override
-    public void close() {
-
-    }
-  }
-
-  static class DeserializationStreamImpl extends DeserializationStream {
-
-    @Override
-    public <T> T readObject(ClassTag<T> evidence$1) {
-      return null;
-    }
-
-    @Override
-    public void close() {
-
-    }
-  }
 }

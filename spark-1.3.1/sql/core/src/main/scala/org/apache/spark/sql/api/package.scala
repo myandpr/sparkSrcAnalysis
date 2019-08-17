@@ -18,6 +18,6 @@
 package org.apache.spark.sql
 
 /**
- * Contains API classes that are specific to a single language (i.e. Java).
- */
+  * Contains API classes that are specific to a single language (i.e. Java).
+  */
 package object api

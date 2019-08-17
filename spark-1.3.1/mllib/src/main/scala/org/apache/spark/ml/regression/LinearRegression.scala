@@ -26,74 +26,74 @@ import org.apache.spark.storage.StorageLevel
 
 
 /**
- * Params for linear regression.
- */
+  * Params for linear regression.
+  */
 private[regression] trait LinearRegressionParams extends RegressorParams
-  with HasRegParam with HasMaxIter
+        with HasRegParam with HasMaxIter
 
 
 /**
- * :: AlphaComponent ::
- *
- * Linear regression.
- */
+  * :: AlphaComponent ::
+  *
+  * Linear regression.
+  */
 @AlphaComponent
 class LinearRegression extends Regressor[Vector, LinearRegression, LinearRegressionModel]
-  with LinearRegressionParams {
+        with LinearRegressionParams {
 
-  setRegParam(0.1)
-  setMaxIter(100)
+    setRegParam(0.1)
+    setMaxIter(100)
 
-  /** @group setParam */
-  def setRegParam(value: Double): this.type = set(regParam, value)
+    /** @group setParam */
+    def setRegParam(value: Double): this.type = set(regParam, value)
 
-  /** @group setParam */
-  def setMaxIter(value: Int): this.type = set(maxIter, value)
+    /** @group setParam */
+    def setMaxIter(value: Int): this.type = set(maxIter, value)
 
-  override protected def train(dataset: DataFrame, paramMap: ParamMap): LinearRegressionModel = {
-    // Extract columns from data.  If dataset is persisted, do not persist oldDataset.
-    val oldDataset = extractLabeledPoints(dataset, paramMap)
-    val handlePersistence = dataset.rdd.getStorageLevel == StorageLevel.NONE
-    if (handlePersistence) {
-      oldDataset.persist(StorageLevel.MEMORY_AND_DISK)
+    override protected def train(dataset: DataFrame, paramMap: ParamMap): LinearRegressionModel = {
+        // Extract columns from data.  If dataset is persisted, do not persist oldDataset.
+        val oldDataset = extractLabeledPoints(dataset, paramMap)
+        val handlePersistence = dataset.rdd.getStorageLevel == StorageLevel.NONE
+        if (handlePersistence) {
+            oldDataset.persist(StorageLevel.MEMORY_AND_DISK)
+        }
+
+        // Train model
+        val lr = new LinearRegressionWithSGD()
+        lr.optimizer
+                .setRegParam(paramMap(regParam))
+                .setNumIterations(paramMap(maxIter))
+        val model = lr.run(oldDataset)
+        val lrm = new LinearRegressionModel(this, paramMap, model.weights, model.intercept)
+
+        if (handlePersistence) {
+            oldDataset.unpersist()
+        }
+        lrm
     }
-
-    // Train model
-    val lr = new LinearRegressionWithSGD()
-    lr.optimizer
-      .setRegParam(paramMap(regParam))
-      .setNumIterations(paramMap(maxIter))
-    val model = lr.run(oldDataset)
-    val lrm = new LinearRegressionModel(this, paramMap, model.weights, model.intercept)
-
-    if (handlePersistence) {
-      oldDataset.unpersist()
-    }
-    lrm
-  }
 }
 
 /**
- * :: AlphaComponent ::
- *
- * Model produced by [[LinearRegression]].
- */
+  * :: AlphaComponent ::
+  *
+  * Model produced by [[LinearRegression]].
+  */
 @AlphaComponent
-class LinearRegressionModel private[ml] (
-    override val parent: LinearRegression,
-    override val fittingParamMap: ParamMap,
-    val weights: Vector,
-    val intercept: Double)
-  extends RegressionModel[Vector, LinearRegressionModel]
-  with LinearRegressionParams {
+class LinearRegressionModel private[ml](
+                                               override val parent: LinearRegression,
+                                               override val fittingParamMap: ParamMap,
+                                               val weights: Vector,
+                                               val intercept: Double)
+        extends RegressionModel[Vector, LinearRegressionModel]
+                with LinearRegressionParams {
 
-  override protected def predict(features: Vector): Double = {
-    BLAS.dot(features, weights) + intercept
-  }
+    override protected def predict(features: Vector): Double = {
+        BLAS.dot(features, weights) + intercept
+    }
 
-  override protected def copy(): LinearRegressionModel = {
-    val m = new LinearRegressionModel(parent, fittingParamMap, weights, intercept)
-    Params.inheritValues(this.paramMap, this, m)
-    m
-  }
+    override protected def copy(): LinearRegressionModel = {
+        val m = new LinearRegressionModel(parent, fittingParamMap, weights, intercept)
+        Params.inheritValues(this.paramMap, this, m)
+        m
+    }
 }

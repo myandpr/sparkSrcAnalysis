@@ -27,80 +27,82 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 /**
- * :: AlphaComponent ::
- * Abstract class for transformers that transform one dataset into another.
- */
+  * :: AlphaComponent ::
+  * Abstract class for transformers that transform one dataset into another.
+  */
 @AlphaComponent
 abstract class Transformer extends PipelineStage with Params {
 
-  /**
-   * Transforms the dataset with optional parameters
-   * @param dataset input dataset
-   * @param paramPairs optional list of param pairs, overwrite embedded params
-   * @return transformed dataset
-   */
-  @varargs
-  def transform(dataset: DataFrame, paramPairs: ParamPair[_]*): DataFrame = {
-    val map = new ParamMap()
-    paramPairs.foreach(map.put(_))
-    transform(dataset, map)
-  }
+    /**
+      * Transforms the dataset with optional parameters
+      *
+      * @param dataset    input dataset
+      * @param paramPairs optional list of param pairs, overwrite embedded params
+      * @return transformed dataset
+      */
+    @varargs
+    def transform(dataset: DataFrame, paramPairs: ParamPair[_]*): DataFrame = {
+        val map = new ParamMap()
+        paramPairs.foreach(map.put(_))
+        transform(dataset, map)
+    }
 
-  /**
-   * Transforms the dataset with provided parameter map as additional parameters.
-   * @param dataset input dataset
-   * @param paramMap additional parameters, overwrite embedded params
-   * @return transformed dataset
-   */
-  def transform(dataset: DataFrame, paramMap: ParamMap): DataFrame
+    /**
+      * Transforms the dataset with provided parameter map as additional parameters.
+      *
+      * @param dataset  input dataset
+      * @param paramMap additional parameters, overwrite embedded params
+      * @return transformed dataset
+      */
+    def transform(dataset: DataFrame, paramMap: ParamMap): DataFrame
 }
 
 /**
- * Abstract class for transformers that take one input column, apply transformation, and output the
- * result as a new column.
- */
+  * Abstract class for transformers that take one input column, apply transformation, and output the
+  * result as a new column.
+  */
 private[ml] abstract class UnaryTransformer[IN, OUT, T <: UnaryTransformer[IN, OUT, T]]
-  extends Transformer with HasInputCol with HasOutputCol with Logging {
+        extends Transformer with HasInputCol with HasOutputCol with Logging {
 
-  /** @group setParam */
-  def setInputCol(value: String): T = set(inputCol, value).asInstanceOf[T]
+    /** @group setParam */
+    def setInputCol(value: String): T = set(inputCol, value).asInstanceOf[T]
 
-  /** @group setParam */
-  def setOutputCol(value: String): T = set(outputCol, value).asInstanceOf[T]
+    /** @group setParam */
+    def setOutputCol(value: String): T = set(outputCol, value).asInstanceOf[T]
 
-  /**
-   * Creates the transform function using the given param map. The input param map already takes
-   * account of the embedded param map. So the param values should be determined solely by the input
-   * param map.
-   */
-  protected def createTransformFunc(paramMap: ParamMap): IN => OUT
+    /**
+      * Creates the transform function using the given param map. The input param map already takes
+      * account of the embedded param map. So the param values should be determined solely by the input
+      * param map.
+      */
+    protected def createTransformFunc(paramMap: ParamMap): IN => OUT
 
-  /**
-   * Returns the data type of the output column.
-   */
-  protected def outputDataType: DataType
+    /**
+      * Returns the data type of the output column.
+      */
+    protected def outputDataType: DataType
 
-  /**
-   * Validates the input type. Throw an exception if it is invalid.
-   */
-  protected def validateInputType(inputType: DataType): Unit = {}
+    /**
+      * Validates the input type. Throw an exception if it is invalid.
+      */
+    protected def validateInputType(inputType: DataType): Unit = {}
 
-  override def transformSchema(schema: StructType, paramMap: ParamMap): StructType = {
-    val map = this.paramMap ++ paramMap
-    val inputType = schema(map(inputCol)).dataType
-    validateInputType(inputType)
-    if (schema.fieldNames.contains(map(outputCol))) {
-      throw new IllegalArgumentException(s"Output column ${map(outputCol)} already exists.")
+    override def transformSchema(schema: StructType, paramMap: ParamMap): StructType = {
+        val map = this.paramMap ++ paramMap
+        val inputType = schema(map(inputCol)).dataType
+        validateInputType(inputType)
+        if (schema.fieldNames.contains(map(outputCol))) {
+            throw new IllegalArgumentException(s"Output column ${map(outputCol)} already exists.")
+        }
+        val outputFields = schema.fields :+
+                StructField(map(outputCol), outputDataType, !outputDataType.isPrimitive)
+        StructType(outputFields)
     }
-    val outputFields = schema.fields :+
-      StructField(map(outputCol), outputDataType, !outputDataType.isPrimitive)
-    StructType(outputFields)
-  }
 
-  override def transform(dataset: DataFrame, paramMap: ParamMap): DataFrame = {
-    transformSchema(dataset.schema, paramMap, logging = true)
-    val map = this.paramMap ++ paramMap
-    dataset.withColumn(map(outputCol),
-      callUDF(this.createTransformFunc(map), outputDataType, dataset(map(inputCol))))
-  }
+    override def transform(dataset: DataFrame, paramMap: ParamMap): DataFrame = {
+        transformSchema(dataset.schema, paramMap, logging = true)
+        val map = this.paramMap ++ paramMap
+        dataset.withColumn(map(outputCol),
+            callUDF(this.createTransformFunc(map), outputDataType, dataset(map(inputCol))))
+    }
 }

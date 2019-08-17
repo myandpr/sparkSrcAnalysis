@@ -18,6 +18,6 @@
 package org.apache.spark
 
 /**
- * Bagel: An implementation of Pregel in Spark. THIS IS DEPRECATED - use Spark's GraphX library.
- */
+  * Bagel: An implementation of Pregel in Spark. THIS IS DEPRECATED - use Spark's GraphX library.
+  */
 package object bagel

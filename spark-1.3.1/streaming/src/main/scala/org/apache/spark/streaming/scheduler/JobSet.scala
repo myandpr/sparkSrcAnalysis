@@ -26,49 +26,49 @@ import org.apache.spark.streaming.Time
   */
 private[streaming]
 case class JobSet(
-    time: Time,
-    jobs: Seq[Job],
-    receivedBlockInfo: Map[Int, Array[ReceivedBlockInfo]] = Map.empty
-  ) {
+                         time: Time,
+                         jobs: Seq[Job],
+                         receivedBlockInfo: Map[Int, Array[ReceivedBlockInfo]] = Map.empty
+                 ) {
 
-  private val incompleteJobs = new HashSet[Job]()
-  private val submissionTime = System.currentTimeMillis() // when this jobset was submitted
-  private var processingStartTime = -1L // when the first job of this jobset started processing
-  private var processingEndTime = -1L // when the last job of this jobset finished processing
+    private val incompleteJobs = new HashSet[Job]()
+    private val submissionTime = System.currentTimeMillis() // when this jobset was submitted
+    private var processingStartTime = -1L // when the first job of this jobset started processing
+    private var processingEndTime = -1L // when the last job of this jobset finished processing
 
-  jobs.zipWithIndex.foreach { case (job, i) => job.setId(i) }
-  incompleteJobs ++= jobs
+    jobs.zipWithIndex.foreach { case (job, i) => job.setId(i) }
+    incompleteJobs ++= jobs
 
-  def handleJobStart(job: Job) {
-    if (processingStartTime < 0) processingStartTime = System.currentTimeMillis()
-  }
+    def handleJobStart(job: Job) {
+        if (processingStartTime < 0) processingStartTime = System.currentTimeMillis()
+    }
 
-  def handleJobCompletion(job: Job) {
-    incompleteJobs -= job
-    if (hasCompleted) processingEndTime = System.currentTimeMillis()
-  }
+    def handleJobCompletion(job: Job) {
+        incompleteJobs -= job
+        if (hasCompleted) processingEndTime = System.currentTimeMillis()
+    }
 
-  def hasStarted = processingStartTime > 0
+    def hasStarted = processingStartTime > 0
 
-  def hasCompleted = incompleteJobs.isEmpty
+    def hasCompleted = incompleteJobs.isEmpty
 
-  // Time taken to process all the jobs from the time they started processing
-  // (i.e. not including the time they wait in the streaming scheduler queue)
-  def processingDelay = processingEndTime - processingStartTime
+    // Time taken to process all the jobs from the time they started processing
+    // (i.e. not including the time they wait in the streaming scheduler queue)
+    def processingDelay = processingEndTime - processingStartTime
 
-  // Time taken to process all the jobs from the time they were submitted
-  // (i.e. including the time they wait in the streaming scheduler queue)
-  def totalDelay = {
-    processingEndTime - time.milliseconds
-  }
+    // Time taken to process all the jobs from the time they were submitted
+    // (i.e. including the time they wait in the streaming scheduler queue)
+    def totalDelay = {
+        processingEndTime - time.milliseconds
+    }
 
-  def toBatchInfo: BatchInfo = {
-    new BatchInfo(
-      time,
-      receivedBlockInfo,
-      submissionTime,
-      if (processingStartTime >= 0 ) Some(processingStartTime) else None,
-      if (processingEndTime >= 0 ) Some(processingEndTime) else None
-    )
-  }
+    def toBatchInfo: BatchInfo = {
+        new BatchInfo(
+            time,
+            receivedBlockInfo,
+            submissionTime,
+            if (processingStartTime >= 0) Some(processingStartTime) else None,
+            if (processingEndTime >= 0) Some(processingEndTime) else None
+        )
+    }
 }

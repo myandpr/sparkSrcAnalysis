@@ -28,23 +28,23 @@ import org.apache.spark.streaming.LocalJavaStreamingContext;
 
 public class JavaZeroMQStreamSuite extends LocalJavaStreamingContext {
 
-  @Test // tests the API, does not actually test data receiving
-  public void testZeroMQStream() {
-    String publishUrl = "abc";
-    Subscribe subscribe = new Subscribe((ByteString)null);
-    Function<byte[][], Iterable<String>> bytesToObjects = new Function<byte[][], Iterable<String>>() {
-      @Override
-      public Iterable<String> call(byte[][] bytes) throws Exception {
-        return null;
-      }
-    };
+    @Test // tests the API, does not actually test data receiving
+    public void testZeroMQStream() {
+        String publishUrl = "abc";
+        Subscribe subscribe = new Subscribe((ByteString) null);
+        Function<byte[][], Iterable<String>> bytesToObjects = new Function<byte[][], Iterable<String>>() {
+            @Override
+            public Iterable<String> call(byte[][] bytes) throws Exception {
+                return null;
+            }
+        };
 
-    JavaReceiverInputDStream<String> test1 = ZeroMQUtils.<String>createStream(
-      ssc, publishUrl, subscribe, bytesToObjects);
-    JavaReceiverInputDStream<String> test2 = ZeroMQUtils.<String>createStream(
-      ssc, publishUrl, subscribe, bytesToObjects, StorageLevel.MEMORY_AND_DISK_SER_2());
-    JavaReceiverInputDStream<String> test3 = ZeroMQUtils.<String>createStream(
-      ssc,publishUrl, subscribe, bytesToObjects, StorageLevel.MEMORY_AND_DISK_SER_2(),
-      SupervisorStrategy.defaultStrategy());
-  }
+        JavaReceiverInputDStream<String> test1 = ZeroMQUtils.<String>createStream(
+                ssc, publishUrl, subscribe, bytesToObjects);
+        JavaReceiverInputDStream<String> test2 = ZeroMQUtils.<String>createStream(
+                ssc, publishUrl, subscribe, bytesToObjects, StorageLevel.MEMORY_AND_DISK_SER_2());
+        JavaReceiverInputDStream<String> test3 = ZeroMQUtils.<String>createStream(
+                ssc, publishUrl, subscribe, bytesToObjects, StorageLevel.MEMORY_AND_DISK_SER_2(),
+                SupervisorStrategy.defaultStrategy());
+    }
 }

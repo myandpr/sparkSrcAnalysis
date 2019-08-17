@@ -29,9 +29,9 @@ public abstract class LocalJavaStreamingContext {
     @Before
     public void setUp() {
         SparkConf conf = new SparkConf()
-            .setMaster("local[2]")
-            .setAppName("test")
-            .set("spark.streaming.clock", "org.apache.spark.util.ManualClock");
+                .setMaster("local[2]")
+                .setAppName("test")
+                .set("spark.streaming.clock", "org.apache.spark.util.ManualClock");
         ssc = new JavaStreamingContext(conf, new Duration(1000));
         ssc.checkpoint("checkpoint");
     }

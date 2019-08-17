@@ -29,48 +29,48 @@ import org.apache.spark.sql.catalyst.plans.physical.{Distribution, Partitioning,
 import org.apache.spark.sql.execution.{BinaryNode, SparkPlan}
 
 /**
- * :: DeveloperApi ::
- * Performs an inner hash join of two child relations.  When the output RDD of this operator is
- * being constructed, a Spark job is asynchronously started to calculate the values for the
- * broadcasted relation.  This data is then placed in a Spark broadcast variable.  The streamed
- * relation is not shuffled.
- */
+  * :: DeveloperApi ::
+  * Performs an inner hash join of two child relations.  When the output RDD of this operator is
+  * being constructed, a Spark job is asynchronously started to calculate the values for the
+  * broadcasted relation.  This data is then placed in a Spark broadcast variable.  The streamed
+  * relation is not shuffled.
+  */
 @DeveloperApi
 case class BroadcastHashJoin(
-    leftKeys: Seq[Expression],
-    rightKeys: Seq[Expression],
-    buildSide: BuildSide,
-    left: SparkPlan,
-    right: SparkPlan)
-  extends BinaryNode with HashJoin {
+                                    leftKeys: Seq[Expression],
+                                    rightKeys: Seq[Expression],
+                                    buildSide: BuildSide,
+                                    left: SparkPlan,
+                                    right: SparkPlan)
+        extends BinaryNode with HashJoin {
 
-  val timeout: Duration = {
-    val timeoutValue = sqlContext.conf.broadcastTimeout
-    if (timeoutValue < 0) {
-      Duration.Inf
-    } else {
-      timeoutValue.seconds
+    val timeout: Duration = {
+        val timeoutValue = sqlContext.conf.broadcastTimeout
+        if (timeoutValue < 0) {
+            Duration.Inf
+        } else {
+            timeoutValue.seconds
+        }
     }
-  }
 
-  override def outputPartitioning: Partitioning = streamedPlan.outputPartitioning
+    override def outputPartitioning: Partitioning = streamedPlan.outputPartitioning
 
-  override def requiredChildDistribution: Seq[Distribution] =
-    UnspecifiedDistribution :: UnspecifiedDistribution :: Nil
+    override def requiredChildDistribution: Seq[Distribution] =
+        UnspecifiedDistribution :: UnspecifiedDistribution :: Nil
 
-  @transient
-  private val broadcastFuture = future {
-    // Note that we use .execute().collect() because we don't want to convert data to Scala types
-    val input: Array[Row] = buildPlan.execute().map(_.copy()).collect()
-    val hashed = HashedRelation(input.iterator, buildSideKeyGenerator, input.length)
-    sparkContext.broadcast(hashed)
-  }
-
-  override def execute(): RDD[Row] = {
-    val broadcastRelation = Await.result(broadcastFuture, timeout)
-
-    streamedPlan.execute().mapPartitions { streamedIter =>
-      hashJoin(streamedIter, broadcastRelation.value)
+    @transient
+    private val broadcastFuture = future {
+        // Note that we use .execute().collect() because we don't want to convert data to Scala types
+        val input: Array[Row] = buildPlan.execute().map(_.copy()).collect()
+        val hashed = HashedRelation(input.iterator, buildSideKeyGenerator, input.length)
+        sparkContext.broadcast(hashed)
     }
-  }
+
+    override def execute(): RDD[Row] = {
+        val broadcastRelation = Await.result(broadcastFuture, timeout)
+
+        streamedPlan.execute().mapPartitions { streamedIter =>
+            hashJoin(streamedIter, broadcastRelation.value)
+        }
+    }
 }

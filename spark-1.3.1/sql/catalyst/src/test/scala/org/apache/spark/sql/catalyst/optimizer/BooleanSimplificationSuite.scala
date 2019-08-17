@@ -27,84 +27,84 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 
 class BooleanSimplificationSuite extends PlanTest with PredicateHelper {
 
-  object Optimize extends RuleExecutor[LogicalPlan] {
-    val batches =
-      Batch("AnalysisNodes", Once,
-        EliminateSubQueries) ::
-      Batch("Constant Folding", FixedPoint(50),
-        NullPropagation,
-        ConstantFolding,
-        BooleanSimplification,
-        SimplifyFilters) :: Nil
-  }
+    object Optimize extends RuleExecutor[LogicalPlan] {
+        val batches =
+            Batch("AnalysisNodes", Once,
+                EliminateSubQueries) ::
+                    Batch("Constant Folding", FixedPoint(50),
+                        NullPropagation,
+                        ConstantFolding,
+                        BooleanSimplification,
+                        SimplifyFilters) :: Nil
+    }
 
-  val testRelation = LocalRelation('a.int, 'b.int, 'c.int, 'd.string)
+    val testRelation = LocalRelation('a.int, 'b.int, 'c.int, 'd.string)
 
-  // The `foldLeft` is required to handle cases like comparing `a && (b && c)` and `(a && b) && c`
-  def compareConditions(e1: Expression, e2: Expression): Boolean = (e1, e2) match {
-    case (lhs: And, rhs: And) =>
-      val lhsSet = splitConjunctivePredicates(lhs).toSet
-      val rhsSet = splitConjunctivePredicates(rhs).toSet
-      lhsSet.foldLeft(rhsSet) { (set, e) =>
-        set.find(compareConditions(_, e)).map(set - _).getOrElse(set)
-      }.isEmpty
+    // The `foldLeft` is required to handle cases like comparing `a && (b && c)` and `(a && b) && c`
+    def compareConditions(e1: Expression, e2: Expression): Boolean = (e1, e2) match {
+        case (lhs: And, rhs: And) =>
+            val lhsSet = splitConjunctivePredicates(lhs).toSet
+            val rhsSet = splitConjunctivePredicates(rhs).toSet
+            lhsSet.foldLeft(rhsSet) { (set, e) =>
+                set.find(compareConditions(_, e)).map(set - _).getOrElse(set)
+            }.isEmpty
 
-    case (lhs: Or, rhs: Or) =>
-      val lhsSet = splitDisjunctivePredicates(lhs).toSet
-      val rhsSet = splitDisjunctivePredicates(rhs).toSet
-      lhsSet.foldLeft(rhsSet) { (set, e) =>
-        set.find(compareConditions(_, e)).map(set - _).getOrElse(set)
-      }.isEmpty
+        case (lhs: Or, rhs: Or) =>
+            val lhsSet = splitDisjunctivePredicates(lhs).toSet
+            val rhsSet = splitDisjunctivePredicates(rhs).toSet
+            lhsSet.foldLeft(rhsSet) { (set, e) =>
+                set.find(compareConditions(_, e)).map(set - _).getOrElse(set)
+            }.isEmpty
 
-    case (l, r) => l == r
-  }
+        case (l, r) => l == r
+    }
 
-  def checkCondition(input: Expression, expected: Expression): Unit = {
-    val plan = testRelation.where(input).analyze
-    val actual = Optimize(plan).expressions.head
-    compareConditions(actual, expected)
-  }
+    def checkCondition(input: Expression, expected: Expression): Unit = {
+        val plan = testRelation.where(input).analyze
+        val actual = Optimize(plan).expressions.head
+        compareConditions(actual, expected)
+    }
 
-  test("a && a => a") {
-    checkCondition(Literal(1) < 'a && Literal(1) < 'a, Literal(1) < 'a)
-    checkCondition(Literal(1) < 'a && Literal(1) < 'a && Literal(1) < 'a, Literal(1) < 'a)
-  }
+    test("a && a => a") {
+        checkCondition(Literal(1) < 'a && Literal(1) < 'a, Literal(1) < 'a)
+        checkCondition(Literal(1) < 'a && Literal(1) < 'a && Literal(1) < 'a, Literal(1) < 'a)
+    }
 
-  test("a || a => a") {
-    checkCondition(Literal(1) < 'a || Literal(1) < 'a, Literal(1) < 'a)
-    checkCondition(Literal(1) < 'a || Literal(1) < 'a || Literal(1) < 'a, Literal(1) < 'a)
-  }
+    test("a || a => a") {
+        checkCondition(Literal(1) < 'a || Literal(1) < 'a, Literal(1) < 'a)
+        checkCondition(Literal(1) < 'a || Literal(1) < 'a || Literal(1) < 'a, Literal(1) < 'a)
+    }
 
-  test("(a && b && c && ...) || (a && b && d && ...) || (a && b && e && ...) ...") {
-    checkCondition('b > 3 || 'c > 5, 'b > 3 || 'c > 5)
+    test("(a && b && c && ...) || (a && b && d && ...) || (a && b && e && ...) ...") {
+        checkCondition('b > 3 || 'c > 5, 'b > 3 || 'c > 5)
 
-    checkCondition(('a < 2 && 'a > 3 && 'b > 5) || 'a < 2,  'a < 2)
+        checkCondition(('a < 2 && 'a > 3 && 'b > 5) || 'a < 2, 'a < 2)
 
-    checkCondition('a < 2 || ('a < 2 && 'a > 3 && 'b > 5),  'a < 2)
+        checkCondition('a < 2 || ('a < 2 && 'a > 3 && 'b > 5), 'a < 2)
 
-    val input = ('a === 'b && 'b > 3 && 'c > 2) ||
-      ('a === 'b && 'c < 1 && 'a === 5) ||
-      ('a === 'b && 'b < 5 && 'a > 1)
+        val input = ('a === 'b && 'b > 3 && 'c > 2) ||
+                ('a === 'b && 'c < 1 && 'a === 5) ||
+                ('a === 'b && 'b < 5 && 'a > 1)
 
-    val expected =
-      (((('b > 3) && ('c > 2)) ||
-        (('c < 1) && ('a === 5))) ||
-        (('b < 5) && ('a > 1))) && ('a === 'b)
+        val expected =
+            (((('b > 3) && ('c > 2)) ||
+                    (('c < 1) && ('a === 5))) ||
+                    (('b < 5) && ('a > 1))) && ('a === 'b)
 
-    checkCondition(input, expected)
-  }
+        checkCondition(input, expected)
+    }
 
-  test("(a || b || c || ...) && (a || b || d || ...) && (a || b || e || ...) ...") {
-    checkCondition('b > 3 && 'c > 5, 'b > 3 && 'c > 5)
+    test("(a || b || c || ...) && (a || b || d || ...) && (a || b || e || ...) ...") {
+        checkCondition('b > 3 && 'c > 5, 'b > 3 && 'c > 5)
 
-    checkCondition(('a < 2 || 'a > 3 || 'b > 5) && 'a < 2, 'a < 2)
+        checkCondition(('a < 2 || 'a > 3 || 'b > 5) && 'a < 2, 'a < 2)
 
-    checkCondition('a < 2 && ('a < 2 || 'a > 3 || 'b > 5) , 'a < 2)
+        checkCondition('a < 2 && ('a < 2 || 'a > 3 || 'b > 5), 'a < 2)
 
-    checkCondition(('a < 2 || 'b > 3) && ('a < 2 || 'c > 5), ('b > 3 && 'c > 5) || 'a < 2)
+        checkCondition(('a < 2 || 'b > 3) && ('a < 2 || 'c > 5), ('b > 3 && 'c > 5) || 'a < 2)
 
-    checkCondition(
-      ('a === 'b || 'b > 3) && ('a === 'b || 'a > 3) && ('a === 'b || 'a < 5),
-      ('b > 3 && 'a > 3 && 'a < 5) || 'a === 'b)
-  }
+        checkCondition(
+            ('a === 'b || 'b > 3) && ('a === 'b || 'a > 3) && ('a === 'b || 'a < 5),
+            ('b > 3 && 'a > 3 && 'a < 5) || 'a === 'b)
+    }
 }

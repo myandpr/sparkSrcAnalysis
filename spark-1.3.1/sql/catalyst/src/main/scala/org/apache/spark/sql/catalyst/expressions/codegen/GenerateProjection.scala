@@ -22,48 +22,49 @@ import org.apache.spark.sql.types._
 
 
 /**
- * Generates bytecode that produces a new [[Row]] object based on a fixed set of input
- * [[Expression Expressions]] and a given input [[Row]].  The returned [[Row]] object is custom
- * generated based on the output types of the [[Expression]] to avoid boxing of primitive values.
- */
+  * Generates bytecode that produces a new [[Row]] object based on a fixed set of input
+  * [[Expression Expressions]] and a given input [[Row]].  The returned [[Row]] object is custom
+  * generated based on the output types of the [[Expression]] to avoid boxing of primitive values.
+  */
 object GenerateProjection extends CodeGenerator[Seq[Expression], Projection] {
-  import scala.reflect.runtime.{universe => ru}
-  import scala.reflect.runtime.universe._
 
-  protected def canonicalize(in: Seq[Expression]): Seq[Expression] =
-    in.map(ExpressionCanonicalizer(_))
+    import scala.reflect.runtime.{universe => ru}
+    import scala.reflect.runtime.universe._
 
-  protected def bind(in: Seq[Expression], inputSchema: Seq[Attribute]): Seq[Expression] =
-    in.map(BindReferences.bindReference(_, inputSchema))
+    protected def canonicalize(in: Seq[Expression]): Seq[Expression] =
+        in.map(ExpressionCanonicalizer(_))
 
-  // Make Mutablility optional...
-  protected def create(expressions: Seq[Expression]): Projection = {
-    val tupleLength = ru.Literal(Constant(expressions.length))
-    val lengthDef = q"final val length = $tupleLength"
+    protected def bind(in: Seq[Expression], inputSchema: Seq[Attribute]): Seq[Expression] =
+        in.map(BindReferences.bindReference(_, inputSchema))
 
-    /* TODO: Configurable...
-    val nullFunctions =
-      q"""
-        private final val nullSet = new org.apache.spark.util.collection.BitSet(length)
-        final def setNullAt(i: Int) = nullSet.set(i)
-        final def isNullAt(i: Int) = nullSet.get(i)
-      """
-     */
+    // Make Mutablility optional...
+    protected def create(expressions: Seq[Expression]): Projection = {
+        val tupleLength = ru.Literal(Constant(expressions.length))
+        val lengthDef = q"final val length = $tupleLength"
 
-    val nullFunctions =
-      q"""
+        /* TODO: Configurable...
+        val nullFunctions =
+          q"""
+            private final val nullSet = new org.apache.spark.util.collection.BitSet(length)
+            final def setNullAt(i: Int) = nullSet.set(i)
+            final def isNullAt(i: Int) = nullSet.get(i)
+          """
+         */
+
+        val nullFunctions =
+            q"""
         private[this] var nullBits = new Array[Boolean](${expressions.size})
         override def setNullAt(i: Int) = { nullBits(i) = true }
         override def isNullAt(i: Int) = nullBits(i)
       """.children
 
-    val tupleElements = expressions.zipWithIndex.flatMap {
-      case (e, i) =>
-        val elementName = newTermName(s"c$i")
-        val evaluatedExpression = expressionEvaluator(e)
-        val iLit = ru.Literal(Constant(i))
+        val tupleElements = expressions.zipWithIndex.flatMap {
+            case (e, i) =>
+                val elementName = newTermName(s"c$i")
+                val evaluatedExpression = expressionEvaluator(e)
+                val iLit = ru.Literal(Constant(i))
 
-        q"""
+                q"""
         var ${newTermName(s"c$i")}: ${termForType(e.dataType)} = _
         {
           ..${evaluatedExpression.code}
@@ -74,28 +75,28 @@ object GenerateProjection extends CodeGenerator[Seq[Expression], Projection] {
             $elementName = ${evaluatedExpression.primitiveTerm}
           }
         }
-        """.children : Seq[Tree]
-    }
+        """.children: Seq[Tree]
+        }
 
-    val accessorFailure = q"""scala.sys.error("Invalid ordinal:" + i)"""
-    val applyFunction = {
-      val cases = (0 until expressions.size).map { i =>
-        val ordinal = ru.Literal(Constant(i))
-        val elementName = newTermName(s"c$i")
-        val iLit = ru.Literal(Constant(i))
+        val accessorFailure = q"""scala.sys.error("Invalid ordinal:" + i)"""
+        val applyFunction = {
+            val cases = (0 until expressions.size).map { i =>
+                val ordinal = ru.Literal(Constant(i))
+                val elementName = newTermName(s"c$i")
+                val iLit = ru.Literal(Constant(i))
 
-        q"if(i == $ordinal) { if(isNullAt($i)) return null else return $elementName }"
-      }
-      q"override def apply(i: Int): Any = { ..$cases; $accessorFailure }"
-    }
+                q"if(i == $ordinal) { if(isNullAt($i)) return null else return $elementName }"
+            }
+            q"override def apply(i: Int): Any = { ..$cases; $accessorFailure }"
+        }
 
-    val updateFunction = {
-      val cases = expressions.zipWithIndex.map {case (e, i) =>
-        val ordinal = ru.Literal(Constant(i))
-        val elementName = newTermName(s"c$i")
-        val iLit = ru.Literal(Constant(i))
+        val updateFunction = {
+            val cases = expressions.zipWithIndex.map { case (e, i) =>
+                val ordinal = ru.Literal(Constant(i))
+                val elementName = newTermName(s"c$i")
+                val iLit = ru.Literal(Constant(i))
 
-        q"""
+                q"""
           if(i == $ordinal) {
             if(value == null) {
               setNullAt(i)
@@ -105,62 +106,62 @@ object GenerateProjection extends CodeGenerator[Seq[Expression], Projection] {
             }
             return
           }"""
-      }
-      q"override def update(i: Int, value: Any): Unit = { ..$cases; $accessorFailure }"
-    }
+            }
+            q"override def update(i: Int, value: Any): Unit = { ..$cases; $accessorFailure }"
+        }
 
-    val specificAccessorFunctions = NativeType.all.map { dataType =>
-      val ifStatements = expressions.zipWithIndex.flatMap {
-        case (e, i) if e.dataType == dataType =>
-          val elementName = newTermName(s"c$i")
-          // TODO: The string of ifs gets pretty inefficient as the row grows in size.
-          // TODO: Optional null checks?
-          q"if(i == $i) return $elementName" :: Nil
-        case _ => Nil
-      }
+        val specificAccessorFunctions = NativeType.all.map { dataType =>
+            val ifStatements = expressions.zipWithIndex.flatMap {
+                case (e, i) if e.dataType == dataType =>
+                    val elementName = newTermName(s"c$i")
+                    // TODO: The string of ifs gets pretty inefficient as the row grows in size.
+                    // TODO: Optional null checks?
+                    q"if(i == $i) return $elementName" :: Nil
+                case _ => Nil
+            }
 
-      q"""
+            q"""
       override def ${accessorForType(dataType)}(i: Int):${termForType(dataType)} = {
         ..$ifStatements;
         $accessorFailure
       }"""
-    }
+        }
 
-    val specificMutatorFunctions = NativeType.all.map { dataType =>
-      val ifStatements = expressions.zipWithIndex.flatMap {
-        case (e, i) if e.dataType == dataType =>
-          val elementName = newTermName(s"c$i")
-          // TODO: The string of ifs gets pretty inefficient as the row grows in size.
-          // TODO: Optional null checks?
-          q"if(i == $i) { nullBits($i) = false; $elementName = value; return }" :: Nil
-        case _ => Nil
-      }
+        val specificMutatorFunctions = NativeType.all.map { dataType =>
+            val ifStatements = expressions.zipWithIndex.flatMap {
+                case (e, i) if e.dataType == dataType =>
+                    val elementName = newTermName(s"c$i")
+                    // TODO: The string of ifs gets pretty inefficient as the row grows in size.
+                    // TODO: Optional null checks?
+                    q"if(i == $i) { nullBits($i) = false; $elementName = value; return }" :: Nil
+                case _ => Nil
+            }
 
-      q"""
+            q"""
       override def ${mutatorForType(dataType)}(i: Int, value: ${termForType(dataType)}): Unit = {
         ..$ifStatements;
         $accessorFailure
       }"""
-    }
+        }
 
-    val hashValues = expressions.zipWithIndex.map { case (e,i) =>
-      val elementName = newTermName(s"c$i")
-      val nonNull = e.dataType match {
-        case BooleanType => q"if ($elementName) 0 else 1"
-        case ByteType | ShortType | IntegerType => q"$elementName.toInt"
-        case LongType => q"($elementName ^ ($elementName >>> 32)).toInt"
-        case FloatType => q"java.lang.Float.floatToIntBits($elementName)"
-        case DoubleType =>
-          q"{ val b = java.lang.Double.doubleToLongBits($elementName); (b ^ (b >>>32)).toInt }"
-        case _ => q"$elementName.hashCode"
-      }
-      q"if (isNullAt($i)) 0 else $nonNull"
-    }
+        val hashValues = expressions.zipWithIndex.map { case (e, i) =>
+            val elementName = newTermName(s"c$i")
+            val nonNull = e.dataType match {
+                case BooleanType => q"if ($elementName) 0 else 1"
+                case ByteType | ShortType | IntegerType => q"$elementName.toInt"
+                case LongType => q"($elementName ^ ($elementName >>> 32)).toInt"
+                case FloatType => q"java.lang.Float.floatToIntBits($elementName)"
+                case DoubleType =>
+                    q"{ val b = java.lang.Double.doubleToLongBits($elementName); (b ^ (b >>>32)).toInt }"
+                case _ => q"$elementName.hashCode"
+            }
+            q"if (isNullAt($i)) 0 else $nonNull"
+        }
 
-    val hashUpdates: Seq[Tree] = hashValues.map(v => q"""result = 37 * result + $v""": Tree)
+        val hashUpdates: Seq[Tree] = hashValues.map(v => q"""result = 37 * result + $v""": Tree)
 
-    val hashCodeFunction =
-      q"""
+        val hashCodeFunction =
+            q"""
         override def hashCode(): Int = {
           var result: Int = 37
           ..$hashUpdates
@@ -168,13 +169,13 @@ object GenerateProjection extends CodeGenerator[Seq[Expression], Projection] {
         }
       """
 
-    val columnChecks = (0 until expressions.size).map { i =>
-      val elementName = newTermName(s"c$i")
-      q"if (this.$elementName != specificType.$elementName) return false"
-    }
+        val columnChecks = (0 until expressions.size).map { i =>
+            val elementName = newTermName(s"c$i")
+            q"if (this.$elementName != specificType.$elementName) return false"
+        }
 
-    val equalsFunction =
-      q"""
+        val equalsFunction =
+            q"""
         override def equals(other: Any): Boolean = other match {
           case specificType: SpecificRow =>
             ..$columnChecks
@@ -183,29 +184,30 @@ object GenerateProjection extends CodeGenerator[Seq[Expression], Projection] {
         }
       """
 
-    val allColumns = (0 until expressions.size).map { i =>
-      val iLit = ru.Literal(Constant(i))
-      q"if(isNullAt($iLit)) { null } else { ${newTermName(s"c$i")} }"
-    }
+        val allColumns = (0 until expressions.size).map { i =>
+            val iLit = ru.Literal(Constant(i))
+            q"if(isNullAt($iLit)) { null } else { ${newTermName(s"c$i")} }"
+        }
 
-    val copyFunction =
-      q"override def copy() = new $genericRowType(Array[Any](..$allColumns))"
+        val copyFunction =
+            q"override def copy() = new $genericRowType(Array[Any](..$allColumns))"
 
-    val toSeqFunction =
-      q"override def toSeq: Seq[Any] = Seq(..$allColumns)"
+        val toSeqFunction =
+            q"override def toSeq: Seq[Any] = Seq(..$allColumns)"
 
-    val classBody =
-      nullFunctions ++ (
-        lengthDef +:
-        applyFunction +:
-        updateFunction +:
-        equalsFunction +:
-        hashCodeFunction +:
-        copyFunction +:
-        toSeqFunction +:
-        (tupleElements ++ specificAccessorFunctions ++ specificMutatorFunctions))
+        val classBody =
+            nullFunctions ++ (
+                    lengthDef +:
+                            applyFunction +:
+                            updateFunction +:
+                            equalsFunction +:
+                            hashCodeFunction +:
+                            copyFunction +:
+                            toSeqFunction +:
+                            (tupleElements ++ specificAccessorFunctions ++ specificMutatorFunctions))
 
-    val code = q"""
+        val code =
+            q"""
       final class SpecificRow(i: $rowType) extends $mutableRowType {
         ..$classBody
       }
@@ -213,8 +215,8 @@ object GenerateProjection extends CodeGenerator[Seq[Expression], Projection] {
       new $projectionType { def apply(r: $rowType) = new SpecificRow(r) }
     """
 
-    log.debug(
-      s"MutableRow, initExprs: ${expressions.mkString(",")} code:\n${toolBox.typeCheck(code)}")
-    toolBox.eval(code).asInstanceOf[Projection]
-  }
+        log.debug(
+            s"MutableRow, initExprs: ${expressions.mkString(",")} code:\n${toolBox.typeCheck(code)}")
+        toolBox.eval(code).asInstanceOf[Projection]
+    }
 }

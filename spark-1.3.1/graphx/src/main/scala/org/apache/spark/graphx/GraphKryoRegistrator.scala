@@ -28,23 +28,23 @@ import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
 import org.apache.spark.util.collection.OpenHashSet
 
 /**
- * Registers GraphX classes with Kryo for improved performance.
- */
+  * Registers GraphX classes with Kryo for improved performance.
+  */
 @deprecated("Register GraphX classes with Kryo using GraphXUtils.registerKryoClasses", "1.2.0")
 class GraphKryoRegistrator extends KryoRegistrator {
 
-  def registerClasses(kryo: Kryo) {
-    kryo.register(classOf[Edge[Object]])
-    kryo.register(classOf[(VertexId, Object)])
-    kryo.register(classOf[EdgePartition[Object, Object]])
-    kryo.register(classOf[BitSet])
-    kryo.register(classOf[VertexIdToIndexMap])
-    kryo.register(classOf[VertexAttributeBlock[Object]])
-    kryo.register(classOf[PartitionStrategy])
-    kryo.register(classOf[BoundedPriorityQueue[Object]])
-    kryo.register(classOf[EdgeDirection])
-    kryo.register(classOf[GraphXPrimitiveKeyOpenHashMap[VertexId, Int]])
-    kryo.register(classOf[OpenHashSet[Int]])
-    kryo.register(classOf[OpenHashSet[Long]])
-  }
+    def registerClasses(kryo: Kryo) {
+        kryo.register(classOf[Edge[Object]])
+        kryo.register(classOf[(VertexId, Object)])
+        kryo.register(classOf[EdgePartition[Object, Object]])
+        kryo.register(classOf[BitSet])
+        kryo.register(classOf[VertexIdToIndexMap])
+        kryo.register(classOf[VertexAttributeBlock[Object]])
+        kryo.register(classOf[PartitionStrategy])
+        kryo.register(classOf[BoundedPriorityQueue[Object]])
+        kryo.register(classOf[EdgeDirection])
+        kryo.register(classOf[GraphXPrimitiveKeyOpenHashMap[VertexId, Int]])
+        kryo.register(classOf[OpenHashSet[Int]])
+        kryo.register(classOf[OpenHashSet[Long]])
+    }
 }

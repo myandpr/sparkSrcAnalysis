@@ -29,51 +29,51 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.util.Utils
 
 /**
- * :: Experimental ::
- * Maps a sequence of terms to their term frequencies using the hashing trick.
- *
- * @param numFeatures number of features (default: 2^20^)
- */
+  * :: Experimental ::
+  * Maps a sequence of terms to their term frequencies using the hashing trick.
+  *
+  * @param numFeatures number of features (default: 2^20^)
+  */
 @Experimental
 class HashingTF(val numFeatures: Int) extends Serializable {
 
-  def this() = this(1 << 20)
+    def this() = this(1 << 20)
 
-  /**
-   * Returns the index of the input term.
-   */
-  def indexOf(term: Any): Int = Utils.nonNegativeMod(term.##, numFeatures)
+    /**
+      * Returns the index of the input term.
+      */
+    def indexOf(term: Any): Int = Utils.nonNegativeMod(term.##, numFeatures)
 
-  /**
-   * Transforms the input document into a sparse term frequency vector.
-   */
-  def transform(document: Iterable[_]): Vector = {
-    val termFrequencies = mutable.HashMap.empty[Int, Double]
-    document.foreach { term =>
-      val i = indexOf(term)
-      termFrequencies.put(i, termFrequencies.getOrElse(i, 0.0) + 1.0)
+    /**
+      * Transforms the input document into a sparse term frequency vector.
+      */
+    def transform(document: Iterable[_]): Vector = {
+        val termFrequencies = mutable.HashMap.empty[Int, Double]
+        document.foreach { term =>
+            val i = indexOf(term)
+            termFrequencies.put(i, termFrequencies.getOrElse(i, 0.0) + 1.0)
+        }
+        Vectors.sparse(numFeatures, termFrequencies.toSeq)
     }
-    Vectors.sparse(numFeatures, termFrequencies.toSeq)
-  }
 
-  /**
-   * Transforms the input document into a sparse term frequency vector (Java version).
-   */
-  def transform(document: JavaIterable[_]): Vector = {
-    transform(document.asScala)
-  }
+    /**
+      * Transforms the input document into a sparse term frequency vector (Java version).
+      */
+    def transform(document: JavaIterable[_]): Vector = {
+        transform(document.asScala)
+    }
 
-  /**
-   * Transforms the input document to term frequency vectors.
-   */
-  def transform[D <: Iterable[_]](dataset: RDD[D]): RDD[Vector] = {
-    dataset.map(this.transform)
-  }
+    /**
+      * Transforms the input document to term frequency vectors.
+      */
+    def transform[D <: Iterable[_]](dataset: RDD[D]): RDD[Vector] = {
+        dataset.map(this.transform)
+    }
 
-  /**
-   * Transforms the input document to term frequency vectors (Java version).
-   */
-  def transform[D <: JavaIterable[_]](dataset: JavaRDD[D]): JavaRDD[Vector] = {
-    dataset.rdd.map(this.transform).toJavaRDD()
-  }
+    /**
+      * Transforms the input document to term frequency vectors (Java version).
+      */
+    def transform[D <: JavaIterable[_]](dataset: JavaRDD[D]): JavaRDD[Vector] = {
+        dataset.rdd.map(this.transform).toJavaRDD()
+    }
 }

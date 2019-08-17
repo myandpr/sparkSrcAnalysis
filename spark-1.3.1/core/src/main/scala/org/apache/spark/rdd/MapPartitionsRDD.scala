@@ -22,15 +22,15 @@ import scala.reflect.ClassTag
 import org.apache.spark.{Partition, TaskContext}
 
 private[spark] class MapPartitionsRDD[U: ClassTag, T: ClassTag](
-    prev: RDD[T],
-    f: (TaskContext, Int, Iterator[T]) => Iterator[U],  // (TaskContext, partition index, iterator)
-    preservesPartitioning: Boolean = false)
-  extends RDD[U](prev) {
+                                                                       prev: RDD[T],
+                                                                       f: (TaskContext, Int, Iterator[T]) => Iterator[U], // (TaskContext, partition index, iterator)
+                                                                       preservesPartitioning: Boolean = false)
+        extends RDD[U](prev) {
 
-  override val partitioner = if (preservesPartitioning) firstParent[T].partitioner else None
+    override val partitioner = if (preservesPartitioning) firstParent[T].partitioner else None
 
-  override def getPartitions: Array[Partition] = firstParent[T].partitions
+    override def getPartitions: Array[Partition] = firstParent[T].partitions
 
-  override def compute(split: Partition, context: TaskContext) =
-    f(context, split.index, firstParent[T].iterator(split, context))
+    override def compute(split: Partition, context: TaskContext) =
+        f(context, split.index, firstParent[T].iterator(split, context))
 }

@@ -22,21 +22,22 @@ import org.scalatest.BeforeAndAfterAll
 
 import org.apache.spark.{SparkConf, SparkContext}
 
-trait MLlibTestSparkContext extends BeforeAndAfterAll { self: Suite =>
-  @transient var sc: SparkContext = _
+trait MLlibTestSparkContext extends BeforeAndAfterAll {
+    self: Suite =>
+    @transient var sc: SparkContext = _
 
-  override def beforeAll() {
-    super.beforeAll()
-    val conf = new SparkConf()
-      .setMaster("local[2]")
-      .setAppName("MLlibUnitTest")
-    sc = new SparkContext(conf)
-  }
-
-  override def afterAll() {
-    if (sc != null) {
-      sc.stop()
+    override def beforeAll() {
+        super.beforeAll()
+        val conf = new SparkConf()
+                .setMaster("local[2]")
+                .setAppName("MLlibUnitTest")
+        sc = new SparkContext(conf)
     }
-    super.afterAll()
-  }
+
+    override def afterAll() {
+        if (sc != null) {
+            sc.stop()
+        }
+        super.afterAll()
+    }
 }

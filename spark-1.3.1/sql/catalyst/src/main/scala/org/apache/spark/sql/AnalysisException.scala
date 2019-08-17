@@ -20,25 +20,25 @@ package org.apache.spark.sql
 import org.apache.spark.annotation.DeveloperApi
 
 /**
- * :: DeveloperApi ::
- * Thrown when a query fails to analyze, usually because the query itself is invalid.
- */
+  * :: DeveloperApi ::
+  * Thrown when a query fails to analyze, usually because the query itself is invalid.
+  */
 @DeveloperApi
-class AnalysisException protected[sql] (
-    val message: String,
-    val line: Option[Int] = None,
-    val startPosition: Option[Int] = None)
-  extends Exception with Serializable {
+class AnalysisException protected[sql](
+                                              val message: String,
+                                              val line: Option[Int] = None,
+                                              val startPosition: Option[Int] = None)
+        extends Exception with Serializable {
 
-  def withPosition(line: Option[Int], startPosition: Option[Int]) = {
-    val newException = new AnalysisException(message, line, startPosition)
-    newException.setStackTrace(getStackTrace)
-    newException
-  }
+    def withPosition(line: Option[Int], startPosition: Option[Int]) = {
+        val newException = new AnalysisException(message, line, startPosition)
+        newException.setStackTrace(getStackTrace)
+        newException
+    }
 
-  override def getMessage: String = {
-    val lineAnnotation = line.map(l => s" line $l").getOrElse("")
-    val positionAnnotation = startPosition.map(p => s" pos $p").getOrElse("")
-    s"$message;$lineAnnotation$positionAnnotation"
-  }
+    override def getMessage: String = {
+        val lineAnnotation = line.map(l => s" line $l").getOrElse("")
+        val positionAnnotation = startPosition.map(p => s" pos $p").getOrElse("")
+        s"$message;$lineAnnotation$positionAnnotation"
+    }
 }

@@ -23,35 +23,35 @@ import org.apache.spark.util.Utils
 
 @DeveloperApi
 class RDDInfo(
-    val id: Int,
-    val name: String,
-    val numPartitions: Int,
-    var storageLevel: StorageLevel)
-  extends Ordered[RDDInfo] {
+                     val id: Int,
+                     val name: String,
+                     val numPartitions: Int,
+                     var storageLevel: StorageLevel)
+        extends Ordered[RDDInfo] {
 
-  var numCachedPartitions = 0
-  var memSize = 0L
-  var diskSize = 0L
-  var tachyonSize = 0L
+    var numCachedPartitions = 0
+    var memSize = 0L
+    var diskSize = 0L
+    var tachyonSize = 0L
 
-  def isCached: Boolean = (memSize + diskSize + tachyonSize > 0) && numCachedPartitions > 0
+    def isCached: Boolean = (memSize + diskSize + tachyonSize > 0) && numCachedPartitions > 0
 
-  override def toString = {
-    import Utils.bytesToString
-    ("RDD \"%s\" (%d) StorageLevel: %s; CachedPartitions: %d; TotalPartitions: %d; " +
-      "MemorySize: %s; TachyonSize: %s; DiskSize: %s").format(
-        name, id, storageLevel.toString, numCachedPartitions, numPartitions,
-        bytesToString(memSize), bytesToString(tachyonSize), bytesToString(diskSize))
-  }
+    override def toString = {
+        import Utils.bytesToString
+        ("RDD \"%s\" (%d) StorageLevel: %s; CachedPartitions: %d; TotalPartitions: %d; " +
+                "MemorySize: %s; TachyonSize: %s; DiskSize: %s").format(
+            name, id, storageLevel.toString, numCachedPartitions, numPartitions,
+            bytesToString(memSize), bytesToString(tachyonSize), bytesToString(diskSize))
+    }
 
-  override def compare(that: RDDInfo) = {
-    this.id - that.id
-  }
+    override def compare(that: RDDInfo) = {
+        this.id - that.id
+    }
 }
 
 private[spark] object RDDInfo {
-  def fromRdd(rdd: RDD[_]): RDDInfo = {
-    val rddName = Option(rdd.name).getOrElse(rdd.id.toString)
-    new RDDInfo(rdd.id, rddName, rdd.partitions.size, rdd.getStorageLevel)
-  }
+    def fromRdd(rdd: RDD[_]): RDDInfo = {
+        val rddName = Option(rdd.name).getOrElse(rdd.id.toString)
+        new RDDInfo(rdd.id, rddName, rdd.partitions.size, rdd.getStorageLevel)
+    }
 }

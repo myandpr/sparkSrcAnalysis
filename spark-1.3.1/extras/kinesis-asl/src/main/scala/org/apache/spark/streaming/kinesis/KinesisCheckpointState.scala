@@ -21,34 +21,34 @@ import org.apache.spark.streaming.Duration
 import org.apache.spark.util.{Clock, ManualClock, SystemClock}
 
 /**
- * This is a helper class for managing checkpoint clocks.
- *
- * @param checkpointInterval 
- * @param currentClock.  Default to current SystemClock if none is passed in (mocking purposes)
- */
+  * This is a helper class for managing checkpoint clocks.
+  *
+  * @param checkpointInterval
+  * @param currentClock .  Default to current SystemClock if none is passed in (mocking purposes)
+  */
 private[kinesis] class KinesisCheckpointState(
-    checkpointInterval: Duration, 
-    currentClock: Clock = new SystemClock())
-  extends Logging {
-  
-  /* Initialize the checkpoint clock using the given currentClock + checkpointInterval millis */
-  val checkpointClock = new ManualClock()
-  checkpointClock.setTime(currentClock.getTimeMillis() + checkpointInterval.milliseconds)
+                                                     checkpointInterval: Duration,
+                                                     currentClock: Clock = new SystemClock())
+        extends Logging {
 
-  /**
-   * Check if it's time to checkpoint based on the current time and the derived time 
-   *   for the next checkpoint
-   *
-   * @return true if it's time to checkpoint
-   */
-  def shouldCheckpoint(): Boolean = {
-    new SystemClock().getTimeMillis() > checkpointClock.getTimeMillis()
-  }
+    /* Initialize the checkpoint clock using the given currentClock + checkpointInterval millis */
+    val checkpointClock = new ManualClock()
+    checkpointClock.setTime(currentClock.getTimeMillis() + checkpointInterval.milliseconds)
 
-  /**
-   * Advance the checkpoint clock by the checkpoint interval.
-   */
-  def advanceCheckpoint() = {
-    checkpointClock.advance(checkpointInterval.milliseconds)
-  }
+    /**
+      * Check if it's time to checkpoint based on the current time and the derived time
+      * for the next checkpoint
+      *
+      * @return true if it's time to checkpoint
+      */
+    def shouldCheckpoint(): Boolean = {
+        new SystemClock().getTimeMillis() > checkpointClock.getTimeMillis()
+    }
+
+    /**
+      * Advance the checkpoint clock by the checkpoint interval.
+      */
+    def advanceCheckpoint() = {
+        checkpointClock.advance(checkpointInterval.milliseconds)
+    }
 }

@@ -20,27 +20,27 @@ package org.apache.spark.util.collection
 import scala.reflect.ClassTag
 
 /**
- * An append-only buffer that keeps track of its estimated size in bytes.
- */
+  * An append-only buffer that keeps track of its estimated size in bytes.
+  */
 private[spark] class SizeTrackingVector[T: ClassTag]
-  extends PrimitiveVector[T]
-  with SizeTracker {
+        extends PrimitiveVector[T]
+                with SizeTracker {
 
-  override def +=(value: T): Unit = {
-    super.+=(value)
-    super.afterUpdate()
-  }
+    override def +=(value: T): Unit = {
+        super.+=(value)
+        super.afterUpdate()
+    }
 
-  override def resize(newLength: Int): PrimitiveVector[T] = {
-    super.resize(newLength)
-    resetSamples()
-    this
-  }
+    override def resize(newLength: Int): PrimitiveVector[T] = {
+        super.resize(newLength)
+        resetSamples()
+        this
+    }
 
-  /**
-   * Return a trimmed version of the underlying array.
-   */
-  def toArray: Array[T] = {
-    super.iterator.toArray
-  }
+    /**
+      * Return a trimmed version of the underlying array.
+      */
+    def toArray: Array[T] = {
+        super.iterator.toArray
+    }
 }

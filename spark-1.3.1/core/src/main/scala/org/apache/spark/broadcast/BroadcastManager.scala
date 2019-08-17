@@ -24,45 +24,45 @@ import scala.reflect.ClassTag
 import org.apache.spark._
 
 private[spark] class BroadcastManager(
-    val isDriver: Boolean,
-    conf: SparkConf,
-    securityManager: SecurityManager)
-  extends Logging {
+                                             val isDriver: Boolean,
+                                             conf: SparkConf,
+                                             securityManager: SecurityManager)
+        extends Logging {
 
-  private var initialized = false
-  private var broadcastFactory: BroadcastFactory = null
+    private var initialized = false
+    private var broadcastFactory: BroadcastFactory = null
 
-  initialize()
+    initialize()
 
-  // Called by SparkContext or Executor before using Broadcast
-  private def initialize() {
-    synchronized {
-      if (!initialized) {
-        val broadcastFactoryClass =
-          conf.get("spark.broadcast.factory", "org.apache.spark.broadcast.TorrentBroadcastFactory")
+    // Called by SparkContext or Executor before using Broadcast
+    private def initialize() {
+        synchronized {
+            if (!initialized) {
+                val broadcastFactoryClass =
+                    conf.get("spark.broadcast.factory", "org.apache.spark.broadcast.TorrentBroadcastFactory")
 
-        broadcastFactory =
-          Class.forName(broadcastFactoryClass).newInstance.asInstanceOf[BroadcastFactory]
+                broadcastFactory =
+                        Class.forName(broadcastFactoryClass).newInstance.asInstanceOf[BroadcastFactory]
 
-        // Initialize appropriate BroadcastFactory and BroadcastObject
-        broadcastFactory.initialize(isDriver, conf, securityManager)
+                // Initialize appropriate BroadcastFactory and BroadcastObject
+                broadcastFactory.initialize(isDriver, conf, securityManager)
 
-        initialized = true
-      }
+                initialized = true
+            }
+        }
     }
-  }
 
-  def stop() {
-    broadcastFactory.stop()
-  }
+    def stop() {
+        broadcastFactory.stop()
+    }
 
-  private val nextBroadcastId = new AtomicLong(0)
+    private val nextBroadcastId = new AtomicLong(0)
 
-  def newBroadcast[T: ClassTag](value_ : T, isLocal: Boolean) = {
-    broadcastFactory.newBroadcast[T](value_, isLocal, nextBroadcastId.getAndIncrement())
-  }
+    def newBroadcast[T: ClassTag](value_ : T, isLocal: Boolean) = {
+        broadcastFactory.newBroadcast[T](value_, isLocal, nextBroadcastId.getAndIncrement())
+    }
 
-  def unbroadcast(id: Long, removeFromDriver: Boolean, blocking: Boolean) {
-    broadcastFactory.unbroadcast(id, removeFromDriver, blocking)
-  }
+    def unbroadcast(id: Long, removeFromDriver: Boolean, blocking: Boolean) {
+        broadcastFactory.unbroadcast(id, removeFromDriver, blocking)
+    }
 }

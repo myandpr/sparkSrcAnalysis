@@ -28,5 +28,5 @@ import java.io.Serializable;
  * A Spark SQL UDF that has 2 arguments.
  */
 public interface UDF2<T1, T2, R> extends Serializable {
-  public R call(T1 t1, T2 t2) throws Exception;
+    public R call(T1 t1, T2 t2) throws Exception;
 }

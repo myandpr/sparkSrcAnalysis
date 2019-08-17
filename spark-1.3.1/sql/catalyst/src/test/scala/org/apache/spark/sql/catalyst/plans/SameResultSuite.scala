@@ -26,41 +26,41 @@ import org.apache.spark.sql.catalyst.plans.logical.{LocalRelation, LogicalPlan}
 import org.apache.spark.sql.catalyst.util._
 
 /**
- * Tests for the sameResult function of [[LogicalPlan]].
- */
+  * Tests for the sameResult function of [[LogicalPlan]].
+  */
 class SameResultSuite extends FunSuite {
-  val testRelation = LocalRelation('a.int, 'b.int, 'c.int)
-  val testRelation2 = LocalRelation('a.int, 'b.int, 'c.int)
+    val testRelation = LocalRelation('a.int, 'b.int, 'c.int)
+    val testRelation2 = LocalRelation('a.int, 'b.int, 'c.int)
 
-  def assertSameResult(a: LogicalPlan, b: LogicalPlan, result: Boolean = true) = {
-    val aAnalyzed = a.analyze
-    val bAnalyzed = b.analyze
+    def assertSameResult(a: LogicalPlan, b: LogicalPlan, result: Boolean = true) = {
+        val aAnalyzed = a.analyze
+        val bAnalyzed = b.analyze
 
-    if (aAnalyzed.sameResult(bAnalyzed) != result) {
-      val comparison = sideBySide(aAnalyzed.toString, bAnalyzed.toString).mkString("\n")
-      fail(s"Plans should return sameResult = $result\n$comparison")
+        if (aAnalyzed.sameResult(bAnalyzed) != result) {
+            val comparison = sideBySide(aAnalyzed.toString, bAnalyzed.toString).mkString("\n")
+            fail(s"Plans should return sameResult = $result\n$comparison")
+        }
     }
-  }
 
-  test("relations") {
-    assertSameResult(testRelation, testRelation2)
-  }
+    test("relations") {
+        assertSameResult(testRelation, testRelation2)
+    }
 
-  test("projections") {
-    assertSameResult(testRelation.select('a), testRelation2.select('a))
-    assertSameResult(testRelation.select('b), testRelation2.select('b))
-    assertSameResult(testRelation.select('a, 'b), testRelation2.select('a, 'b))
-    assertSameResult(testRelation.select('b, 'a), testRelation2.select('b, 'a))
+    test("projections") {
+        assertSameResult(testRelation.select('a), testRelation2.select('a))
+        assertSameResult(testRelation.select('b), testRelation2.select('b))
+        assertSameResult(testRelation.select('a, 'b), testRelation2.select('a, 'b))
+        assertSameResult(testRelation.select('b, 'a), testRelation2.select('b, 'a))
 
-    assertSameResult(testRelation, testRelation2.select('a), result = false)
-    assertSameResult(testRelation.select('b, 'a), testRelation2.select('a, 'b), result = false)
-  }
+        assertSameResult(testRelation, testRelation2.select('a), result = false)
+        assertSameResult(testRelation.select('b, 'a), testRelation2.select('a, 'b), result = false)
+    }
 
-  test("filters") {
-    assertSameResult(testRelation.where('a === 'b), testRelation2.where('a === 'b))
-  }
+    test("filters") {
+        assertSameResult(testRelation.where('a === 'b), testRelation2.where('a === 'b))
+    }
 
-  test("sorts") {
-    assertSameResult(testRelation.orderBy('a.asc), testRelation2.orderBy('a.asc))
-  }
+    test("sorts") {
+        assertSameResult(testRelation.orderBy('a.asc), testRelation2.orderBy('a.asc))
+    }
 }

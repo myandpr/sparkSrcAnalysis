@@ -25,42 +25,42 @@ import org.apache.spark.network.server.TransportServer
 import org.apache.spark.network.shuffle.ExternalShuffleBlockHandler
 
 /**
- * Provides a server from which Executors can read shuffle files (rather than reading directly from
- * each other), to provide uninterrupted access to the files in the face of executors being turned
- * off or killed.
- *
- * Optionally requires SASL authentication in order to read. See [[SecurityManager]].
- */
+  * Provides a server from which Executors can read shuffle files (rather than reading directly from
+  * each other), to provide uninterrupted access to the files in the face of executors being turned
+  * off or killed.
+  *
+  * Optionally requires SASL authentication in order to read. See [[SecurityManager]].
+  */
 private[worker]
 class StandaloneWorkerShuffleService(sparkConf: SparkConf, securityManager: SecurityManager)
-  extends Logging {
+        extends Logging {
 
-  private val enabled = sparkConf.getBoolean("spark.shuffle.service.enabled", false)
-  private val port = sparkConf.getInt("spark.shuffle.service.port", 7337)
-  private val useSasl: Boolean = securityManager.isAuthenticationEnabled()
+    private val enabled = sparkConf.getBoolean("spark.shuffle.service.enabled", false)
+    private val port = sparkConf.getInt("spark.shuffle.service.port", 7337)
+    private val useSasl: Boolean = securityManager.isAuthenticationEnabled()
 
-  private val transportConf = SparkTransportConf.fromSparkConf(sparkConf, numUsableCores = 0)
-  private val blockHandler = new ExternalShuffleBlockHandler(transportConf)
-  private val transportContext: TransportContext = {
-    val handler = if (useSasl) new SaslRpcHandler(blockHandler, securityManager) else blockHandler
-    new TransportContext(transportConf, handler)
-  }
-
-  private var server: TransportServer = _
-
-  /** Starts the external shuffle service if the user has configured us to. */
-  def startIfEnabled() {
-    if (enabled) {
-      require(server == null, "Shuffle server already started")
-      logInfo(s"Starting shuffle service on port $port with useSasl = $useSasl")
-      server = transportContext.createServer(port)
+    private val transportConf = SparkTransportConf.fromSparkConf(sparkConf, numUsableCores = 0)
+    private val blockHandler = new ExternalShuffleBlockHandler(transportConf)
+    private val transportContext: TransportContext = {
+        val handler = if (useSasl) new SaslRpcHandler(blockHandler, securityManager) else blockHandler
+        new TransportContext(transportConf, handler)
     }
-  }
 
-  def stop() {
-    if (enabled && server != null) {
-      server.close()
-      server = null
+    private var server: TransportServer = _
+
+    /** Starts the external shuffle service if the user has configured us to. */
+    def startIfEnabled() {
+        if (enabled) {
+            require(server == null, "Shuffle server already started")
+            logInfo(s"Starting shuffle service on port $port with useSasl = $useSasl")
+            server = transportContext.createServer(port)
+        }
     }
-  }
+
+    def stop() {
+        if (enabled && server != null) {
+            server.close()
+            server = null
+        }
+    }
 }

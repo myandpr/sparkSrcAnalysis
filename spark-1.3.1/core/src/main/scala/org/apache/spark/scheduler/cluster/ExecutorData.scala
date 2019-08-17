@@ -20,19 +20,19 @@ package org.apache.spark.scheduler.cluster
 import akka.actor.{Address, ActorRef}
 
 /**
- * Grouping of data for an executor used by CoarseGrainedSchedulerBackend.
- *
- * @param executorActor The ActorRef representing this executor
- * @param executorAddress The network address of this executor
- * @param executorHost The hostname that this executor is running on
- * @param freeCores  The current number of cores available for work on the executor
- * @param totalCores The total number of cores available to the executor
- */
+  * Grouping of data for an executor used by CoarseGrainedSchedulerBackend.
+  *
+  * @param executorActor   The ActorRef representing this executor
+  * @param executorAddress The network address of this executor
+  * @param executorHost    The hostname that this executor is running on
+  * @param freeCores       The current number of cores available for work on the executor
+  * @param totalCores      The total number of cores available to the executor
+  */
 private[cluster] class ExecutorData(
-   val executorActor: ActorRef,
-   val executorAddress: Address,
-   override val executorHost: String,
-   var freeCores: Int,
-   override val totalCores: Int,
-   override val logUrlMap: Map[String, String]
-) extends ExecutorInfo(executorHost, totalCores, logUrlMap)
+                                           val executorActor: ActorRef,
+                                           val executorAddress: Address,
+                                           override val executorHost: String,
+                                           var freeCores: Int,
+                                           override val totalCores: Int,
+                                           override val logUrlMap: Map[String, String]
+                                   ) extends ExecutorInfo(executorHost, totalCores, logUrlMap)

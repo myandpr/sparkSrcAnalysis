@@ -32,50 +32,50 @@ private[spark] sealed trait TaskResult[T]
 
 /** A reference to a DirectTaskResult that has been stored in the worker's BlockManager. */
 private[spark] case class IndirectTaskResult[T](blockId: BlockId, size: Int)
-  extends TaskResult[T] with Serializable
+        extends TaskResult[T] with Serializable
 
 /** A TaskResult that contains the task's return value and accumulator updates. */
 private[spark]
 class DirectTaskResult[T](var valueBytes: ByteBuffer, var accumUpdates: Map[Long, Any],
-    var metrics: TaskMetrics)
-  extends TaskResult[T] with Externalizable {
+                          var metrics: TaskMetrics)
+        extends TaskResult[T] with Externalizable {
 
-  def this() = this(null.asInstanceOf[ByteBuffer], null, null)
+    def this() = this(null.asInstanceOf[ByteBuffer], null, null)
 
-  override def writeExternal(out: ObjectOutput): Unit = Utils.tryOrIOException {
+    override def writeExternal(out: ObjectOutput): Unit = Utils.tryOrIOException {
 
-    out.writeInt(valueBytes.remaining);
-    Utils.writeByteBuffer(valueBytes, out)
+        out.writeInt(valueBytes.remaining);
+        Utils.writeByteBuffer(valueBytes, out)
 
-    out.writeInt(accumUpdates.size)
-    for ((key, value) <- accumUpdates) {
-      out.writeLong(key)
-      out.writeObject(value)
+        out.writeInt(accumUpdates.size)
+        for ((key, value) <- accumUpdates) {
+            out.writeLong(key)
+            out.writeObject(value)
+        }
+        out.writeObject(metrics)
     }
-    out.writeObject(metrics)
-  }
 
-  override def readExternal(in: ObjectInput): Unit = Utils.tryOrIOException {
+    override def readExternal(in: ObjectInput): Unit = Utils.tryOrIOException {
 
-    val blen = in.readInt()
-    val byteVal = new Array[Byte](blen)
-    in.readFully(byteVal)
-    valueBytes = ByteBuffer.wrap(byteVal)
+        val blen = in.readInt()
+        val byteVal = new Array[Byte](blen)
+        in.readFully(byteVal)
+        valueBytes = ByteBuffer.wrap(byteVal)
 
-    val numUpdates = in.readInt
-    if (numUpdates == 0) {
-      accumUpdates = null
-    } else {
-      accumUpdates = Map()
-      for (i <- 0 until numUpdates) {
-        accumUpdates(in.readLong()) = in.readObject()
-      }
+        val numUpdates = in.readInt
+        if (numUpdates == 0) {
+            accumUpdates = null
+        } else {
+            accumUpdates = Map()
+            for (i <- 0 until numUpdates) {
+                accumUpdates(in.readLong()) = in.readObject()
+            }
+        }
+        metrics = in.readObject().asInstanceOf[TaskMetrics]
     }
-    metrics = in.readObject().asInstanceOf[TaskMetrics]
-  }
 
-  def value(): T = {
-    val resultSer = SparkEnv.get.serializer.newInstance()
-    resultSer.deserialize(valueBytes)
-  }
+    def value(): T = {
+        val resultSer = SparkEnv.get.serializer.newInstance()
+        resultSer.deserialize(valueBytes)
+    }
 }

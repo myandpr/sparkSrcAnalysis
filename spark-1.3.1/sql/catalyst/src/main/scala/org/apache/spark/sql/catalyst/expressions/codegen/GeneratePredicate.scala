@@ -20,29 +20,30 @@ package org.apache.spark.sql.catalyst.expressions.codegen
 import org.apache.spark.sql.catalyst.expressions._
 
 /**
- * Generates bytecode that evaluates a boolean [[Expression]] on a given input [[Row]].
- */
+  * Generates bytecode that evaluates a boolean [[Expression]] on a given input [[Row]].
+  */
 object GeneratePredicate extends CodeGenerator[Expression, (Row) => Boolean] {
-  import scala.reflect.runtime.{universe => ru}
-  import scala.reflect.runtime.universe._
 
-  protected def canonicalize(in: Expression): Expression = ExpressionCanonicalizer(in)
+    import scala.reflect.runtime.{universe => ru}
+    import scala.reflect.runtime.universe._
 
-  protected def bind(in: Expression, inputSchema: Seq[Attribute]): Expression =
-    BindReferences.bindReference(in, inputSchema)
+    protected def canonicalize(in: Expression): Expression = ExpressionCanonicalizer(in)
 
-  protected def create(predicate: Expression): ((Row) => Boolean) = {
-    val cEval = expressionEvaluator(predicate)
+    protected def bind(in: Expression, inputSchema: Seq[Attribute]): Expression =
+        BindReferences.bindReference(in, inputSchema)
 
-    val code =
-      q"""
+    protected def create(predicate: Expression): ((Row) => Boolean) = {
+        val cEval = expressionEvaluator(predicate)
+
+        val code =
+            q"""
         (i: $rowType) => {
           ..${cEval.code}
           if (${cEval.nullTerm}) false else ${cEval.primitiveTerm}
         }
       """
 
-    log.debug(s"Generated predicate '$predicate':\n$code")
-    toolBox.eval(code).asInstanceOf[Row => Boolean]
-  }
+        log.debug(s"Generated predicate '$predicate':\n$code")
+        toolBox.eval(code).asInstanceOf[Row => Boolean]
+    }
 }

@@ -18,37 +18,37 @@
 package org.apache.spark.scheduler
 
 /**
- * A simple listener for application events.
- *
- * This listener expects to hear events from a single application only. If events
- * from multiple applications are seen, the behavior is unspecified.
- */
+  * A simple listener for application events.
+  *
+  * This listener expects to hear events from a single application only. If events
+  * from multiple applications are seen, the behavior is unspecified.
+  */
 private[spark] class ApplicationEventListener extends SparkListener {
-  var appName: Option[String] = None
-  var appId: Option[String] = None
-  var sparkUser: Option[String] = None
-  var startTime: Option[Long] = None
-  var endTime: Option[Long] = None
-  var viewAcls: Option[String] = None
-  var adminAcls: Option[String] = None
+    var appName: Option[String] = None
+    var appId: Option[String] = None
+    var sparkUser: Option[String] = None
+    var startTime: Option[Long] = None
+    var endTime: Option[Long] = None
+    var viewAcls: Option[String] = None
+    var adminAcls: Option[String] = None
 
-  override def onApplicationStart(applicationStart: SparkListenerApplicationStart) {
-    appName = Some(applicationStart.appName)
-    appId = applicationStart.appId
-    startTime = Some(applicationStart.time)
-    sparkUser = Some(applicationStart.sparkUser)
-  }
-
-  override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd) {
-    endTime = Some(applicationEnd.time)
-  }
-
-  override def onEnvironmentUpdate(environmentUpdate: SparkListenerEnvironmentUpdate) {
-    synchronized {
-      val environmentDetails = environmentUpdate.environmentDetails
-      val allProperties = environmentDetails("Spark Properties").toMap
-      viewAcls = allProperties.get("spark.ui.view.acls")
-      adminAcls = allProperties.get("spark.admin.acls")
+    override def onApplicationStart(applicationStart: SparkListenerApplicationStart) {
+        appName = Some(applicationStart.appName)
+        appId = applicationStart.appId
+        startTime = Some(applicationStart.time)
+        sparkUser = Some(applicationStart.sparkUser)
     }
-  }
+
+    override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd) {
+        endTime = Some(applicationEnd.time)
+    }
+
+    override def onEnvironmentUpdate(environmentUpdate: SparkListenerEnvironmentUpdate) {
+        synchronized {
+            val environmentDetails = environmentUpdate.environmentDetails
+            val allProperties = environmentDetails("Spark Properties").toMap
+            viewAcls = allProperties.get("spark.ui.view.acls")
+            adminAcls = allProperties.get("spark.admin.acls")
+        }
+    }
 }

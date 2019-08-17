@@ -30,70 +30,72 @@ import scala.language.implicitConversions
 import org.apache.spark.SparkConf
 
 /**
- * A simple publisher for demonstration purposes, repeatedly publishes random Messages
- * every one second.
- */
+  * A simple publisher for demonstration purposes, repeatedly publishes random Messages
+  * every one second.
+  */
 object SimpleZeroMQPublisher {
 
-  def main(args: Array[String]) = {
-    if (args.length < 2) {
-      System.err.println("Usage: SimpleZeroMQPublisher <zeroMQUrl> <topic> ")
-      System.exit(1)
-    }
+    def main(args: Array[String]) = {
+        if (args.length < 2) {
+            System.err.println("Usage: SimpleZeroMQPublisher <zeroMQUrl> <topic> ")
+            System.exit(1)
+        }
 
-    val Seq(url, topic) = args.toSeq
-    val acs: ActorSystem = ActorSystem()
+        val Seq(url, topic) = args.toSeq
+        val acs: ActorSystem = ActorSystem()
 
-    val pubSocket = ZeroMQExtension(acs).newSocket(SocketType.Pub, Bind(url))
-    implicit def stringToByteString(x: String) = ByteString(x)
-    val messages: List[ByteString] = List("words ", "may ", "count ")
-    while (true) {
-      Thread.sleep(1000)
-      pubSocket ! ZMQMessage(ByteString(topic) :: messages)
+        val pubSocket = ZeroMQExtension(acs).newSocket(SocketType.Pub, Bind(url))
+
+        implicit def stringToByteString(x: String) = ByteString(x)
+
+        val messages: List[ByteString] = List("words ", "may ", "count ")
+        while (true) {
+            Thread.sleep(1000)
+            pubSocket ! ZMQMessage(ByteString(topic) :: messages)
+        }
+        acs.awaitTermination()
     }
-    acs.awaitTermination()
-  }
 }
 
 // scalastyle:off
 /**
- * A sample wordcount with ZeroMQStream stream
- *
- * To work with zeroMQ, some native libraries have to be installed.
- * Install zeroMQ (release 2.1) core libraries. [ZeroMQ Install guide]
- * (http://www.zeromq.org/intro:get-the-software)
- *
- * Usage: ZeroMQWordCount <zeroMQurl> <topic>
- *   <zeroMQurl> and <topic> describe where zeroMq publisher is running.
- *
- * To run this example locally, you may run publisher as
- *    `$ bin/run-example \
- *      org.apache.spark.examples.streaming.SimpleZeroMQPublisher tcp://127.0.1.1:1234 foo.bar`
- * and run the example as
- *    `$ bin/run-example \
- *      org.apache.spark.examples.streaming.ZeroMQWordCount tcp://127.0.1.1:1234 foo`
- */
+  * A sample wordcount with ZeroMQStream stream
+  *
+  * To work with zeroMQ, some native libraries have to be installed.
+  * Install zeroMQ (release 2.1) core libraries. [ZeroMQ Install guide]
+  * (http://www.zeromq.org/intro:get-the-software)
+  *
+  * Usage: ZeroMQWordCount <zeroMQurl> <topic>
+  * <zeroMQurl> and <topic> describe where zeroMq publisher is running.
+  *
+  * To run this example locally, you may run publisher as
+  * `$ bin/run-example \
+  *      org.apache.spark.examples.streaming.SimpleZeroMQPublisher tcp://127.0.1.1:1234 foo.bar`
+  * and run the example as
+  * `$ bin/run-example \
+  *      org.apache.spark.examples.streaming.ZeroMQWordCount tcp://127.0.1.1:1234 foo`
+  */
 // scalastyle:on
 object ZeroMQWordCount {
-  def main(args: Array[String]) {
-    if (args.length < 2) {
-      System.err.println("Usage: ZeroMQWordCount <zeroMQurl> <topic>")
-      System.exit(1)
+    def main(args: Array[String]) {
+        if (args.length < 2) {
+            System.err.println("Usage: ZeroMQWordCount <zeroMQurl> <topic>")
+            System.exit(1)
+        }
+        StreamingExamples.setStreamingLogLevels()
+        val Seq(url, topic) = args.toSeq
+        val sparkConf = new SparkConf().setAppName("ZeroMQWordCount")
+        // Create the context and set the batch size
+        val ssc = new StreamingContext(sparkConf, Seconds(2))
+
+        def bytesToStringIterator(x: Seq[ByteString]) = (x.map(_.utf8String)).iterator
+
+        // For this stream, a zeroMQ publisher should be running.
+        val lines = ZeroMQUtils.createStream(ssc, url, Subscribe(topic), bytesToStringIterator _)
+        val words = lines.flatMap(_.split(" "))
+        val wordCounts = words.map(x => (x, 1)).reduceByKey(_ + _)
+        wordCounts.print()
+        ssc.start()
+        ssc.awaitTermination()
     }
-    StreamingExamples.setStreamingLogLevels()
-    val Seq(url, topic) = args.toSeq
-    val sparkConf = new SparkConf().setAppName("ZeroMQWordCount")
-    // Create the context and set the batch size
-    val ssc = new StreamingContext(sparkConf, Seconds(2))
-
-    def bytesToStringIterator(x: Seq[ByteString]) = (x.map(_.utf8String)).iterator
-
-    // For this stream, a zeroMQ publisher should be running.
-    val lines = ZeroMQUtils.createStream(ssc, url, Subscribe(topic), bytesToStringIterator _)
-    val words = lines.flatMap(_.split(" "))
-    val wordCounts = words.map(x => (x, 1)).reduceByKey(_ + _)
-    wordCounts.print()
-    ssc.start()
-    ssc.awaitTermination()
-  }
 }

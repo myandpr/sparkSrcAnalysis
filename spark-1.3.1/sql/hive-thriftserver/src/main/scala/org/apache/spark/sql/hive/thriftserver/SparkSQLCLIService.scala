@@ -37,51 +37,52 @@ import org.apache.spark.sql.hive.thriftserver.ReflectionUtils._
 import org.apache.spark.util.Utils
 
 private[hive] class SparkSQLCLIService(hiveContext: HiveContext)
-  extends CLIService
-  with ReflectedCompositeService {
+        extends CLIService
+                with ReflectedCompositeService {
 
-  override def init(hiveConf: HiveConf) {
-    setSuperField(this, "hiveConf", hiveConf)
+    override def init(hiveConf: HiveConf) {
+        setSuperField(this, "hiveConf", hiveConf)
 
-    val sparkSqlSessionManager = new SparkSQLSessionManager(hiveContext)
-    setSuperField(this, "sessionManager", sparkSqlSessionManager)
-    addService(sparkSqlSessionManager)
-    var sparkServiceUGI: UserGroupInformation = null
+        val sparkSqlSessionManager = new SparkSQLSessionManager(hiveContext)
+        setSuperField(this, "sessionManager", sparkSqlSessionManager)
+        addService(sparkSqlSessionManager)
+        var sparkServiceUGI: UserGroupInformation = null
 
-    if (ShimLoader.getHadoopShims.isSecurityEnabled) {
-      try {
-        HiveAuthFactory.loginFromKeytab(hiveConf)
-        sparkServiceUGI = ShimLoader.getHadoopShims.getUGIForConf(hiveConf)
-        HiveThriftServerShim.setServerUserName(sparkServiceUGI, this)
-      } catch {
-        case e @ (_: IOException | _: LoginException) =>
-          throw new ServiceException("Unable to login to kerberos with given principal/keytab", e)
-      }
+        if (ShimLoader.getHadoopShims.isSecurityEnabled) {
+            try {
+                HiveAuthFactory.loginFromKeytab(hiveConf)
+                sparkServiceUGI = ShimLoader.getHadoopShims.getUGIForConf(hiveConf)
+                HiveThriftServerShim.setServerUserName(sparkServiceUGI, this)
+            } catch {
+                case e@(_: IOException | _: LoginException) =>
+                    throw new ServiceException("Unable to login to kerberos with given principal/keytab", e)
+            }
+        }
+
+        initCompositeService(hiveConf)
     }
 
-    initCompositeService(hiveConf)
-  }
-
-  override def getInfo(sessionHandle: SessionHandle, getInfoType: GetInfoType): GetInfoValue = {
-    getInfoType match {
-      case GetInfoType.CLI_SERVER_NAME => new GetInfoValue("Spark SQL")
-      case GetInfoType.CLI_DBMS_NAME => new GetInfoValue("Spark SQL")
-      case GetInfoType.CLI_DBMS_VER => new GetInfoValue(hiveContext.sparkContext.version)
-      case _ => super.getInfo(sessionHandle, getInfoType)
+    override def getInfo(sessionHandle: SessionHandle, getInfoType: GetInfoType): GetInfoValue = {
+        getInfoType match {
+            case GetInfoType.CLI_SERVER_NAME => new GetInfoValue("Spark SQL")
+            case GetInfoType.CLI_DBMS_NAME => new GetInfoValue("Spark SQL")
+            case GetInfoType.CLI_DBMS_VER => new GetInfoValue(hiveContext.sparkContext.version)
+            case _ => super.getInfo(sessionHandle, getInfoType)
+        }
     }
-  }
 }
 
-private[thriftserver] trait ReflectedCompositeService { this: AbstractService =>
-  def initCompositeService(hiveConf: HiveConf) {
-    // Emulating `CompositeService.init(hiveConf)`
-    val serviceList = getAncestorField[JList[Service]](this, 2, "serviceList")
-    serviceList.foreach(_.init(hiveConf))
+private[thriftserver] trait ReflectedCompositeService {
+    this: AbstractService =>
+    def initCompositeService(hiveConf: HiveConf) {
+        // Emulating `CompositeService.init(hiveConf)`
+        val serviceList = getAncestorField[JList[Service]](this, 2, "serviceList")
+        serviceList.foreach(_.init(hiveConf))
 
-    // Emulating `AbstractService.init(hiveConf)`
-    invoke(classOf[AbstractService], this, "ensureCurrentState", classOf[STATE] -> STATE.NOTINITED)
-    setAncestorField(this, 3, "hiveConf", hiveConf)
-    invoke(classOf[AbstractService], this, "changeState", classOf[STATE] -> STATE.INITED)
-    getAncestorField[Log](this, 3, "LOG").info(s"Service: $getName is inited.")
-  }
+        // Emulating `AbstractService.init(hiveConf)`
+        invoke(classOf[AbstractService], this, "ensureCurrentState", classOf[STATE] -> STATE.NOTINITED)
+        setAncestorField(this, 3, "hiveConf", hiveConf)
+        invoke(classOf[AbstractService], this, "changeState", classOf[STATE] -> STATE.INITED)
+        getAncestorField[Log](this, 3, "LOG").info(s"Service: $getName is inited.")
+    }
 }

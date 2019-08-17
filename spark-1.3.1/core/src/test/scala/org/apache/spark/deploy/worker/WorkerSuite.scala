@@ -24,34 +24,35 @@ import org.scalatest.{Matchers, FunSuite}
 
 class WorkerSuite extends FunSuite with Matchers {
 
-  def cmd(javaOpts: String*) = Command("", Seq.empty, Map.empty, Seq.empty, Seq.empty, Seq(javaOpts:_*))
-  def conf(opts: (String, String)*) = new SparkConf(loadDefaults = false).setAll(opts)
+    def cmd(javaOpts: String*) = Command("", Seq.empty, Map.empty, Seq.empty, Seq.empty, Seq(javaOpts: _*))
 
-  test("test isUseLocalNodeSSLConfig") {
-    Worker.isUseLocalNodeSSLConfig(cmd("-Dasdf=dfgh")) shouldBe false
-    Worker.isUseLocalNodeSSLConfig(cmd("-Dspark.ssl.useNodeLocalConf=true")) shouldBe true
-    Worker.isUseLocalNodeSSLConfig(cmd("-Dspark.ssl.useNodeLocalConf=false")) shouldBe false
-    Worker.isUseLocalNodeSSLConfig(cmd("-Dspark.ssl.useNodeLocalConf=")) shouldBe false
-  }
+    def conf(opts: (String, String)*) = new SparkConf(loadDefaults = false).setAll(opts)
 
-  test("test maybeUpdateSSLSettings") {
-    Worker.maybeUpdateSSLSettings(
-      cmd("-Dasdf=dfgh", "-Dspark.ssl.opt1=x"),
-      conf("spark.ssl.opt1" -> "y", "spark.ssl.opt2" -> "z"))
-        .javaOpts should contain theSameElementsInOrderAs Seq(
-          "-Dasdf=dfgh", "-Dspark.ssl.opt1=x")
+    test("test isUseLocalNodeSSLConfig") {
+        Worker.isUseLocalNodeSSLConfig(cmd("-Dasdf=dfgh")) shouldBe false
+        Worker.isUseLocalNodeSSLConfig(cmd("-Dspark.ssl.useNodeLocalConf=true")) shouldBe true
+        Worker.isUseLocalNodeSSLConfig(cmd("-Dspark.ssl.useNodeLocalConf=false")) shouldBe false
+        Worker.isUseLocalNodeSSLConfig(cmd("-Dspark.ssl.useNodeLocalConf=")) shouldBe false
+    }
 
-    Worker.maybeUpdateSSLSettings(
-      cmd("-Dspark.ssl.useNodeLocalConf=false", "-Dspark.ssl.opt1=x"),
-      conf("spark.ssl.opt1" -> "y", "spark.ssl.opt2" -> "z"))
-        .javaOpts should contain theSameElementsInOrderAs Seq(
-          "-Dspark.ssl.useNodeLocalConf=false", "-Dspark.ssl.opt1=x")
+    test("test maybeUpdateSSLSettings") {
+        Worker.maybeUpdateSSLSettings(
+            cmd("-Dasdf=dfgh", "-Dspark.ssl.opt1=x"),
+            conf("spark.ssl.opt1" -> "y", "spark.ssl.opt2" -> "z"))
+                .javaOpts should contain theSameElementsInOrderAs Seq(
+            "-Dasdf=dfgh", "-Dspark.ssl.opt1=x")
 
-    Worker.maybeUpdateSSLSettings(
-      cmd("-Dspark.ssl.useNodeLocalConf=true", "-Dspark.ssl.opt1=x"),
-      conf("spark.ssl.opt1" -> "y", "spark.ssl.opt2" -> "z"))
-        .javaOpts should contain theSameElementsAs Seq(
-          "-Dspark.ssl.useNodeLocalConf=true", "-Dspark.ssl.opt1=y", "-Dspark.ssl.opt2=z")
+        Worker.maybeUpdateSSLSettings(
+            cmd("-Dspark.ssl.useNodeLocalConf=false", "-Dspark.ssl.opt1=x"),
+            conf("spark.ssl.opt1" -> "y", "spark.ssl.opt2" -> "z"))
+                .javaOpts should contain theSameElementsInOrderAs Seq(
+            "-Dspark.ssl.useNodeLocalConf=false", "-Dspark.ssl.opt1=x")
 
-  }
+        Worker.maybeUpdateSSLSettings(
+            cmd("-Dspark.ssl.useNodeLocalConf=true", "-Dspark.ssl.opt1=x"),
+            conf("spark.ssl.opt1" -> "y", "spark.ssl.opt2" -> "z"))
+                .javaOpts should contain theSameElementsAs Seq(
+            "-Dspark.ssl.useNodeLocalConf=true", "-Dspark.ssl.opt1=y", "-Dspark.ssl.opt2=z")
+
+    }
 }

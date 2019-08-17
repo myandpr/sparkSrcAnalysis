@@ -24,44 +24,44 @@ import scala.util.control.NonFatal
 import org.apache.spark.Logging
 
 /**
- * An event bus which posts events to its listeners.
- */
+  * An event bus which posts events to its listeners.
+  */
 private[spark] trait ListenerBus[L <: AnyRef, E] extends Logging {
 
-  // Marked `private[spark]` for access in tests.
-  private[spark] val listeners = new CopyOnWriteArrayList[L]
+    // Marked `private[spark]` for access in tests.
+    private[spark] val listeners = new CopyOnWriteArrayList[L]
 
-  /**
-   * Add a listener to listen events. This method is thread-safe and can be called in any thread.
-   */
-  final def addListener(listener: L) {
-    listeners.add(listener)
-  }
-
-  /**
-   * Post the event to all registered listeners. The `postToAll` caller should guarantee calling
-   * `postToAll` in the same thread for all events.
-   */
-  final def postToAll(event: E): Unit = {
-    // JavaConversions will create a JIterableWrapper if we use some Scala collection functions.
-    // However, this method will be called frequently. To avoid the wrapper cost, here ewe use
-    // Java Iterator directly.
-    val iter = listeners.iterator
-    while (iter.hasNext) {
-      val listener = iter.next()
-      try {
-        onPostEvent(listener, event)
-      } catch {
-        case NonFatal(e) =>
-          logError(s"Listener ${Utils.getFormattedClassName(listener)} threw an exception", e)
-      }
+    /**
+      * Add a listener to listen events. This method is thread-safe and can be called in any thread.
+      */
+    final def addListener(listener: L) {
+        listeners.add(listener)
     }
-  }
 
-  /**
-   * Post an event to the specified listener. `onPostEvent` is guaranteed to be called in the same
-   * thread.
-   */
-  def onPostEvent(listener: L, event: E): Unit
+    /**
+      * Post the event to all registered listeners. The `postToAll` caller should guarantee calling
+      * `postToAll` in the same thread for all events.
+      */
+    final def postToAll(event: E): Unit = {
+        // JavaConversions will create a JIterableWrapper if we use some Scala collection functions.
+        // However, this method will be called frequently. To avoid the wrapper cost, here ewe use
+        // Java Iterator directly.
+        val iter = listeners.iterator
+        while (iter.hasNext) {
+            val listener = iter.next()
+            try {
+                onPostEvent(listener, event)
+            } catch {
+                case NonFatal(e) =>
+                    logError(s"Listener ${Utils.getFormattedClassName(listener)} threw an exception", e)
+            }
+        }
+    }
+
+    /**
+      * Post an event to the specified listener. `onPostEvent` is guaranteed to be called in the same
+      * thread.
+      */
+    def onPostEvent(listener: L, event: E): Unit
 
 }

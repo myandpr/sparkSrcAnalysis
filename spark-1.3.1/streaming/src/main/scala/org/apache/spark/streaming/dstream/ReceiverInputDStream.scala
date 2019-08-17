@@ -27,71 +27,78 @@ import org.apache.spark.streaming.receiver.{Receiver, WriteAheadLogBasedStoreRes
 import org.apache.spark.streaming.scheduler.ReceivedBlockInfo
 
 /**
- * Abstract class for defining any [[org.apache.spark.streaming.dstream.InputDStream]]
- * that has to start a receiver on worker nodes to receive external data.
- * Specific implementations of ReceiverInputDStream must
- * define `the getReceiver()` function that gets the receiver object of type
- * [[org.apache.spark.streaming.receiver.Receiver]] that will be sent
- * to the workers to receive data.
- * @param ssc_ Streaming context that will execute this input stream
- * @tparam T Class type of the object of this stream
- */
+  * Abstract class for defining any [[org.apache.spark.streaming.dstream.InputDStream]]
+  * that has to start a receiver on worker nodes to receive external data.
+  * Specific implementations of ReceiverInputDStream must
+  * define `the getReceiver()` function that gets the receiver object of type
+  * [[org.apache.spark.streaming.receiver.Receiver]] that will be sent
+  * to the workers to receive data.
+  *
+  * @param ssc_ Streaming context that will execute this input stream
+  * @tparam T Class type of the object of this stream
+  */
 abstract class ReceiverInputDStream[T: ClassTag](@transient ssc_ : StreamingContext)
-  extends InputDStream[T](ssc_) {
+        extends InputDStream[T](ssc_) {
 
-  /** This is an unique identifier for the receiver input stream. */
-  val id = ssc.getNewReceiverStreamId()
+    /** This is an unique identifier for the receiver input stream. */
+    val id = ssc.getNewReceiverStreamId()
 
-  /**
-   * Gets the receiver object that will be sent to the worker nodes
-   * to receive data. This method needs to defined by any specific implementation
-   * of a ReceiverInputDStream.
-   */
-  def getReceiver(): Receiver[T]
+    /**
+      * Gets the receiver object that will be sent to the worker nodes
+      * to receive data. This method needs to defined by any specific implementation
+      * of a ReceiverInputDStream.
+      */
+    def getReceiver(): Receiver[T]
 
-  // Nothing to start or stop as both taken care of by the ReceiverTracker.
-  def start() {}
+    // Nothing to start or stop as both taken care of by the ReceiverTracker.
+    def start() {}
 
-  def stop() {}
+    def stop() {}
 
-  /**
-   * Generates RDDs with blocks received by the receiver of this stream. */
-  override def compute(validTime: Time): Option[RDD[T]] = {
-    val blockRDD = {
+    /**
+      * Generates RDDs with blocks received by the receiver of this stream. */
+    override def compute(validTime: Time): Option[RDD[T]] = {
+        val blockRDD = {
 
-      if (validTime < graph.startTime) {
-        // If this is called for any time before the start time of the context,
-        // then this returns an empty RDD. This may happen when recovering from a
-        // driver failure without any write ahead log to recover pre-failure data.
-        new BlockRDD[T](ssc.sc, Array.empty)
-      } else {
-        // Otherwise, ask the tracker for all the blocks that have been allocated to this stream
-        // for this batch
-        val blockInfos =
-          ssc.scheduler.receiverTracker.getBlocksOfBatch(validTime).get(id).getOrElse(Seq.empty)
-        val blockStoreResults = blockInfos.map { _.blockStoreResult }
-        val blockIds = blockStoreResults.map { _.blockId.asInstanceOf[BlockId] }.toArray
+            if (validTime < graph.startTime) {
+                // If this is called for any time before the start time of the context,
+                // then this returns an empty RDD. This may happen when recovering from a
+                // driver failure without any write ahead log to recover pre-failure data.
+                new BlockRDD[T](ssc.sc, Array.empty)
+            } else {
+                // Otherwise, ask the tracker for all the blocks that have been allocated to this stream
+                // for this batch
+                val blockInfos =
+                ssc.scheduler.receiverTracker.getBlocksOfBatch(validTime).get(id).getOrElse(Seq.empty)
+                val blockStoreResults = blockInfos.map {
+                    _.blockStoreResult
+                }
+                val blockIds = blockStoreResults.map {
+                    _.blockId.asInstanceOf[BlockId]
+                }.toArray
 
-        // Check whether all the results are of the same type
-        val resultTypes = blockStoreResults.map { _.getClass }.distinct
-        if (resultTypes.size > 1) {
-          logWarning("Multiple result types in block information, WAL information will be ignored.")
+                // Check whether all the results are of the same type
+                val resultTypes = blockStoreResults.map {
+                    _.getClass
+                }.distinct
+                if (resultTypes.size > 1) {
+                    logWarning("Multiple result types in block information, WAL information will be ignored.")
+                }
+
+                // If all the results are of type WriteAheadLogBasedStoreResult, then create
+                // WriteAheadLogBackedBlockRDD else create simple BlockRDD.
+                if (resultTypes.size == 1 && resultTypes.head == classOf[WriteAheadLogBasedStoreResult]) {
+                    val logSegments = blockStoreResults.map {
+                        _.asInstanceOf[WriteAheadLogBasedStoreResult].segment
+                    }.toArray
+                    // Since storeInBlockManager = false, the storage level does not matter.
+                    new WriteAheadLogBackedBlockRDD[T](ssc.sparkContext,
+                        blockIds, logSegments, storeInBlockManager = false, StorageLevel.MEMORY_ONLY_SER)
+                } else {
+                    new BlockRDD[T](ssc.sc, blockIds)
+                }
+            }
         }
-
-        // If all the results are of type WriteAheadLogBasedStoreResult, then create
-        // WriteAheadLogBackedBlockRDD else create simple BlockRDD.
-        if (resultTypes.size == 1 && resultTypes.head == classOf[WriteAheadLogBasedStoreResult]) {
-          val logSegments = blockStoreResults.map {
-            _.asInstanceOf[WriteAheadLogBasedStoreResult].segment
-          }.toArray
-          // Since storeInBlockManager = false, the storage level does not matter.
-          new WriteAheadLogBackedBlockRDD[T](ssc.sparkContext,
-            blockIds, logSegments, storeInBlockManager = false, StorageLevel.MEMORY_ONLY_SER)
-        } else {
-          new BlockRDD[T](ssc.sc, blockIds)
-        }
-      }
+        Some(blockRDD)
     }
-    Some(blockRDD)
-  }
 }

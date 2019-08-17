@@ -30,27 +30,27 @@ import org.apache.spark.sql.hive.thriftserver.server.SparkSQLOperationManager
 import org.apache.hive.service.cli.SessionHandle
 
 private[hive] class SparkSQLSessionManager(hiveContext: HiveContext)
-  extends SessionManager
-  with ReflectedCompositeService {
+        extends SessionManager
+                with ReflectedCompositeService {
 
-  private lazy val sparkSqlOperationManager = new SparkSQLOperationManager(hiveContext)
+    private lazy val sparkSqlOperationManager = new SparkSQLOperationManager(hiveContext)
 
-  override def init(hiveConf: HiveConf) {
-    setSuperField(this, "hiveConf", hiveConf)
+    override def init(hiveConf: HiveConf) {
+        setSuperField(this, "hiveConf", hiveConf)
 
-    val backgroundPoolSize = hiveConf.getIntVar(ConfVars.HIVE_SERVER2_ASYNC_EXEC_THREADS)
-    setSuperField(this, "backgroundOperationPool", Executors.newFixedThreadPool(backgroundPoolSize))
-    getAncestorField[Log](this, 3, "LOG").info(
-      s"HiveServer2: Async execution pool size $backgroundPoolSize")
+        val backgroundPoolSize = hiveConf.getIntVar(ConfVars.HIVE_SERVER2_ASYNC_EXEC_THREADS)
+        setSuperField(this, "backgroundOperationPool", Executors.newFixedThreadPool(backgroundPoolSize))
+        getAncestorField[Log](this, 3, "LOG").info(
+            s"HiveServer2: Async execution pool size $backgroundPoolSize")
 
-    setSuperField(this, "operationManager", sparkSqlOperationManager)
-    addService(sparkSqlOperationManager)
+        setSuperField(this, "operationManager", sparkSqlOperationManager)
+        addService(sparkSqlOperationManager)
 
-    initCompositeService(hiveConf)
-  }
+        initCompositeService(hiveConf)
+    }
 
-  override def closeSession(sessionHandle: SessionHandle) {
-    super.closeSession(sessionHandle)
-    sparkSqlOperationManager.sessionToActivePool -= sessionHandle
-  }
+    override def closeSession(sessionHandle: SessionHandle) {
+        super.closeSession(sessionHandle)
+        sparkSqlOperationManager.sessionToActivePool -= sessionHandle
+    }
 }

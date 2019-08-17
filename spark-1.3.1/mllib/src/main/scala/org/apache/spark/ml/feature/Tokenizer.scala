@@ -23,19 +23,19 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.types.{DataType, StringType, ArrayType}
 
 /**
- * :: AlphaComponent ::
- * A tokenizer that converts the input string to lowercase and then splits it by white spaces.
- */
+  * :: AlphaComponent ::
+  * A tokenizer that converts the input string to lowercase and then splits it by white spaces.
+  */
 @AlphaComponent
 class Tokenizer extends UnaryTransformer[String, Seq[String], Tokenizer] {
 
-  override protected def createTransformFunc(paramMap: ParamMap): String => Seq[String] = {
-    _.toLowerCase.split("\\s")
-  }
+    override protected def createTransformFunc(paramMap: ParamMap): String => Seq[String] = {
+        _.toLowerCase.split("\\s")
+    }
 
-  override protected def validateInputType(inputType: DataType): Unit = {
-    require(inputType == StringType, s"Input type must be string type but got $inputType.")
-  }
+    override protected def validateInputType(inputType: DataType): Unit = {
+        require(inputType == StringType, s"Input type must be string type but got $inputType.")
+    }
 
-  override protected def outputDataType: DataType = new ArrayType(StringType, false)
+    override protected def outputDataType: DataType = new ArrayType(StringType, false)
 }

@@ -21,80 +21,80 @@ import org.apache.spark.SparkConf
 import org.apache.spark.util.{IntParam, Utils}
 
 /**
- * Command-line parser for the master.
- */
+  * Command-line parser for the master.
+  */
 private[spark] class MasterArguments(args: Array[String], conf: SparkConf) {
-  var host = Utils.localHostName()
-  var port = 7077
-  var webUiPort = 8080
-  var propertiesFile: String = null
+    var host = Utils.localHostName()
+    var port = 7077
+    var webUiPort = 8080
+    var propertiesFile: String = null
 
-  // Check for settings in environment variables
-  if (System.getenv("SPARK_MASTER_HOST") != null) {
-    host = System.getenv("SPARK_MASTER_HOST")
-  }
-  if (System.getenv("SPARK_MASTER_PORT") != null) {
-    port = System.getenv("SPARK_MASTER_PORT").toInt
-  }
-  if (System.getenv("SPARK_MASTER_WEBUI_PORT") != null) {
-    webUiPort = System.getenv("SPARK_MASTER_WEBUI_PORT").toInt
-  }
+    // Check for settings in environment variables
+    if (System.getenv("SPARK_MASTER_HOST") != null) {
+        host = System.getenv("SPARK_MASTER_HOST")
+    }
+    if (System.getenv("SPARK_MASTER_PORT") != null) {
+        port = System.getenv("SPARK_MASTER_PORT").toInt
+    }
+    if (System.getenv("SPARK_MASTER_WEBUI_PORT") != null) {
+        webUiPort = System.getenv("SPARK_MASTER_WEBUI_PORT").toInt
+    }
 
-  parse(args.toList)
+    parse(args.toList)
 
-  // This mutates the SparkConf, so all accesses to it must be made after this line
-  propertiesFile = Utils.loadDefaultSparkProperties(conf, propertiesFile)
+    // This mutates the SparkConf, so all accesses to it must be made after this line
+    propertiesFile = Utils.loadDefaultSparkProperties(conf, propertiesFile)
 
-  if (conf.contains("spark.master.ui.port")) {
-    webUiPort = conf.get("spark.master.ui.port").toInt
-  }
+    if (conf.contains("spark.master.ui.port")) {
+        webUiPort = conf.get("spark.master.ui.port").toInt
+    }
 
-  def parse(args: List[String]): Unit = args match {
-    case ("--ip" | "-i") :: value :: tail =>
-      Utils.checkHost(value, "ip no longer supported, please use hostname " + value)
-      host = value
-      parse(tail)
+    def parse(args: List[String]): Unit = args match {
+        case ("--ip" | "-i") :: value :: tail =>
+            Utils.checkHost(value, "ip no longer supported, please use hostname " + value)
+            host = value
+            parse(tail)
 
-    case ("--host" | "-h") :: value :: tail =>
-      Utils.checkHost(value, "Please use hostname " + value)
-      host = value
-      parse(tail)
+        case ("--host" | "-h") :: value :: tail =>
+            Utils.checkHost(value, "Please use hostname " + value)
+            host = value
+            parse(tail)
 
-    case ("--port" | "-p") :: IntParam(value) :: tail =>
-      port = value
-      parse(tail)
+        case ("--port" | "-p") :: IntParam(value) :: tail =>
+            port = value
+            parse(tail)
 
-    case "--webui-port" :: IntParam(value) :: tail =>
-      webUiPort = value
-      parse(tail)
+        case "--webui-port" :: IntParam(value) :: tail =>
+            webUiPort = value
+            parse(tail)
 
-    case ("--properties-file") :: value :: tail =>
-      propertiesFile = value
-      parse(tail)
+        case ("--properties-file") :: value :: tail =>
+            propertiesFile = value
+            parse(tail)
 
-    case ("--help") :: tail =>
-      printUsageAndExit(0)
+        case ("--help") :: tail =>
+            printUsageAndExit(0)
 
-    case Nil => {}
+        case Nil => {}
 
-    case _ =>
-      printUsageAndExit(1)
-  }
+        case _ =>
+            printUsageAndExit(1)
+    }
 
-  /**
-   * Print usage and exit JVM with the given exit code.
-   */
-  def printUsageAndExit(exitCode: Int) {
-    System.err.println(
-      "Usage: Master [options]\n" +
-      "\n" +
-      "Options:\n" +
-      "  -i HOST, --ip HOST     Hostname to listen on (deprecated, please use --host or -h) \n" +
-      "  -h HOST, --host HOST   Hostname to listen on\n" +
-      "  -p PORT, --port PORT   Port to listen on (default: 7077)\n" +
-      "  --webui-port PORT      Port for web UI (default: 8080)\n" +
-      "  --properties-file FILE Path to a custom Spark properties file.\n" +
-      "                         Default is conf/spark-defaults.conf.")
-    System.exit(exitCode)
-  }
+    /**
+      * Print usage and exit JVM with the given exit code.
+      */
+    def printUsageAndExit(exitCode: Int) {
+        System.err.println(
+            "Usage: Master [options]\n" +
+                    "\n" +
+                    "Options:\n" +
+                    "  -i HOST, --ip HOST     Hostname to listen on (deprecated, please use --host or -h) \n" +
+                    "  -h HOST, --host HOST   Hostname to listen on\n" +
+                    "  -p PORT, --port PORT   Port to listen on (default: 7077)\n" +
+                    "  --webui-port PORT      Port for web UI (default: 8080)\n" +
+                    "  --properties-file FILE Path to a custom Spark properties file.\n" +
+                    "                         Default is conf/spark-defaults.conf.")
+        System.exit(exitCode)
+    }
 }

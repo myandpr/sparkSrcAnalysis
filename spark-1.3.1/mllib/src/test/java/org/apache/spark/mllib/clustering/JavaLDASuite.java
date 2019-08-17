@@ -24,8 +24,10 @@ import org.apache.spark.api.java.JavaRDD;
 import scala.Tuple2;
 
 import org.junit.After;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertArrayEquals;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -36,84 +38,84 @@ import org.apache.spark.mllib.linalg.Vector;
 
 
 public class JavaLDASuite implements Serializable {
-  private transient JavaSparkContext sc;
+    private transient JavaSparkContext sc;
 
-  @Before
-  public void setUp() {
-    sc = new JavaSparkContext("local", "JavaLDA");
-    ArrayList<Tuple2<Long, Vector>> tinyCorpus = new ArrayList<Tuple2<Long, Vector>>();
-    for (int i = 0; i < LDASuite$.MODULE$.tinyCorpus().length; i++) {
-      tinyCorpus.add(new Tuple2<Long, Vector>((Long)LDASuite$.MODULE$.tinyCorpus()[i]._1(),
-          LDASuite$.MODULE$.tinyCorpus()[i]._2()));
+    @Before
+    public void setUp() {
+        sc = new JavaSparkContext("local", "JavaLDA");
+        ArrayList<Tuple2<Long, Vector>> tinyCorpus = new ArrayList<Tuple2<Long, Vector>>();
+        for (int i = 0; i < LDASuite$.MODULE$.tinyCorpus().length; i++) {
+            tinyCorpus.add(new Tuple2<Long, Vector>((Long) LDASuite$.MODULE$.tinyCorpus()[i]._1(),
+                    LDASuite$.MODULE$.tinyCorpus()[i]._2()));
+        }
+        JavaRDD<Tuple2<Long, Vector>> tmpCorpus = sc.parallelize(tinyCorpus, 2);
+        corpus = JavaPairRDD.fromJavaRDD(tmpCorpus);
     }
-    JavaRDD<Tuple2<Long, Vector>> tmpCorpus = sc.parallelize(tinyCorpus, 2);
-    corpus = JavaPairRDD.fromJavaRDD(tmpCorpus);
-  }
 
-  @After
-  public void tearDown() {
-    sc.stop();
-    sc = null;
-  }
-
-  @Test
-  public void localLDAModel() {
-    LocalLDAModel model = new LocalLDAModel(LDASuite$.MODULE$.tinyTopics());
-
-    // Check: basic parameters
-    assertEquals(model.k(), tinyK);
-    assertEquals(model.vocabSize(), tinyVocabSize);
-    assertEquals(model.topicsMatrix(), tinyTopics);
-
-    // Check: describeTopics() with all terms
-    Tuple2<int[], double[]>[] fullTopicSummary = model.describeTopics();
-    assertEquals(fullTopicSummary.length, tinyK);
-    for (int i = 0; i < fullTopicSummary.length; i++) {
-      assertArrayEquals(fullTopicSummary[i]._1(), tinyTopicDescription[i]._1());
-      assertArrayEquals(fullTopicSummary[i]._2(), tinyTopicDescription[i]._2(), 1e-5);
+    @After
+    public void tearDown() {
+        sc.stop();
+        sc = null;
     }
-  }
 
-  @Test
-  public void distributedLDAModel() {
-    int k = 3;
-    double topicSmoothing = 1.2;
-    double termSmoothing = 1.2;
+    @Test
+    public void localLDAModel() {
+        LocalLDAModel model = new LocalLDAModel(LDASuite$.MODULE$.tinyTopics());
 
-    // Train a model
-    LDA lda = new LDA();
-    lda.setK(k)
-      .setDocConcentration(topicSmoothing)
-      .setTopicConcentration(termSmoothing)
-      .setMaxIterations(5)
-      .setSeed(12345);
+        // Check: basic parameters
+        assertEquals(model.k(), tinyK);
+        assertEquals(model.vocabSize(), tinyVocabSize);
+        assertEquals(model.topicsMatrix(), tinyTopics);
 
-    DistributedLDAModel model = lda.run(corpus);
+        // Check: describeTopics() with all terms
+        Tuple2<int[], double[]>[] fullTopicSummary = model.describeTopics();
+        assertEquals(fullTopicSummary.length, tinyK);
+        for (int i = 0; i < fullTopicSummary.length; i++) {
+            assertArrayEquals(fullTopicSummary[i]._1(), tinyTopicDescription[i]._1());
+            assertArrayEquals(fullTopicSummary[i]._2(), tinyTopicDescription[i]._2(), 1e-5);
+        }
+    }
 
-    // Check: basic parameters
-    LocalLDAModel localModel = model.toLocal();
-    assertEquals(model.k(), k);
-    assertEquals(localModel.k(), k);
-    assertEquals(model.vocabSize(), tinyVocabSize);
-    assertEquals(localModel.vocabSize(), tinyVocabSize);
-    assertEquals(model.topicsMatrix(), localModel.topicsMatrix());
+    @Test
+    public void distributedLDAModel() {
+        int k = 3;
+        double topicSmoothing = 1.2;
+        double termSmoothing = 1.2;
 
-    // Check: topic summaries
-    Tuple2<int[], double[]>[] roundedTopicSummary = model.describeTopics();
-    assertEquals(roundedTopicSummary.length, k);
-    Tuple2<int[], double[]>[] roundedLocalTopicSummary = localModel.describeTopics();
-    assertEquals(roundedLocalTopicSummary.length, k);
+        // Train a model
+        LDA lda = new LDA();
+        lda.setK(k)
+                .setDocConcentration(topicSmoothing)
+                .setTopicConcentration(termSmoothing)
+                .setMaxIterations(5)
+                .setSeed(12345);
 
-    // Check: log probabilities
-    assert(model.logLikelihood() < 0.0);
-    assert(model.logPrior() < 0.0);
-  }
+        DistributedLDAModel model = lda.run(corpus);
 
-  private static int tinyK = LDASuite$.MODULE$.tinyK();
-  private static int tinyVocabSize = LDASuite$.MODULE$.tinyVocabSize();
-  private static Matrix tinyTopics = LDASuite$.MODULE$.tinyTopics();
-  private static Tuple2<int[], double[]>[] tinyTopicDescription =
-      LDASuite$.MODULE$.tinyTopicDescription();
-  JavaPairRDD<Long, Vector> corpus;
+        // Check: basic parameters
+        LocalLDAModel localModel = model.toLocal();
+        assertEquals(model.k(), k);
+        assertEquals(localModel.k(), k);
+        assertEquals(model.vocabSize(), tinyVocabSize);
+        assertEquals(localModel.vocabSize(), tinyVocabSize);
+        assertEquals(model.topicsMatrix(), localModel.topicsMatrix());
+
+        // Check: topic summaries
+        Tuple2<int[], double[]>[] roundedTopicSummary = model.describeTopics();
+        assertEquals(roundedTopicSummary.length, k);
+        Tuple2<int[], double[]>[] roundedLocalTopicSummary = localModel.describeTopics();
+        assertEquals(roundedLocalTopicSummary.length, k);
+
+        // Check: log probabilities
+        assert (model.logLikelihood() < 0.0);
+        assert (model.logPrior() < 0.0);
+    }
+
+    private static int tinyK = LDASuite$.MODULE$.tinyK();
+    private static int tinyVocabSize = LDASuite$.MODULE$.tinyVocabSize();
+    private static Matrix tinyTopics = LDASuite$.MODULE$.tinyTopics();
+    private static Tuple2<int[], double[]>[] tinyTopicDescription =
+            LDASuite$.MODULE$.tinyTopicDescription();
+    JavaPairRDD<Long, Vector> corpus;
 
 }

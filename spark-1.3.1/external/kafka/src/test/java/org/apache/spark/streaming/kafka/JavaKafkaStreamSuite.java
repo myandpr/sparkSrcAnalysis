@@ -44,100 +44,101 @@ import org.junit.After;
 import org.junit.Before;
 
 public class JavaKafkaStreamSuite implements Serializable {
-  private transient JavaStreamingContext ssc = null;
-  private transient Random random = new Random();
-  private transient KafkaStreamSuiteBase suiteBase = null;
+    private transient JavaStreamingContext ssc = null;
+    private transient Random random = new Random();
+    private transient KafkaStreamSuiteBase suiteBase = null;
 
-  @Before
-  public void setUp() {
-    suiteBase = new KafkaStreamSuiteBase() { };
-    suiteBase.setupKafka();
-    System.clearProperty("spark.driver.port");
-    SparkConf sparkConf = new SparkConf()
-      .setMaster("local[4]").setAppName(this.getClass().getSimpleName());
-    ssc = new JavaStreamingContext(sparkConf, new Duration(500));
-  }
-
-  @After
-  public void tearDown() {
-    ssc.stop();
-    ssc = null;
-    System.clearProperty("spark.driver.port");
-    suiteBase.tearDownKafka();
-  }
-
-  @Test
-  public void testKafkaStream() throws InterruptedException {
-    String topic = "topic1";
-    HashMap<String, Integer> topics = new HashMap<String, Integer>();
-    topics.put(topic, 1);
-
-    HashMap<String, Integer> sent = new HashMap<String, Integer>();
-    sent.put("a", 5);
-    sent.put("b", 3);
-    sent.put("c", 10);
-
-    suiteBase.createTopic(topic);
-    HashMap<String, Object> tmp = new HashMap<String, Object>(sent);
-    suiteBase.sendMessages(topic,
-        JavaConverters.mapAsScalaMapConverter(tmp).asScala().toMap(
-            Predef.<Tuple2<String, Object>>conforms())
-    );
-
-    HashMap<String, String> kafkaParams = new HashMap<String, String>();
-    kafkaParams.put("zookeeper.connect", suiteBase.zkAddress());
-    kafkaParams.put("group.id", "test-consumer-" + random.nextInt(10000));
-    kafkaParams.put("auto.offset.reset", "smallest");
-
-    JavaPairDStream<String, String> stream = KafkaUtils.createStream(ssc,
-      String.class,
-      String.class,
-      StringDecoder.class,
-      StringDecoder.class,
-      kafkaParams,
-      topics,
-      StorageLevel.MEMORY_ONLY_SER());
-
-    final HashMap<String, Long> result = new HashMap<String, Long>();
-
-    JavaDStream<String> words = stream.map(
-      new Function<Tuple2<String, String>, String>() {
-        @Override
-        public String call(Tuple2<String, String> tuple2) throws Exception {
-          return tuple2._2();
-        }
-      }
-    );
-
-    words.countByValue().foreachRDD(
-      new Function<JavaPairRDD<String, Long>, Void>() {
-        @Override
-        public Void call(JavaPairRDD<String, Long> rdd) throws Exception {
-          List<Tuple2<String, Long>> ret = rdd.collect();
-          for (Tuple2<String, Long> r : ret) {
-            if (result.containsKey(r._1())) {
-              result.put(r._1(), result.get(r._1()) + r._2());
-            } else {
-              result.put(r._1(), r._2());
-            }
-          }
-
-          return null;
-        }
-      }
-    );
-
-    ssc.start();
-    long startTime = System.currentTimeMillis();
-    boolean sizeMatches = false;
-    while (!sizeMatches && System.currentTimeMillis() - startTime < 20000) {
-      sizeMatches = sent.size() == result.size();
-      Thread.sleep(200);
+    @Before
+    public void setUp() {
+        suiteBase = new KafkaStreamSuiteBase() {
+        };
+        suiteBase.setupKafka();
+        System.clearProperty("spark.driver.port");
+        SparkConf sparkConf = new SparkConf()
+                .setMaster("local[4]").setAppName(this.getClass().getSimpleName());
+        ssc = new JavaStreamingContext(sparkConf, new Duration(500));
     }
-    Assert.assertEquals(sent.size(), result.size());
-    for (String k : sent.keySet()) {
-      Assert.assertEquals(sent.get(k).intValue(), result.get(k).intValue());
+
+    @After
+    public void tearDown() {
+        ssc.stop();
+        ssc = null;
+        System.clearProperty("spark.driver.port");
+        suiteBase.tearDownKafka();
     }
-    ssc.stop();
-  }
+
+    @Test
+    public void testKafkaStream() throws InterruptedException {
+        String topic = "topic1";
+        HashMap<String, Integer> topics = new HashMap<String, Integer>();
+        topics.put(topic, 1);
+
+        HashMap<String, Integer> sent = new HashMap<String, Integer>();
+        sent.put("a", 5);
+        sent.put("b", 3);
+        sent.put("c", 10);
+
+        suiteBase.createTopic(topic);
+        HashMap<String, Object> tmp = new HashMap<String, Object>(sent);
+        suiteBase.sendMessages(topic,
+                JavaConverters.mapAsScalaMapConverter(tmp).asScala().toMap(
+                        Predef.<Tuple2<String, Object>>conforms())
+        );
+
+        HashMap<String, String> kafkaParams = new HashMap<String, String>();
+        kafkaParams.put("zookeeper.connect", suiteBase.zkAddress());
+        kafkaParams.put("group.id", "test-consumer-" + random.nextInt(10000));
+        kafkaParams.put("auto.offset.reset", "smallest");
+
+        JavaPairDStream<String, String> stream = KafkaUtils.createStream(ssc,
+                String.class,
+                String.class,
+                StringDecoder.class,
+                StringDecoder.class,
+                kafkaParams,
+                topics,
+                StorageLevel.MEMORY_ONLY_SER());
+
+        final HashMap<String, Long> result = new HashMap<String, Long>();
+
+        JavaDStream<String> words = stream.map(
+                new Function<Tuple2<String, String>, String>() {
+                    @Override
+                    public String call(Tuple2<String, String> tuple2) throws Exception {
+                        return tuple2._2();
+                    }
+                }
+        );
+
+        words.countByValue().foreachRDD(
+                new Function<JavaPairRDD<String, Long>, Void>() {
+                    @Override
+                    public Void call(JavaPairRDD<String, Long> rdd) throws Exception {
+                        List<Tuple2<String, Long>> ret = rdd.collect();
+                        for (Tuple2<String, Long> r : ret) {
+                            if (result.containsKey(r._1())) {
+                                result.put(r._1(), result.get(r._1()) + r._2());
+                            } else {
+                                result.put(r._1(), r._2());
+                            }
+                        }
+
+                        return null;
+                    }
+                }
+        );
+
+        ssc.start();
+        long startTime = System.currentTimeMillis();
+        boolean sizeMatches = false;
+        while (!sizeMatches && System.currentTimeMillis() - startTime < 20000) {
+            sizeMatches = sent.size() == result.size();
+            Thread.sleep(200);
+        }
+        Assert.assertEquals(sent.size(), result.size());
+        for (String k : sent.keySet()) {
+            Assert.assertEquals(sent.get(k).intValue(), result.get(k).intValue());
+        }
+        ssc.stop();
+    }
 }

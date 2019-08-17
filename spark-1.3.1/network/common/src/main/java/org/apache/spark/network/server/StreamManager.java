@@ -28,25 +28,26 @@ import org.apache.spark.network.buffer.ManagedBuffer;
  * never be used again.
  */
 public abstract class StreamManager {
-  /**
-   * Called in response to a fetchChunk() request. The returned buffer will be passed as-is to the
-   * client. A single stream will be associated with a single TCP connection, so this method
-   * will not be called in parallel for a particular stream.
-   *
-   * Chunks may be requested in any order, and requests may be repeated, but it is not required
-   * that implementations support this behavior.
-   *
-   * The returned ManagedBuffer will be release()'d after being written to the network.
-   *
-   * @param streamId id of a stream that has been previously registered with the StreamManager.
-   * @param chunkIndex 0-indexed chunk of the stream that's requested
-   */
-  public abstract ManagedBuffer getChunk(long streamId, int chunkIndex);
+    /**
+     * Called in response to a fetchChunk() request. The returned buffer will be passed as-is to the
+     * client. A single stream will be associated with a single TCP connection, so this method
+     * will not be called in parallel for a particular stream.
+     * <p>
+     * Chunks may be requested in any order, and requests may be repeated, but it is not required
+     * that implementations support this behavior.
+     * <p>
+     * The returned ManagedBuffer will be release()'d after being written to the network.
+     *
+     * @param streamId   id of a stream that has been previously registered with the StreamManager.
+     * @param chunkIndex 0-indexed chunk of the stream that's requested
+     */
+    public abstract ManagedBuffer getChunk(long streamId, int chunkIndex);
 
-  /**
-   * Indicates that the TCP connection that was tied to the given stream has been terminated. After
-   * this occurs, we are guaranteed not to read from the stream again, so any state can be cleaned
-   * up.
-   */
-  public void connectionTerminated(long streamId) { }
+    /**
+     * Indicates that the TCP connection that was tied to the given stream has been terminated. After
+     * this occurs, we are guaranteed not to read from the stream again, so any state can be cleaned
+     * up.
+     */
+    public void connectionTerminated(long streamId) {
+    }
 }

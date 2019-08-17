@@ -31,27 +31,27 @@ import org.apache.spark.mllib.clustering.PowerIterationClusteringModel;
  * Java example for graph clustering using power iteration clustering (PIC).
  */
 public class JavaPowerIterationClusteringExample {
-  public static void main(String[] args) {
-    SparkConf sparkConf = new SparkConf().setAppName("JavaPowerIterationClusteringExample");
-    JavaSparkContext sc = new JavaSparkContext(sparkConf);
+    public static void main(String[] args) {
+        SparkConf sparkConf = new SparkConf().setAppName("JavaPowerIterationClusteringExample");
+        JavaSparkContext sc = new JavaSparkContext(sparkConf);
 
-    @SuppressWarnings("unchecked")
-    JavaRDD<Tuple3<Long, Long, Double>> similarities = sc.parallelize(Lists.newArrayList(
-      new Tuple3<Long, Long, Double>(0L, 1L, 0.9),
-      new Tuple3<Long, Long, Double>(1L, 2L, 0.9),
-      new Tuple3<Long, Long, Double>(2L, 3L, 0.9),
-      new Tuple3<Long, Long, Double>(3L, 4L, 0.1),
-      new Tuple3<Long, Long, Double>(4L, 5L, 0.9)));
+        @SuppressWarnings("unchecked")
+        JavaRDD<Tuple3<Long, Long, Double>> similarities = sc.parallelize(Lists.newArrayList(
+                new Tuple3<Long, Long, Double>(0L, 1L, 0.9),
+                new Tuple3<Long, Long, Double>(1L, 2L, 0.9),
+                new Tuple3<Long, Long, Double>(2L, 3L, 0.9),
+                new Tuple3<Long, Long, Double>(3L, 4L, 0.1),
+                new Tuple3<Long, Long, Double>(4L, 5L, 0.9)));
 
-    PowerIterationClustering pic = new PowerIterationClustering()
-      .setK(2)
-      .setMaxIterations(10);
-    PowerIterationClusteringModel model = pic.run(similarities);
+        PowerIterationClustering pic = new PowerIterationClustering()
+                .setK(2)
+                .setMaxIterations(10);
+        PowerIterationClusteringModel model = pic.run(similarities);
 
-    for (PowerIterationClustering.Assignment a: model.assignments().toJavaRDD().collect()) {
-      System.out.println(a.id() + " -> " + a.cluster());
+        for (PowerIterationClustering.Assignment a : model.assignments().toJavaRDD().collect()) {
+            System.out.println(a.id() + " -> " + a.cluster());
+        }
+
+        sc.stop();
     }
-
-    sc.stop();
-  }
 }

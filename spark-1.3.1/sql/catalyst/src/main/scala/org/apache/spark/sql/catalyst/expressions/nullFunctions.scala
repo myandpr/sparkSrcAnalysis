@@ -22,78 +22,83 @@ import org.apache.spark.sql.catalyst.analysis.UnresolvedException
 import org.apache.spark.sql.types.DataType
 
 case class Coalesce(children: Seq[Expression]) extends Expression {
-  type EvaluatedType = Any
+    type EvaluatedType = Any
 
-  /** Coalesce is nullable if all of its children are nullable, or if it has no children. */
-  override def nullable: Boolean = !children.exists(!_.nullable)
+    /** Coalesce is nullable if all of its children are nullable, or if it has no children. */
+    override def nullable: Boolean = !children.exists(!_.nullable)
 
-  // Coalesce is foldable if all children are foldable.
-  override def foldable: Boolean = !children.exists(!_.foldable)
+    // Coalesce is foldable if all children are foldable.
+    override def foldable: Boolean = !children.exists(!_.foldable)
 
-  // Only resolved if all the children are of the same type.
-  override lazy val resolved = childrenResolved && (children.map(_.dataType).distinct.size == 1)
+    // Only resolved if all the children are of the same type.
+    override lazy val resolved = childrenResolved && (children.map(_.dataType).distinct.size == 1)
 
-  override def toString: String = s"Coalesce(${children.mkString(",")})"
+    override def toString: String = s"Coalesce(${children.mkString(",")})"
 
-  override def dataType: DataType = if (resolved) {
-    children.head.dataType
-  } else {
-    val childTypes = children.map(c => s"$c: ${c.dataType}").mkString(", ")
-    throw new UnresolvedException(
-      this, s"Coalesce cannot have children of different types. $childTypes")
-  }
-
-  override def eval(input: Row): Any = {
-    var i = 0
-    var result: Any = null
-    val childIterator = children.iterator
-    while (childIterator.hasNext && result == null) {
-      result = childIterator.next().eval(input)
+    override def dataType: DataType = if (resolved) {
+        children.head.dataType
+    } else {
+        val childTypes = children.map(c => s"$c: ${c.dataType}").mkString(", ")
+        throw new UnresolvedException(
+            this, s"Coalesce cannot have children of different types. $childTypes")
     }
-    result
-  }
+
+    override def eval(input: Row): Any = {
+        var i = 0
+        var result: Any = null
+        val childIterator = children.iterator
+        while (childIterator.hasNext && result == null) {
+            result = childIterator.next().eval(input)
+        }
+        result
+    }
 }
 
 case class IsNull(child: Expression) extends Predicate with trees.UnaryNode[Expression] {
-  override def foldable: Boolean = child.foldable
-  override def nullable: Boolean = false
+    override def foldable: Boolean = child.foldable
 
-  override def eval(input: Row): Any = {
-    child.eval(input) == null
-  }
+    override def nullable: Boolean = false
 
-  override def toString: String = s"IS NULL $child"
+    override def eval(input: Row): Any = {
+        child.eval(input) == null
+    }
+
+    override def toString: String = s"IS NULL $child"
 }
 
 case class IsNotNull(child: Expression) extends Predicate with trees.UnaryNode[Expression] {
-  override def foldable: Boolean = child.foldable
-  override def nullable: Boolean = false
-  override def toString: String = s"IS NOT NULL $child"
+    override def foldable: Boolean = child.foldable
 
-  override def eval(input: Row): Any = {
-    child.eval(input) != null
-  }
+    override def nullable: Boolean = false
+
+    override def toString: String = s"IS NOT NULL $child"
+
+    override def eval(input: Row): Any = {
+        child.eval(input) != null
+    }
 }
 
 /**
- * A predicate that is evaluated to be true if there are at least `n` non-null values.
- */
+  * A predicate that is evaluated to be true if there are at least `n` non-null values.
+  */
 case class AtLeastNNonNulls(n: Int, children: Seq[Expression]) extends Predicate {
-  override def nullable: Boolean = false
-  override def foldable: Boolean = false
-  override def toString: String = s"AtLeastNNulls(n, ${children.mkString(",")})"
+    override def nullable: Boolean = false
 
-  private[this] val childrenArray = children.toArray
+    override def foldable: Boolean = false
 
-  override def eval(input: Row): Boolean = {
-    var numNonNulls = 0
-    var i = 0
-    while (i < childrenArray.length && numNonNulls < n) {
-      if (childrenArray(i).eval(input) != null) {
-        numNonNulls += 1
-      }
-      i += 1
+    override def toString: String = s"AtLeastNNulls(n, ${children.mkString(",")})"
+
+    private[this] val childrenArray = children.toArray
+
+    override def eval(input: Row): Boolean = {
+        var numNonNulls = 0
+        var i = 0
+        while (i < childrenArray.length && numNonNulls < n) {
+            if (childrenArray(i).eval(input) != null) {
+                numNonNulls += 1
+            }
+            i += 1
+        }
+        numNonNulls >= n
     }
-    numNonNulls >= n
-  }
 }

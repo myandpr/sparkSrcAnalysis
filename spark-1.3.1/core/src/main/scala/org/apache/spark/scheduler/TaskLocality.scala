@@ -21,12 +21,12 @@ import org.apache.spark.annotation.DeveloperApi
 
 @DeveloperApi
 object TaskLocality extends Enumeration {
-  // Process local is expected to be used ONLY within TaskSetManager for now.
-  val PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY = Value
+    // Process local is expected to be used ONLY within TaskSetManager for now.
+    val PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY = Value
 
-  type TaskLocality = Value
+    type TaskLocality = Value
 
-  def isAllowed(constraint: TaskLocality, condition: TaskLocality): Boolean = {
-    condition <= constraint
-  }
+    def isAllowed(constraint: TaskLocality, condition: TaskLocality): Boolean = {
+        condition <= constraint
+    }
 }

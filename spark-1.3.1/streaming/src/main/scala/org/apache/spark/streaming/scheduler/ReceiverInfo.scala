@@ -21,17 +21,17 @@ import akka.actor.ActorRef
 import org.apache.spark.annotation.DeveloperApi
 
 /**
- * :: DeveloperApi ::
- * Class having information about a receiver
- */
+  * :: DeveloperApi ::
+  * Class having information about a receiver
+  */
 @DeveloperApi
 case class ReceiverInfo(
-    streamId: Int,
-    name: String,
-    private[streaming] val actor: ActorRef,
-    active: Boolean,
-    location: String,
-    lastErrorMessage: String = "",
-    lastError: String = ""
-   ) {
+                               streamId: Int,
+                               name: String,
+                               private[streaming] val actor: ActorRef,
+                               active: Boolean,
+                               location: String,
+                               lastErrorMessage: String = "",
+                               lastError: String = ""
+                       ) {
 }

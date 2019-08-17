@@ -31,45 +31,45 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 
 class OptimizeInSuite extends PlanTest {
 
-  object Optimize extends RuleExecutor[LogicalPlan] {
-    val batches =
-      Batch("AnalysisNodes", Once,
-        EliminateSubQueries) ::
-      Batch("ConstantFolding", Once,
-        ConstantFolding,
-        BooleanSimplification,
-        OptimizeIn) :: Nil
-  }
+    object Optimize extends RuleExecutor[LogicalPlan] {
+        val batches =
+            Batch("AnalysisNodes", Once,
+                EliminateSubQueries) ::
+                    Batch("ConstantFolding", Once,
+                        ConstantFolding,
+                        BooleanSimplification,
+                        OptimizeIn) :: Nil
+    }
 
-  val testRelation = LocalRelation('a.int, 'b.int, 'c.int)
+    val testRelation = LocalRelation('a.int, 'b.int, 'c.int)
 
-  test("OptimizedIn test: In clause optimized to InSet") {
-    val originalQuery =
-      testRelation
-        .where(In(UnresolvedAttribute("a"), Seq(Literal(1),Literal(2))))
-        .analyze
+    test("OptimizedIn test: In clause optimized to InSet") {
+        val originalQuery =
+            testRelation
+                    .where(In(UnresolvedAttribute("a"), Seq(Literal(1), Literal(2))))
+                    .analyze
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer =
-      testRelation
-        .where(InSet(UnresolvedAttribute("a"), HashSet[Any]()+1+2))
-        .analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer =
+            testRelation
+                    .where(InSet(UnresolvedAttribute("a"), HashSet[Any]() + 1 + 2))
+                    .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
-  
-  test("OptimizedIn test: In clause not optimized in case filter has attributes") {
-    val originalQuery =
-      testRelation
-        .where(In(UnresolvedAttribute("a"), Seq(Literal(1),Literal(2), UnresolvedAttribute("b"))))
-        .analyze
+        comparePlans(optimized, correctAnswer)
+    }
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer =
-      testRelation
-        .where(In(UnresolvedAttribute("a"), Seq(Literal(1),Literal(2), UnresolvedAttribute("b"))))
-        .analyze
+    test("OptimizedIn test: In clause not optimized in case filter has attributes") {
+        val originalQuery =
+            testRelation
+                    .where(In(UnresolvedAttribute("a"), Seq(Literal(1), Literal(2), UnresolvedAttribute("b"))))
+                    .analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer =
+            testRelation
+                    .where(In(UnresolvedAttribute("a"), Seq(Literal(1), Literal(2), UnresolvedAttribute("b"))))
+                    .analyze
+
+        comparePlans(optimized, correctAnswer)
+    }
 }

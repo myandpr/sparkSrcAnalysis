@@ -17,15 +17,17 @@
 
 package org.apache.spark.examples.streaming;
 
-/** Java Bean class to be used with the example JavaSqlNetworkWordCount. */
+/**
+ * Java Bean class to be used with the example JavaSqlNetworkWordCount.
+ */
 public class JavaRecord implements java.io.Serializable {
-  private String word;
+    private String word;
 
-  public String getWord() {
-    return word;
-  }
+    public String getWord() {
+        return word;
+    }
 
-  public void setWord(String word) {
-    this.word = word;
-  }
+    public void setWord(String word) {
+        this.word = word;
+    }
 }

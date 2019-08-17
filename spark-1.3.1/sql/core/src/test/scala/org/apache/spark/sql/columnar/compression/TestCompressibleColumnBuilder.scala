@@ -21,24 +21,24 @@ import org.apache.spark.sql.columnar._
 import org.apache.spark.sql.types.NativeType
 
 class TestCompressibleColumnBuilder[T <: NativeType](
-    override val columnStats: ColumnStats,
-    override val columnType: NativeColumnType[T],
-    override val schemes: Seq[CompressionScheme])
-  extends NativeColumnBuilder(columnStats, columnType)
-  with NullableColumnBuilder
-  with CompressibleColumnBuilder[T] {
+                                                            override val columnStats: ColumnStats,
+                                                            override val columnType: NativeColumnType[T],
+                                                            override val schemes: Seq[CompressionScheme])
+        extends NativeColumnBuilder(columnStats, columnType)
+                with NullableColumnBuilder
+                with CompressibleColumnBuilder[T] {
 
-  override protected def isWorthCompressing(encoder: Encoder[T]) = true
+    override protected def isWorthCompressing(encoder: Encoder[T]) = true
 }
 
 object TestCompressibleColumnBuilder {
-  def apply[T <: NativeType](
-      columnStats: ColumnStats,
-      columnType: NativeColumnType[T],
-      scheme: CompressionScheme) = {
+    def apply[T <: NativeType](
+                                      columnStats: ColumnStats,
+                                      columnType: NativeColumnType[T],
+                                      scheme: CompressionScheme) = {
 
-    val builder = new TestCompressibleColumnBuilder(columnStats, columnType, Seq(scheme))
-    builder.initialize(0, "", useCompression = true)
-    builder
-  }
+        val builder = new TestCompressibleColumnBuilder(columnStats, columnType, Seq(scheme))
+        builder.initialize(0, "", useCompression = true)
+        builder
+    }
 }

@@ -32,95 +32,96 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.catalyst.util.getTempFilePath
 
 class CliSuite extends FunSuite with BeforeAndAfterAll with Logging {
-  def runCliWithin(
-      timeout: FiniteDuration,
-      extraArgs: Seq[String] = Seq.empty)(
-      queriesAndExpectedAnswers: (String, String)*) {
+    def runCliWithin(
+                            timeout: FiniteDuration,
+                            extraArgs: Seq[String] = Seq.empty)(
+                            queriesAndExpectedAnswers: (String, String)*) {
 
-    val (queries, expectedAnswers) = queriesAndExpectedAnswers.unzip
-    val warehousePath = getTempFilePath("warehouse")
-    val metastorePath = getTempFilePath("metastore")
-    val cliScript = "../../bin/spark-sql".split("/").mkString(File.separator)
+        val (queries, expectedAnswers) = queriesAndExpectedAnswers.unzip
+        val warehousePath = getTempFilePath("warehouse")
+        val metastorePath = getTempFilePath("metastore")
+        val cliScript = "../../bin/spark-sql".split("/").mkString(File.separator)
 
-    val command = {
-      val jdbcUrl = s"jdbc:derby:;databaseName=$metastorePath;create=true"
-      s"""$cliScript
-         |  --master local
-         |  --hiveconf ${ConfVars.METASTORECONNECTURLKEY}=$jdbcUrl
-         |  --hiveconf ${ConfVars.METASTOREWAREHOUSE}=$warehousePath
-         |  --driver-class-path ${sys.props("java.class.path")}
+        val command = {
+            val jdbcUrl = s"jdbc:derby:;databaseName=$metastorePath;create=true"
+            s"""$cliScript
+               |  --master local
+               |  --hiveconf ${ConfVars.METASTORECONNECTURLKEY}=$jdbcUrl
+               |  --hiveconf ${ConfVars.METASTOREWAREHOUSE}=$warehousePath
+               |  --driver-class-path ${sys.props("java.class.path")}
        """.stripMargin.split("\\s+").toSeq ++ extraArgs
-    }
-
-    var next = 0
-    val foundAllExpectedAnswers = Promise.apply[Unit]()
-    val queryStream = new ByteArrayInputStream(queries.mkString("\n").getBytes)
-    val buffer = new ArrayBuffer[String]()
-    val lock = new Object
-
-    def captureOutput(source: String)(line: String): Unit = lock.synchronized {
-      buffer += s"$source> $line"
-      // If we haven't found all expected answers and another expected answer comes up...
-      if (next < expectedAnswers.size && line.startsWith(expectedAnswers(next))) {
-        next += 1
-        // If all expected answers have been found...
-        if (next == expectedAnswers.size) {
-          foundAllExpectedAnswers.trySuccess(())
         }
-      }
-    }
 
-    // Searching expected output line from both stdout and stderr of the CLI process
-    val process = (Process(command, None) #< queryStream).run(
-      ProcessLogger(captureOutput("stdout"), captureOutput("stderr")))
+        var next = 0
+        val foundAllExpectedAnswers = Promise.apply[Unit]()
+        val queryStream = new ByteArrayInputStream(queries.mkString("\n").getBytes)
+        val buffer = new ArrayBuffer[String]()
+        val lock = new Object
 
-    try {
-      Await.result(foundAllExpectedAnswers.future, timeout)
-    } catch { case cause: Throwable =>
-      logError(
-        s"""
-           |=======================
-           |CliSuite failure output
-           |=======================
-           |Spark SQL CLI command line: ${command.mkString(" ")}
-           |
+        def captureOutput(source: String)(line: String): Unit = lock.synchronized {
+            buffer += s"$source> $line"
+            // If we haven't found all expected answers and another expected answer comes up...
+            if (next < expectedAnswers.size && line.startsWith(expectedAnswers(next))) {
+                next += 1
+                // If all expected answers have been found...
+                if (next == expectedAnswers.size) {
+                    foundAllExpectedAnswers.trySuccess(())
+                }
+            }
+        }
+
+        // Searching expected output line from both stdout and stderr of the CLI process
+        val process = (Process(command, None) #< queryStream).run(
+            ProcessLogger(captureOutput("stdout"), captureOutput("stderr")))
+
+        try {
+            Await.result(foundAllExpectedAnswers.future, timeout)
+        } catch {
+            case cause: Throwable =>
+                logError(
+                    s"""
+                       |=======================
+                       |CliSuite failure output
+                       |=======================
+                       |Spark SQL CLI command line: ${command.mkString(" ")}
+                       |
            |Executed query $next "${queries(next)}",
-           |But failed to capture expected output "${expectedAnswers(next)}" within $timeout.
-           |
+                       |But failed to capture expected output "${expectedAnswers(next)}" within $timeout.
+                       |
            |${buffer.mkString("\n")}
-           |===========================
-           |End CliSuite failure output
-           |===========================
+                       |===========================
+                       |End CliSuite failure output
+                       |===========================
          """.stripMargin, cause)
-      throw cause
-    } finally {
-      warehousePath.delete()
-      metastorePath.delete()
-      process.destroy()
+                throw cause
+        } finally {
+            warehousePath.delete()
+            metastorePath.delete()
+            process.destroy()
+        }
     }
-  }
 
-  test("Simple commands") {
-    val dataFilePath =
-      Thread.currentThread().getContextClassLoader.getResource("data/files/small_kv.txt")
+    test("Simple commands") {
+        val dataFilePath =
+            Thread.currentThread().getContextClassLoader.getResource("data/files/small_kv.txt")
 
-    runCliWithin(3.minute)(
-      "CREATE TABLE hive_test(key INT, val STRING);"
-        -> "OK",
-      "SHOW TABLES;"
-        -> "hive_test",
-      s"LOAD DATA LOCAL INPATH '$dataFilePath' OVERWRITE INTO TABLE hive_test;"
-        -> "OK",
-      "CACHE TABLE hive_test;"
-        -> "Time taken: ",
-      "SELECT COUNT(*) FROM hive_test;"
-        -> "5",
-      "DROP TABLE hive_test;"
-        -> "Time taken: "
-    )
-  }
+        runCliWithin(3.minute)(
+            "CREATE TABLE hive_test(key INT, val STRING);"
+                    -> "OK",
+            "SHOW TABLES;"
+                    -> "hive_test",
+            s"LOAD DATA LOCAL INPATH '$dataFilePath' OVERWRITE INTO TABLE hive_test;"
+                    -> "OK",
+            "CACHE TABLE hive_test;"
+                    -> "Time taken: ",
+            "SELECT COUNT(*) FROM hive_test;"
+                    -> "5",
+            "DROP TABLE hive_test;"
+                    -> "Time taken: "
+        )
+    }
 
-  test("Single command with -e") {
-    runCliWithin(1.minute, Seq("-e", "SHOW DATABASES;"))("" -> "OK")
-  }
+    test("Single command with -e") {
+        runCliWithin(1.minute, Seq("-e", "SHOW DATABASES;"))("" -> "OK")
+    }
 }

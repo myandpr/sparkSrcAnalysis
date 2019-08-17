@@ -24,59 +24,59 @@ import org.scalatest.FunSuite
 
 class WorkerArgumentsTest extends FunSuite {
 
-  test("Memory can't be set to 0 when cmd line args leave off M or G") {
-    val conf = new SparkConf
-    val args = Array("-m", "10000", "spark://localhost:0000  ")
-    intercept[IllegalStateException] {
-      new WorkerArguments(args, conf)
+    test("Memory can't be set to 0 when cmd line args leave off M or G") {
+        val conf = new SparkConf
+        val args = Array("-m", "10000", "spark://localhost:0000  ")
+        intercept[IllegalStateException] {
+            new WorkerArguments(args, conf)
+        }
     }
-  }
 
 
-  test("Memory can't be set to 0 when SPARK_WORKER_MEMORY env property leaves off M or G") {
-    val args = Array("spark://localhost:0000  ")
+    test("Memory can't be set to 0 when SPARK_WORKER_MEMORY env property leaves off M or G") {
+        val args = Array("spark://localhost:0000  ")
 
-    class MySparkConf extends SparkConf(false) {
-      override def getenv(name: String) = {
-        if (name == "SPARK_WORKER_MEMORY") "50000"
-        else super.getenv(name)
-      }
+        class MySparkConf extends SparkConf(false) {
+            override def getenv(name: String) = {
+                if (name == "SPARK_WORKER_MEMORY") "50000"
+                else super.getenv(name)
+            }
 
-      override def clone: SparkConf = {
-        new MySparkConf().setAll(getAll)
-      }
+            override def clone: SparkConf = {
+                new MySparkConf().setAll(getAll)
+            }
+        }
+        val conf = new MySparkConf()
+        intercept[IllegalStateException] {
+            new WorkerArguments(args, conf)
+        }
     }
-    val conf = new MySparkConf()
-    intercept[IllegalStateException] {
-      new WorkerArguments(args, conf)
+
+    test("Memory correctly set when SPARK_WORKER_MEMORY env property appends G") {
+        val args = Array("spark://localhost:0000  ")
+
+        class MySparkConf extends SparkConf(false) {
+            override def getenv(name: String) = {
+                if (name == "SPARK_WORKER_MEMORY") "5G"
+                else super.getenv(name)
+            }
+
+            override def clone: SparkConf = {
+                new MySparkConf().setAll(getAll)
+            }
+        }
+        val conf = new MySparkConf()
+        val workerArgs = new WorkerArguments(args, conf)
+        assert(workerArgs.memory === 5120)
     }
-  }
 
-  test("Memory correctly set when SPARK_WORKER_MEMORY env property appends G") {
-    val args = Array("spark://localhost:0000  ")
+    test("Memory correctly set from args with M appended to memory value") {
+        val conf = new SparkConf
+        val args = Array("-m", "10000M", "spark://localhost:0000  ")
 
-    class MySparkConf extends SparkConf(false) {
-      override def getenv(name: String) = {
-        if (name == "SPARK_WORKER_MEMORY") "5G"
-        else super.getenv(name)
-      }
+        val workerArgs = new WorkerArguments(args, conf)
+        assert(workerArgs.memory === 10000)
 
-      override def clone: SparkConf = {
-        new MySparkConf().setAll(getAll)
-      }
     }
-    val conf = new MySparkConf()
-    val workerArgs =  new WorkerArguments(args, conf)
-    assert(workerArgs.memory === 5120)
-  }
-
-  test("Memory correctly set from args with M appended to memory value") {
-    val conf = new SparkConf
-    val args = Array("-m", "10000M", "spark://localhost:0000  ")
-
-    val workerArgs = new WorkerArguments(args, conf)
-    assert(workerArgs.memory === 10000)
-
-  }
 
 }

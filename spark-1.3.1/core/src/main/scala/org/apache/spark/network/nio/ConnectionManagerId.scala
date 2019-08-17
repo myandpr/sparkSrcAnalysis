@@ -22,16 +22,16 @@ import java.net.InetSocketAddress
 import org.apache.spark.util.Utils
 
 private[nio] case class ConnectionManagerId(host: String, port: Int) {
-  // DEBUG code
-  Utils.checkHost(host)
-  assert (port > 0)
+    // DEBUG code
+    Utils.checkHost(host)
+    assert(port > 0)
 
-  def toSocketAddress() = new InetSocketAddress(host, port)
+    def toSocketAddress() = new InetSocketAddress(host, port)
 }
 
 
 private[nio] object ConnectionManagerId {
-  def fromSocketAddress(socketAddress: InetSocketAddress): ConnectionManagerId = {
-    new ConnectionManagerId(socketAddress.getHostName, socketAddress.getPort)
-  }
+    def fromSocketAddress(socketAddress: InetSocketAddress): ConnectionManagerId = {
+        new ConnectionManagerId(socketAddress.getHostName, socketAddress.getPort)
+    }
 }

@@ -21,38 +21,44 @@ import org.apache.spark.sql.types._
 
 /** Return the unscaled Long value of a Decimal, assuming it fits in a Long */
 case class UnscaledValue(child: Expression) extends UnaryExpression {
-  override type EvaluatedType = Any
+    override type EvaluatedType = Any
 
-  override def dataType: DataType = LongType
-  override def foldable: Boolean = child.foldable
-  override def nullable: Boolean = child.nullable
-  override def toString: String = s"UnscaledValue($child)"
+    override def dataType: DataType = LongType
 
-  override def eval(input: Row): Any = {
-    val childResult = child.eval(input)
-    if (childResult == null) {
-      null
-    } else {
-      childResult.asInstanceOf[Decimal].toUnscaledLong
+    override def foldable: Boolean = child.foldable
+
+    override def nullable: Boolean = child.nullable
+
+    override def toString: String = s"UnscaledValue($child)"
+
+    override def eval(input: Row): Any = {
+        val childResult = child.eval(input)
+        if (childResult == null) {
+            null
+        } else {
+            childResult.asInstanceOf[Decimal].toUnscaledLong
+        }
     }
-  }
 }
 
 /** Create a Decimal from an unscaled Long value */
 case class MakeDecimal(child: Expression, precision: Int, scale: Int) extends UnaryExpression {
-  override type EvaluatedType = Decimal
+    override type EvaluatedType = Decimal
 
-  override def dataType: DataType = DecimalType(precision, scale)
-  override def foldable: Boolean = child.foldable
-  override def nullable: Boolean = child.nullable
-  override def toString: String = s"MakeDecimal($child,$precision,$scale)"
+    override def dataType: DataType = DecimalType(precision, scale)
 
-  override def eval(input: Row): Decimal = {
-    val childResult = child.eval(input)
-    if (childResult == null) {
-      null
-    } else {
-      new Decimal().setOrNull(childResult.asInstanceOf[Long], precision, scale)
+    override def foldable: Boolean = child.foldable
+
+    override def nullable: Boolean = child.nullable
+
+    override def toString: String = s"MakeDecimal($child,$precision,$scale)"
+
+    override def eval(input: Row): Decimal = {
+        val childResult = child.eval(input)
+        if (childResult == null) {
+            null
+        } else {
+            new Decimal().setOrNull(childResult.asInstanceOf[Long], precision, scale)
+        }
     }
-  }
 }

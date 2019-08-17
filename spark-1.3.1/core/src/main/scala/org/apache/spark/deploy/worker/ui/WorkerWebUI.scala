@@ -28,31 +28,31 @@ import org.apache.spark.ui.JettyUtils._
 import org.apache.spark.util.AkkaUtils
 
 /**
- * Web UI server for the standalone worker.
- */
+  * Web UI server for the standalone worker.
+  */
 private[spark]
 class WorkerWebUI(
-    val worker: Worker,
-    val workDir: File,
-    requestedPort: Int)
-  extends WebUI(worker.securityMgr, requestedPort, worker.conf, name = "WorkerUI")
-  with Logging {
+                         val worker: Worker,
+                         val workDir: File,
+                         requestedPort: Int)
+        extends WebUI(worker.securityMgr, requestedPort, worker.conf, name = "WorkerUI")
+                with Logging {
 
-  val timeout = AkkaUtils.askTimeout(worker.conf)
+    val timeout = AkkaUtils.askTimeout(worker.conf)
 
-  initialize()
+    initialize()
 
-  /** Initialize all components of the server. */
-  def initialize() {
-    val logPage = new LogPage(this)
-    attachPage(logPage)
-    attachPage(new WorkerPage(this))
-    attachHandler(createStaticHandler(WorkerWebUI.STATIC_RESOURCE_BASE, "/static"))
-    attachHandler(createServletHandler("/log",
-      (request: HttpServletRequest) => logPage.renderLog(request), worker.securityMgr))
-  }
+    /** Initialize all components of the server. */
+    def initialize() {
+        val logPage = new LogPage(this)
+        attachPage(logPage)
+        attachPage(new WorkerPage(this))
+        attachHandler(createStaticHandler(WorkerWebUI.STATIC_RESOURCE_BASE, "/static"))
+        attachHandler(createServletHandler("/log",
+            (request: HttpServletRequest) => logPage.renderLog(request), worker.securityMgr))
+    }
 }
 
 private[spark] object WorkerWebUI {
-  val STATIC_RESOURCE_BASE = SparkUI.STATIC_RESOURCE_DIR
+    val STATIC_RESOURCE_BASE = SparkUI.STATIC_RESOURCE_DIR
 }

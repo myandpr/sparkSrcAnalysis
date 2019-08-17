@@ -25,63 +25,63 @@ import org.apache.spark.sql.types.{BooleanType, StringType, StructField, StructT
 
 class ListTablesSuite extends QueryTest with BeforeAndAfter {
 
-  import org.apache.spark.sql.test.TestSQLContext.implicits._
+    import org.apache.spark.sql.test.TestSQLContext.implicits._
 
-  val df =
-    sparkContext.parallelize((1 to 10).map(i => (i,s"str$i"))).toDF("key", "value")
+    val df =
+        sparkContext.parallelize((1 to 10).map(i => (i, s"str$i"))).toDF("key", "value")
 
-  before {
-    df.registerTempTable("ListTablesSuiteTable")
-  }
-
-  after {
-    catalog.unregisterTable(Seq("ListTablesSuiteTable"))
-  }
-
-  test("get all tables") {
-    checkAnswer(
-      tables().filter("tableName = 'ListTablesSuiteTable'"),
-      Row("ListTablesSuiteTable", true))
-
-    checkAnswer(
-      sql("SHOW tables").filter("tableName = 'ListTablesSuiteTable'"),
-      Row("ListTablesSuiteTable", true))
-
-    catalog.unregisterTable(Seq("ListTablesSuiteTable"))
-    assert(tables().filter("tableName = 'ListTablesSuiteTable'").count() === 0)
-  }
-
-  test("getting all Tables with a database name has no impact on returned table names") {
-    checkAnswer(
-      tables("DB").filter("tableName = 'ListTablesSuiteTable'"),
-      Row("ListTablesSuiteTable", true))
-
-    checkAnswer(
-      sql("show TABLES in DB").filter("tableName = 'ListTablesSuiteTable'"),
-      Row("ListTablesSuiteTable", true))
-
-    catalog.unregisterTable(Seq("ListTablesSuiteTable"))
-    assert(tables().filter("tableName = 'ListTablesSuiteTable'").count() === 0)
-  }
-
-  test("query the returned DataFrame of tables") {
-    val expectedSchema = StructType(
-      StructField("tableName", StringType, false) ::
-      StructField("isTemporary", BooleanType, false) :: Nil)
-
-    Seq(tables(), sql("SHOW TABLes")).foreach {
-      case tableDF =>
-        assert(expectedSchema === tableDF.schema)
-
-        tableDF.registerTempTable("tables")
-        checkAnswer(
-          sql("SELECT isTemporary, tableName from tables WHERE tableName = 'ListTablesSuiteTable'"),
-          Row(true, "ListTablesSuiteTable")
-        )
-        checkAnswer(
-          tables().filter("tableName = 'tables'").select("tableName", "isTemporary"),
-          Row("tables", true))
-        dropTempTable("tables")
+    before {
+        df.registerTempTable("ListTablesSuiteTable")
     }
-  }
+
+    after {
+        catalog.unregisterTable(Seq("ListTablesSuiteTable"))
+    }
+
+    test("get all tables") {
+        checkAnswer(
+            tables().filter("tableName = 'ListTablesSuiteTable'"),
+            Row("ListTablesSuiteTable", true))
+
+        checkAnswer(
+            sql("SHOW tables").filter("tableName = 'ListTablesSuiteTable'"),
+            Row("ListTablesSuiteTable", true))
+
+        catalog.unregisterTable(Seq("ListTablesSuiteTable"))
+        assert(tables().filter("tableName = 'ListTablesSuiteTable'").count() === 0)
+    }
+
+    test("getting all Tables with a database name has no impact on returned table names") {
+        checkAnswer(
+            tables("DB").filter("tableName = 'ListTablesSuiteTable'"),
+            Row("ListTablesSuiteTable", true))
+
+        checkAnswer(
+            sql("show TABLES in DB").filter("tableName = 'ListTablesSuiteTable'"),
+            Row("ListTablesSuiteTable", true))
+
+        catalog.unregisterTable(Seq("ListTablesSuiteTable"))
+        assert(tables().filter("tableName = 'ListTablesSuiteTable'").count() === 0)
+    }
+
+    test("query the returned DataFrame of tables") {
+        val expectedSchema = StructType(
+            StructField("tableName", StringType, false) ::
+                    StructField("isTemporary", BooleanType, false) :: Nil)
+
+        Seq(tables(), sql("SHOW TABLes")).foreach {
+            case tableDF =>
+                assert(expectedSchema === tableDF.schema)
+
+                tableDF.registerTempTable("tables")
+                checkAnswer(
+                    sql("SELECT isTemporary, tableName from tables WHERE tableName = 'ListTablesSuiteTable'"),
+                    Row(true, "ListTablesSuiteTable")
+                )
+                checkAnswer(
+                    tables().filter("tableName = 'tables'").select("tableName", "isTemporary"),
+                    Row("tables", true))
+                dropTempTable("tables")
+        }
+    }
 }

@@ -36,86 +36,88 @@ import org.apache.spark.streaming.receiver.Receiver
 import org.apache.spark.streaming.flume.sink._
 
 /**
- * A [[ReceiverInputDStream]] that can be used to read data from several Flume agents running
- * [[org.apache.spark.streaming.flume.sink.SparkSink]]s.
- * @param _ssc Streaming context that will execute this input stream
- * @param addresses List of addresses at which SparkSinks are listening
- * @param maxBatchSize Maximum size of a batch
- * @param parallelism Number of parallel connections to open
- * @param storageLevel The storage level to use.
- * @tparam T Class type of the object of this stream
- */
+  * A [[ReceiverInputDStream]] that can be used to read data from several Flume agents running
+  * [[org.apache.spark.streaming.flume.sink.SparkSink]]s.
+  *
+  * @param _ssc         Streaming context that will execute this input stream
+  * @param addresses    List of addresses at which SparkSinks are listening
+  * @param maxBatchSize Maximum size of a batch
+  * @param parallelism  Number of parallel connections to open
+  * @param storageLevel The storage level to use.
+  * @tparam T Class type of the object of this stream
+  */
 private[streaming] class FlumePollingInputDStream[T: ClassTag](
-    @transient _ssc: StreamingContext,
-    val addresses: Seq[InetSocketAddress],
-    val maxBatchSize: Int,
-    val parallelism: Int,
-    storageLevel: StorageLevel
-  ) extends ReceiverInputDStream[SparkFlumeEvent](_ssc) {
+                                                                      @transient _ssc: StreamingContext,
+                                                                      val addresses: Seq[InetSocketAddress],
+                                                                      val maxBatchSize: Int,
+                                                                      val parallelism: Int,
+                                                                      storageLevel: StorageLevel
+                                                              ) extends ReceiverInputDStream[SparkFlumeEvent](_ssc) {
 
-  override def getReceiver(): Receiver[SparkFlumeEvent] = {
-    new FlumePollingReceiver(addresses, maxBatchSize, parallelism, storageLevel)
-  }
+    override def getReceiver(): Receiver[SparkFlumeEvent] = {
+        new FlumePollingReceiver(addresses, maxBatchSize, parallelism, storageLevel)
+    }
 }
 
 private[streaming] class FlumePollingReceiver(
-    addresses: Seq[InetSocketAddress],
-    maxBatchSize: Int,
-    parallelism: Int,
-    storageLevel: StorageLevel
-  ) extends Receiver[SparkFlumeEvent](storageLevel) with Logging {
+                                                     addresses: Seq[InetSocketAddress],
+                                                     maxBatchSize: Int,
+                                                     parallelism: Int,
+                                                     storageLevel: StorageLevel
+                                             ) extends Receiver[SparkFlumeEvent](storageLevel) with Logging {
 
-  lazy val channelFactoryExecutor =
-    Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).
-      setNameFormat("Flume Receiver Channel Thread - %d").build())
+    lazy val channelFactoryExecutor =
+        Executors.newCachedThreadPool(new ThreadFactoryBuilder().setDaemon(true).
+                setNameFormat("Flume Receiver Channel Thread - %d").build())
 
-  lazy val channelFactory =
-    new NioClientSocketChannelFactory(channelFactoryExecutor, channelFactoryExecutor)
+    lazy val channelFactory =
+        new NioClientSocketChannelFactory(channelFactoryExecutor, channelFactoryExecutor)
 
-  lazy val receiverExecutor = Executors.newFixedThreadPool(parallelism,
-    new ThreadFactoryBuilder().setDaemon(true).setNameFormat("Flume Receiver Thread - %d").build())
+    lazy val receiverExecutor = Executors.newFixedThreadPool(parallelism,
+        new ThreadFactoryBuilder().setDaemon(true).setNameFormat("Flume Receiver Thread - %d").build())
 
-  private lazy val connections = new LinkedBlockingQueue[FlumeConnection]()
+    private lazy val connections = new LinkedBlockingQueue[FlumeConnection]()
 
-  override def onStart(): Unit = {
-    // Create the connections to each Flume agent.
-    addresses.foreach(host => {
-      val transceiver = new NettyTransceiver(host, channelFactory)
-      val client = SpecificRequestor.getClient(classOf[SparkFlumeProtocol.Callback], transceiver)
-      connections.add(new FlumeConnection(transceiver, client))
-    })
-    for (i <- 0 until parallelism) {
-      logInfo("Starting Flume Polling Receiver worker threads..")
-      // Threads that pull data from Flume.
-      receiverExecutor.submit(new FlumeBatchFetcher(this))
+    override def onStart(): Unit = {
+        // Create the connections to each Flume agent.
+        addresses.foreach(host => {
+            val transceiver = new NettyTransceiver(host, channelFactory)
+            val client = SpecificRequestor.getClient(classOf[SparkFlumeProtocol.Callback], transceiver)
+            connections.add(new FlumeConnection(transceiver, client))
+        })
+        for (i <- 0 until parallelism) {
+            logInfo("Starting Flume Polling Receiver worker threads..")
+            // Threads that pull data from Flume.
+            receiverExecutor.submit(new FlumeBatchFetcher(this))
+        }
     }
-  }
 
-  override def onStop(): Unit = {
-    logInfo("Shutting down Flume Polling Receiver")
-    receiverExecutor.shutdownNow()
-    connections.foreach(connection => {
-      connection.transceiver.close()
-    })
-    channelFactory.releaseExternalResources()
-  }
+    override def onStop(): Unit = {
+        logInfo("Shutting down Flume Polling Receiver")
+        receiverExecutor.shutdownNow()
+        connections.foreach(connection => {
+            connection.transceiver.close()
+        })
+        channelFactory.releaseExternalResources()
+    }
 
-  private[flume] def getConnections: LinkedBlockingQueue[FlumeConnection] = {
-    this.connections
-  }
+    private[flume] def getConnections: LinkedBlockingQueue[FlumeConnection] = {
+        this.connections
+    }
 
-  private[flume] def getMaxBatchSize: Int = {
-    this.maxBatchSize
-  }
+    private[flume] def getMaxBatchSize: Int = {
+        this.maxBatchSize
+    }
 }
 
 /**
- * A wrapper around the transceiver and the Avro IPC API. 
- * @param transceiver The transceiver to use for communication with Flume
- * @param client The client that the callbacks are received on.
- */
+  * A wrapper around the transceiver and the Avro IPC API.
+  *
+  * @param transceiver The transceiver to use for communication with Flume
+  * @param client      The client that the callbacks are received on.
+  */
 private[flume] class FlumeConnection(val transceiver: NettyTransceiver,
-  val client: SparkFlumeProtocol.Callback)
+                                     val client: SparkFlumeProtocol.Callback)
 
 
 

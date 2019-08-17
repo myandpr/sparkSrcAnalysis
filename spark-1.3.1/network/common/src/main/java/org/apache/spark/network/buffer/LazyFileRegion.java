@@ -32,80 +32,80 @@ import org.apache.spark.network.util.JavaUtils;
 /**
  * A FileRegion implementation that only creates the file descriptor when the region is being
  * transferred. This cannot be used with Epoll because there is no native support for it.
- * 
+ * <p>
  * This is mostly copied from DefaultFileRegion implementation in Netty. In the future, we
  * should push this into Netty so the native Epoll transport can support this feature.
  */
 public final class LazyFileRegion extends AbstractReferenceCounted implements FileRegion {
 
-  private final File file;
-  private final long position;
-  private final long count;
+    private final File file;
+    private final long position;
+    private final long count;
 
-  private FileChannel channel;
+    private FileChannel channel;
 
-  private long numBytesTransferred = 0L;
+    private long numBytesTransferred = 0L;
 
-  /**
-   * @param file file to transfer.
-   * @param position start position for the transfer.
-   * @param count number of bytes to transfer starting from position.
-   */
-  public LazyFileRegion(File file, long position, long count) {
-    this.file = file;
-    this.position = position;
-    this.count = count;
-  }
-
-  @Override
-  protected void deallocate() {
-    JavaUtils.closeQuietly(channel);
-  }
-
-  @Override
-  public long position() {
-    return position;
-  }
-
-  @Override
-  public long transfered() {
-    return numBytesTransferred;
-  }
-
-  @Override
-  public long count() {
-    return count;
-  }
-
-  @Override
-  public long transferTo(WritableByteChannel target, long position) throws IOException {
-    if (channel == null) {
-      channel = new FileInputStream(file).getChannel();
+    /**
+     * @param file     file to transfer.
+     * @param position start position for the transfer.
+     * @param count    number of bytes to transfer starting from position.
+     */
+    public LazyFileRegion(File file, long position, long count) {
+        this.file = file;
+        this.position = position;
+        this.count = count;
     }
 
-    long count = this.count - position;
-    if (count < 0 || position < 0) {
-      throw new IllegalArgumentException(
-          "position out of range: " + position + " (expected: 0 - " + (count - 1) + ')');
+    @Override
+    protected void deallocate() {
+        JavaUtils.closeQuietly(channel);
     }
 
-    if (count == 0) {
-      return 0L;
+    @Override
+    public long position() {
+        return position;
     }
 
-    long written = channel.transferTo(this.position + position, count, target);
-    if (written > 0) {
-      numBytesTransferred += written;
+    @Override
+    public long transfered() {
+        return numBytesTransferred;
     }
-    return written;
-  }
 
-  @Override
-  public String toString() {
-    return Objects.toStringHelper(this)
-        .add("file", file)
-        .add("position", position)
-        .add("count", count)
-        .toString();
-  }
+    @Override
+    public long count() {
+        return count;
+    }
+
+    @Override
+    public long transferTo(WritableByteChannel target, long position) throws IOException {
+        if (channel == null) {
+            channel = new FileInputStream(file).getChannel();
+        }
+
+        long count = this.count - position;
+        if (count < 0 || position < 0) {
+            throw new IllegalArgumentException(
+                    "position out of range: " + position + " (expected: 0 - " + (count - 1) + ')');
+        }
+
+        if (count == 0) {
+            return 0L;
+        }
+
+        long written = channel.transferTo(this.position + position, count, target);
+        if (written > 0) {
+            numBytesTransferred += written;
+        }
+        return written;
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("file", file)
+                .add("position", position)
+                .add("count", count)
+                .toString();
+    }
 }

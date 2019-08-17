@@ -21,52 +21,52 @@ import org.apache.spark._
 import org.apache.spark.shuffle._
 
 /**
- * A ShuffleManager using hashing, that creates one output file per reduce partition on each
- * mapper (possibly reusing these across waves of tasks).
- */
+  * A ShuffleManager using hashing, that creates one output file per reduce partition on each
+  * mapper (possibly reusing these across waves of tasks).
+  */
 private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager {
 
-  private val fileShuffleBlockManager = new FileShuffleBlockManager(conf)
+    private val fileShuffleBlockManager = new FileShuffleBlockManager(conf)
 
-  /* Register a shuffle with the manager and obtain a handle for it to pass to tasks. */
-  override def registerShuffle[K, V, C](
-      shuffleId: Int,
-      numMaps: Int,
-      dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
-    new BaseShuffleHandle(shuffleId, numMaps, dependency)
-  }
+    /* Register a shuffle with the manager and obtain a handle for it to pass to tasks. */
+    override def registerShuffle[K, V, C](
+                                                 shuffleId: Int,
+                                                 numMaps: Int,
+                                                 dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
+        new BaseShuffleHandle(shuffleId, numMaps, dependency)
+    }
 
-  /**
-   * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
-   * Called on executors by reduce tasks.
-   */
-  override def getReader[K, C](
-      handle: ShuffleHandle,
-      startPartition: Int,
-      endPartition: Int,
-      context: TaskContext): ShuffleReader[K, C] = {
-    new HashShuffleReader(
-      handle.asInstanceOf[BaseShuffleHandle[K, _, C]], startPartition, endPartition, context)
-  }
+    /**
+      * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
+      * Called on executors by reduce tasks.
+      */
+    override def getReader[K, C](
+                                        handle: ShuffleHandle,
+                                        startPartition: Int,
+                                        endPartition: Int,
+                                        context: TaskContext): ShuffleReader[K, C] = {
+        new HashShuffleReader(
+            handle.asInstanceOf[BaseShuffleHandle[K, _, C]], startPartition, endPartition, context)
+    }
 
-  /** Get a writer for a given partition. Called on executors by map tasks. */
-  override def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext)
-      : ShuffleWriter[K, V] = {
-    new HashShuffleWriter(
-      shuffleBlockManager, handle.asInstanceOf[BaseShuffleHandle[K, V, _]], mapId, context)
-  }
+    /** Get a writer for a given partition. Called on executors by map tasks. */
+    override def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext)
+    : ShuffleWriter[K, V] = {
+        new HashShuffleWriter(
+            shuffleBlockManager, handle.asInstanceOf[BaseShuffleHandle[K, V, _]], mapId, context)
+    }
 
-  /** Remove a shuffle's metadata from the ShuffleManager. */
-  override def unregisterShuffle(shuffleId: Int): Boolean = {
-    shuffleBlockManager.removeShuffle(shuffleId)
-  }
+    /** Remove a shuffle's metadata from the ShuffleManager. */
+    override def unregisterShuffle(shuffleId: Int): Boolean = {
+        shuffleBlockManager.removeShuffle(shuffleId)
+    }
 
-  override def shuffleBlockManager: FileShuffleBlockManager = {
-    fileShuffleBlockManager
-  }
+    override def shuffleBlockManager: FileShuffleBlockManager = {
+        fileShuffleBlockManager
+    }
 
-  /** Shut down this ShuffleManager. */
-  override def stop(): Unit = {
-    shuffleBlockManager.stop()
-  }
+    /** Shut down this ShuffleManager. */
+    override def stop(): Unit = {
+        shuffleBlockManager.stop()
+    }
 }

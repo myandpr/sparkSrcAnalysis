@@ -21,40 +21,40 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen._
 
 /**
- * Overrides our expression evaluation tests to use generated code on mutable rows.
- */
+  * Overrides our expression evaluation tests to use generated code on mutable rows.
+  */
 class GeneratedMutableEvaluationSuite extends ExpressionEvaluationSuite {
-  override def checkEvaluation(
-                                expression: Expression,
-                                expected: Any,
-                                inputRow: Row = EmptyRow): Unit = {
-    lazy val evaluated = GenerateProjection.expressionEvaluator(expression)
+    override def checkEvaluation(
+                                        expression: Expression,
+                                        expected: Any,
+                                        inputRow: Row = EmptyRow): Unit = {
+        lazy val evaluated = GenerateProjection.expressionEvaluator(expression)
 
-    val plan = try {
-      GenerateProjection(Alias(expression, s"Optimized($expression)")() :: Nil)
-    } catch {
-      case e: Throwable =>
-        fail(
-          s"""
-            |Code generation of $expression failed:
-            |${evaluated.code.mkString("\n")}
-            |$e
+        val plan = try {
+            GenerateProjection(Alias(expression, s"Optimized($expression)")() :: Nil)
+        } catch {
+            case e: Throwable =>
+                fail(
+                    s"""
+                       |Code generation of $expression failed:
+                       |${evaluated.code.mkString("\n")}
+                       |$e
           """.stripMargin)
-    }
+        }
 
-    val actual = plan(inputRow)
-    val expectedRow = new GenericRow(Array[Any](expected))
-    if (actual.hashCode() != expectedRow.hashCode()) {
-      fail(
-        s"""
-          |Mismatched hashCodes for values: $actual, $expectedRow
-          |Hash Codes: ${actual.hashCode()} != ${expectedRow.hashCode()}
-          |${evaluated.code.mkString("\n")}
+        val actual = plan(inputRow)
+        val expectedRow = new GenericRow(Array[Any](expected))
+        if (actual.hashCode() != expectedRow.hashCode()) {
+            fail(
+                s"""
+                   |Mismatched hashCodes for values: $actual, $expectedRow
+                   |Hash Codes: ${actual.hashCode()} != ${expectedRow.hashCode()}
+                   |${evaluated.code.mkString("\n")}
         """.stripMargin)
+        }
+        if (actual != expectedRow) {
+            val input = if (inputRow == EmptyRow) "" else s", input: $inputRow"
+            fail(s"Incorrect Evaluation: $expression, actual: $actual, expected: $expected$input")
+        }
     }
-    if (actual != expectedRow) {
-      val input = if(inputRow == EmptyRow) "" else s", input: $inputRow"
-      fail(s"Incorrect Evaluation: $expression, actual: $actual, expected: $expected$input")
-    }
-  }
 }

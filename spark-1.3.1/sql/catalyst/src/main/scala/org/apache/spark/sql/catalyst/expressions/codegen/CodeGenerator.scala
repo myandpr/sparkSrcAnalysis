@@ -28,122 +28,126 @@ import org.apache.spark.sql.types._
 
 // These classes are here to avoid issues with serialization and integration with quasiquotes.
 class IntegerHashSet extends org.apache.spark.util.collection.OpenHashSet[Int]
+
 class LongHashSet extends org.apache.spark.util.collection.OpenHashSet[Long]
 
 /**
- * A base class for generators of byte code to perform expression evaluation.  Includes a set of
- * helpers for referring to Catalyst types and building trees that perform evaluation of individual
- * expressions.
- */
+  * A base class for generators of byte code to perform expression evaluation.  Includes a set of
+  * helpers for referring to Catalyst types and building trees that perform evaluation of individual
+  * expressions.
+  */
 abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Logging {
-  import scala.reflect.runtime.{universe => ru}
-  import scala.reflect.runtime.universe._
 
-  import scala.tools.reflect.ToolBox
+    import scala.reflect.runtime.{universe => ru}
+    import scala.reflect.runtime.universe._
 
-  protected val toolBox = runtimeMirror(getClass.getClassLoader).mkToolBox()
+    import scala.tools.reflect.ToolBox
 
-  protected val rowType = typeOf[Row]
-  protected val mutableRowType = typeOf[MutableRow]
-  protected val genericRowType = typeOf[GenericRow]
-  protected val genericMutableRowType = typeOf[GenericMutableRow]
+    protected val toolBox = runtimeMirror(getClass.getClassLoader).mkToolBox()
 
-  protected val projectionType = typeOf[Projection]
-  protected val mutableProjectionType = typeOf[MutableProjection]
+    protected val rowType = typeOf[Row]
+    protected val mutableRowType = typeOf[MutableRow]
+    protected val genericRowType = typeOf[GenericRow]
+    protected val genericMutableRowType = typeOf[GenericMutableRow]
 
-  private val curId = new java.util.concurrent.atomic.AtomicInteger()
-  private val javaSeparator = "$"
+    protected val projectionType = typeOf[Projection]
+    protected val mutableProjectionType = typeOf[MutableProjection]
 
-  /**
-   * Can be flipped on manually in the console to add (expensive) expression evaluation trace code.
-   */
-  var debugLogging = false
+    private val curId = new java.util.concurrent.atomic.AtomicInteger()
+    private val javaSeparator = "$"
 
-  /**
-   * Generates a class for a given input expression.  Called when there is not cached code
-   * already available.
-   */
-  protected def create(in: InType): OutType
+    /**
+      * Can be flipped on manually in the console to add (expensive) expression evaluation trace code.
+      */
+    var debugLogging = false
 
-  /**
-   * Canonicalizes an input expression. Used to avoid double caching expressions that differ only
-   * cosmetically.
-   */
-  protected def canonicalize(in: InType): InType
+    /**
+      * Generates a class for a given input expression.  Called when there is not cached code
+      * already available.
+      */
+    protected def create(in: InType): OutType
 
-  /** Binds an input expression to a given input schema */
-  protected def bind(in: InType, inputSchema: Seq[Attribute]): InType
+    /**
+      * Canonicalizes an input expression. Used to avoid double caching expressions that differ only
+      * cosmetically.
+      */
+    protected def canonicalize(in: InType): InType
 
-  /**
-   * A cache of generated classes.
-   *
-   * From the Guava Docs: A Cache is similar to ConcurrentMap, but not quite the same. The most
-   * fundamental difference is that a ConcurrentMap persists all elements that are added to it until
-   * they are explicitly removed. A Cache on the other hand is generally configured to evict entries
-   * automatically, in order to constrain its memory footprint.  Note that this cache does not use
-   * weak keys/values and thus does not respond to memory pressure.
-   */
-  protected val cache = CacheBuilder.newBuilder()
-    .maximumSize(1000)
-    .build(
-      new CacheLoader[InType, OutType]() {
-        override def load(in: InType): OutType = globalLock.synchronized {
-          val startTime = System.nanoTime()
-          val result = create(in)
-          val endTime = System.nanoTime()
-          def timeMs: Double = (endTime - startTime).toDouble / 1000000
-          logInfo(s"Code generated expression $in in $timeMs ms")
-          result
-        }
-      })
+    /** Binds an input expression to a given input schema */
+    protected def bind(in: InType, inputSchema: Seq[Attribute]): InType
 
-  /** Generates the requested evaluator binding the given expression(s) to the inputSchema. */
-  def apply(expressions: InType, inputSchema: Seq[Attribute]): OutType =
-    apply(bind(expressions, inputSchema))
+    /**
+      * A cache of generated classes.
+      *
+      * From the Guava Docs: A Cache is similar to ConcurrentMap, but not quite the same. The most
+      * fundamental difference is that a ConcurrentMap persists all elements that are added to it until
+      * they are explicitly removed. A Cache on the other hand is generally configured to evict entries
+      * automatically, in order to constrain its memory footprint.  Note that this cache does not use
+      * weak keys/values and thus does not respond to memory pressure.
+      */
+    protected val cache = CacheBuilder.newBuilder()
+            .maximumSize(1000)
+            .build(
+                new CacheLoader[InType, OutType]() {
+                    override def load(in: InType): OutType = globalLock.synchronized {
+                        val startTime = System.nanoTime()
+                        val result = create(in)
+                        val endTime = System.nanoTime()
 
-  /** Generates the requested evaluator given already bound expression(s). */
-  def apply(expressions: InType): OutType = cache.get(canonicalize(expressions))
+                        def timeMs: Double = (endTime - startTime).toDouble / 1000000
 
-  /**
-   * Returns a term name that is unique within this instance of a `CodeGenerator`.
-   *
-   * (Since we aren't in a macro context we do not seem to have access to the built in `freshName`
-   * function.)
-   */
-  protected def freshName(prefix: String): TermName = {
-    newTermName(s"$prefix$javaSeparator${curId.getAndIncrement}")
-  }
+                        logInfo(s"Code generated expression $in in $timeMs ms")
+                        result
+                    }
+                })
 
-  /**
-   * Scala ASTs for evaluating an [[Expression]] given a [[Row]] of input.
-   *
-   * @param code The sequence of statements required to evaluate the expression.
-   * @param nullTerm A term that holds a boolean value representing whether the expression evaluated
-   *                 to null.
-   * @param primitiveTerm A term for a possible primitive value of the result of the evaluation. Not
-   *                      valid if `nullTerm` is set to `true`.
-   * @param objectTerm A possibly boxed version of the result of evaluating this expression.
-   */
-  protected case class EvaluatedExpression(
-      code: Seq[Tree],
-      nullTerm: TermName,
-      primitiveTerm: TermName,
-      objectTerm: TermName)
+    /** Generates the requested evaluator binding the given expression(s) to the inputSchema. */
+    def apply(expressions: InType, inputSchema: Seq[Attribute]): OutType =
+        apply(bind(expressions, inputSchema))
 
-  /**
-   * Given an expression tree returns an [[EvaluatedExpression]], which contains Scala trees that
-   * can be used to determine the result of evaluating the expression on an input row.
-   */
-  def expressionEvaluator(e: Expression): EvaluatedExpression = {
-    val primitiveTerm = freshName("primitiveTerm")
-    val nullTerm = freshName("nullTerm")
-    val objectTerm = freshName("objectTerm")
+    /** Generates the requested evaluator given already bound expression(s). */
+    def apply(expressions: InType): OutType = cache.get(canonicalize(expressions))
 
-    implicit class Evaluate1(e: Expression) {
-      def castOrNull(f: TermName => Tree, dataType: DataType): Seq[Tree] = {
-        val eval = expressionEvaluator(e)
-        eval.code ++
-        q"""
+    /**
+      * Returns a term name that is unique within this instance of a `CodeGenerator`.
+      *
+      * (Since we aren't in a macro context we do not seem to have access to the built in `freshName`
+      * function.)
+      */
+    protected def freshName(prefix: String): TermName = {
+        newTermName(s"$prefix$javaSeparator${curId.getAndIncrement}")
+    }
+
+    /**
+      * Scala ASTs for evaluating an [[Expression]] given a [[Row]] of input.
+      *
+      * @param code          The sequence of statements required to evaluate the expression.
+      * @param nullTerm      A term that holds a boolean value representing whether the expression evaluated
+      *                      to null.
+      * @param primitiveTerm A term for a possible primitive value of the result of the evaluation. Not
+      *                      valid if `nullTerm` is set to `true`.
+      * @param objectTerm    A possibly boxed version of the result of evaluating this expression.
+      */
+    protected case class EvaluatedExpression(
+                                                    code: Seq[Tree],
+                                                    nullTerm: TermName,
+                                                    primitiveTerm: TermName,
+                                                    objectTerm: TermName)
+
+    /**
+      * Given an expression tree returns an [[EvaluatedExpression]], which contains Scala trees that
+      * can be used to determine the result of evaluating the expression on an input row.
+      */
+    def expressionEvaluator(e: Expression): EvaluatedExpression = {
+        val primitiveTerm = freshName("primitiveTerm")
+        val nullTerm = freshName("nullTerm")
+        val objectTerm = freshName("objectTerm")
+
+        implicit class Evaluate1(e: Expression) {
+            def castOrNull(f: TermName => Tree, dataType: DataType): Seq[Tree] = {
+                val eval = expressionEvaluator(e)
+                eval.code ++
+                        q"""
           val $nullTerm = ${eval.nullTerm}
           val $primitiveTerm =
             if($nullTerm)
@@ -151,51 +155,51 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
             else
               ${f(eval.primitiveTerm)}
         """.children
-      }
-    }
-
-    implicit class Evaluate2(expressions: (Expression, Expression)) {
-
-      /**
-       * Short hand for generating binary evaluation code, which depends on two sub-evaluations of
-       * the same type.  If either of the sub-expressions is null, the result of this computation
-       * is assumed to be null.
-       *
-       * @param f a function from two primitive term names to a tree that evaluates them.
-       */
-      def evaluate(f: (TermName, TermName) => Tree): Seq[Tree] =
-        evaluateAs(expressions._1.dataType)(f)
-
-      def evaluateAs(resultType: DataType)(f: (TermName, TermName) => Tree): Seq[Tree] = {
-        // TODO: Right now some timestamp tests fail if we enforce this...
-        if (expressions._1.dataType != expressions._2.dataType) {
-          log.warn(s"${expressions._1.dataType} != ${expressions._2.dataType}")
+            }
         }
 
-        val eval1 = expressionEvaluator(expressions._1)
-        val eval2 = expressionEvaluator(expressions._2)
-        val resultCode = f(eval1.primitiveTerm, eval2.primitiveTerm)
+        implicit class Evaluate2(expressions: (Expression, Expression)) {
 
-        eval1.code ++ eval2.code ++
-        q"""
-          val $nullTerm = ${eval1.nullTerm} || ${eval2.nullTerm}
+            /**
+              * Short hand for generating binary evaluation code, which depends on two sub-evaluations of
+              * the same type.  If either of the sub-expressions is null, the result of this computation
+              * is assumed to be null.
+              *
+              * @param f a function from two primitive term names to a tree that evaluates them.
+              */
+            def evaluate(f: (TermName, TermName) => Tree): Seq[Tree] =
+                evaluateAs(expressions._1.dataType)(f)
+
+            def evaluateAs(resultType: DataType)(f: (TermName, TermName) => Tree): Seq[Tree] = {
+                // TODO: Right now some timestamp tests fail if we enforce this...
+                if (expressions._1.dataType != expressions._2.dataType) {
+                    log.warn(s"${expressions._1.dataType} != ${expressions._2.dataType}")
+                }
+
+                val eval1 = expressionEvaluator(expressions._1)
+                val eval2 = expressionEvaluator(expressions._2)
+                val resultCode = f(eval1.primitiveTerm, eval2.primitiveTerm)
+
+                eval1.code ++ eval2.code ++
+                        q"""
+          val $nullTerm = ${eval1.nullTerm}|| ${eval2.nullTerm}
           val $primitiveTerm: ${termForType(resultType)} =
             if($nullTerm) {
               ${defaultPrimitive(resultType)}
             } else {
               $resultCode.asInstanceOf[${termForType(resultType)}]
             }
-        """.children : Seq[Tree]
-      }
-    }
+        """.children: Seq[Tree]
+            }
+        }
 
-    val inputTuple = newTermName(s"i")
+        val inputTuple = newTermName(s"i")
 
-    // TODO: Skip generation of null handling code when expression are not nullable.
-    val primitiveEvaluation: PartialFunction[Expression, Seq[Tree]] = {
-      case b @ BoundReference(ordinal, dataType, nullable) =>
-        val nullValue = q"$inputTuple.isNullAt($ordinal)"
-        q"""
+        // TODO: Skip generation of null handling code when expression are not nullable.
+        val primitiveEvaluation: PartialFunction[Expression, Seq[Tree]] = {
+            case b@BoundReference(ordinal, dataType, nullable) =>
+                val nullValue = q"$inputTuple.isNullAt($ordinal)"
+                q"""
           val $nullTerm: Boolean = $nullValue
           val $primitiveTerm: ${termForType(dataType)} =
             if($nullTerm)
@@ -204,40 +208,40 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
               ${getColumn(inputTuple, dataType, ordinal)}
          """.children
 
-      case expressions.Literal(null, dataType) =>
-        q"""
+            case expressions.Literal(null, dataType) =>
+                q"""
           val $nullTerm = true
           val $primitiveTerm: ${termForType(dataType)} = null.asInstanceOf[${termForType(dataType)}]
          """.children
 
-      case expressions.Literal(value: Boolean, dataType) =>
-        q"""
+            case expressions.Literal(value: Boolean, dataType) =>
+                q"""
           val $nullTerm = ${value == null}
           val $primitiveTerm: ${termForType(dataType)} = $value
          """.children
 
-      case expressions.Literal(value: String, dataType) =>
-        q"""
+            case expressions.Literal(value: String, dataType) =>
+                q"""
           val $nullTerm = ${value == null}
           val $primitiveTerm: ${termForType(dataType)} = $value
          """.children
 
-      case expressions.Literal(value: Int, dataType) =>
-        q"""
+            case expressions.Literal(value: Int, dataType) =>
+                q"""
           val $nullTerm = ${value == null}
           val $primitiveTerm: ${termForType(dataType)} = $value
          """.children
 
-      case expressions.Literal(value: Long, dataType) =>
-        q"""
+            case expressions.Literal(value: Long, dataType) =>
+                q"""
           val $nullTerm = ${value == null}
           val $primitiveTerm: ${termForType(dataType)} = $value
          """.children
 
-      case Cast(e @ BinaryType(), StringType) =>
-        val eval = expressionEvaluator(e)
-        eval.code ++
-        q"""
+            case Cast(e@BinaryType(), StringType) =>
+                val eval = expressionEvaluator(e)
+                eval.code ++
+                        q"""
           val $nullTerm = ${eval.nullTerm}
           val $primitiveTerm =
             if($nullTerm)
@@ -246,27 +250,27 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
               new String(${eval.primitiveTerm}.asInstanceOf[Array[Byte]])
         """.children
 
-      case Cast(child @ DateType(), StringType) =>
-        child.castOrNull(c => q"org.apache.spark.sql.types.DateUtils.toString($c)", StringType)
+            case Cast(child@DateType(), StringType) =>
+                child.castOrNull(c => q"org.apache.spark.sql.types.DateUtils.toString($c)", StringType)
 
-      case Cast(child @ NumericType(), IntegerType) =>
-        child.castOrNull(c => q"$c.toInt", IntegerType)
+            case Cast(child@NumericType(), IntegerType) =>
+                child.castOrNull(c => q"$c.toInt", IntegerType)
 
-      case Cast(child @ NumericType(), LongType) =>
-        child.castOrNull(c => q"$c.toLong", LongType)
+            case Cast(child@NumericType(), LongType) =>
+                child.castOrNull(c => q"$c.toLong", LongType)
 
-      case Cast(child @ NumericType(), DoubleType) =>
-        child.castOrNull(c => q"$c.toDouble", DoubleType)
+            case Cast(child@NumericType(), DoubleType) =>
+                child.castOrNull(c => q"$c.toDouble", DoubleType)
 
-      case Cast(child @ NumericType(), FloatType) =>
-        child.castOrNull(c => q"$c.toFloat", FloatType)
+            case Cast(child@NumericType(), FloatType) =>
+                child.castOrNull(c => q"$c.toFloat", FloatType)
 
-      // Special handling required for timestamps in hive test cases since the toString function
-      // does not match the expected output.
-      case Cast(e, StringType) if e.dataType != TimestampType =>
-        val eval = expressionEvaluator(e)
-        eval.code ++
-        q"""
+            // Special handling required for timestamps in hive test cases since the toString function
+            // does not match the expected output.
+            case Cast(e, StringType) if e.dataType != TimestampType =>
+                val eval = expressionEvaluator(e)
+                eval.code ++
+                        q"""
           val $nullTerm = ${eval.nullTerm}
           val $primitiveTerm =
             if($nullTerm)
@@ -275,48 +279,48 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
               ${eval.primitiveTerm}.toString
         """.children
 
-      case EqualTo(e1, e2) =>
-        (e1, e2).evaluateAs (BooleanType) { case (eval1, eval2) => q"$eval1 == $eval2" }
+            case EqualTo(e1, e2) =>
+                (e1, e2).evaluateAs(BooleanType) { case (eval1, eval2) => q"$eval1 == $eval2" }
 
-      /* TODO: Fix null semantics.
-      case In(e1, list) if !list.exists(!_.isInstanceOf[expressions.Literal]) =>
-        val eval = expressionEvaluator(e1)
+            /* TODO: Fix null semantics.
+            case In(e1, list) if !list.exists(!_.isInstanceOf[expressions.Literal]) =>
+              val eval = expressionEvaluator(e1)
 
-        val checks = list.map {
-          case expressions.Literal(v: String, dataType) =>
-            q"if(${eval.primitiveTerm} == $v) return true"
-          case expressions.Literal(v: Int, dataType) =>
-            q"if(${eval.primitiveTerm} == $v) return true"
-        }
+              val checks = list.map {
+                case expressions.Literal(v: String, dataType) =>
+                  q"if(${eval.primitiveTerm} == $v) return true"
+                case expressions.Literal(v: Int, dataType) =>
+                  q"if(${eval.primitiveTerm} == $v) return true"
+              }
 
-        val funcName = newTermName(s"isIn${curId.getAndIncrement()}")
+              val funcName = newTermName(s"isIn${curId.getAndIncrement()}")
 
-        q"""
-            def $funcName: Boolean = {
-              ..${eval.code}
-              if(${eval.nullTerm}) return false
-              ..$checks
-              return false
-            }
-            val $nullTerm = false
-            val $primitiveTerm = $funcName
-        """.children
-      */
+              q"""
+                  def $funcName: Boolean = {
+                    ..${eval.code}
+                    if(${eval.nullTerm}) return false
+                    ..$checks
+                    return false
+                  }
+                  val $nullTerm = false
+                  val $primitiveTerm = $funcName
+              """.children
+            */
 
-      case GreaterThan(e1 @ NumericType(), e2 @ NumericType()) =>
-        (e1, e2).evaluateAs (BooleanType) { case (eval1, eval2) => q"$eval1 > $eval2" }
-      case GreaterThanOrEqual(e1 @ NumericType(), e2 @ NumericType()) =>
-        (e1, e2).evaluateAs (BooleanType) { case (eval1, eval2) => q"$eval1 >= $eval2" }
-      case LessThan(e1 @ NumericType(), e2 @ NumericType()) =>
-        (e1, e2).evaluateAs (BooleanType) { case (eval1, eval2) => q"$eval1 < $eval2" }
-      case LessThanOrEqual(e1 @ NumericType(), e2 @ NumericType()) =>
-        (e1, e2).evaluateAs (BooleanType) { case (eval1, eval2) => q"$eval1 <= $eval2" }
+            case GreaterThan(e1@NumericType(), e2@NumericType()) =>
+                (e1, e2).evaluateAs(BooleanType) { case (eval1, eval2) => q"$eval1 > $eval2" }
+            case GreaterThanOrEqual(e1@NumericType(), e2@NumericType()) =>
+                (e1, e2).evaluateAs(BooleanType) { case (eval1, eval2) => q"$eval1 >= $eval2" }
+            case LessThan(e1@NumericType(), e2@NumericType()) =>
+                (e1, e2).evaluateAs(BooleanType) { case (eval1, eval2) => q"$eval1 < $eval2" }
+            case LessThanOrEqual(e1@NumericType(), e2@NumericType()) =>
+                (e1, e2).evaluateAs(BooleanType) { case (eval1, eval2) => q"$eval1 <= $eval2" }
 
-      case And(e1, e2) =>
-        val eval1 = expressionEvaluator(e1)
-        val eval2 = expressionEvaluator(e2)
+            case And(e1, e2) =>
+                val eval1 = expressionEvaluator(e1)
+                val eval2 = expressionEvaluator(e2)
 
-        q"""
+                q"""
           ..${eval1.code}
           var $nullTerm = false
           var $primitiveTerm: ${termForType(BooleanType)} = false
@@ -333,11 +337,11 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
           }
          """.children
 
-      case Or(e1, e2) =>
-        val eval1 = expressionEvaluator(e1)
-        val eval2 = expressionEvaluator(e2)
+            case Or(e1, e2) =>
+                val eval1 = expressionEvaluator(e1)
+                val eval2 = expressionEvaluator(e2)
 
-        q"""
+                q"""
           ..${eval1.code}
           var $nullTerm = false
           var $primitiveTerm: ${termForType(BooleanType)} = false
@@ -356,23 +360,23 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
           }
          """.children
 
-      case Not(child) =>
-        // Uh, bad function name...
-        child.castOrNull(c => q"!$c", BooleanType)
+            case Not(child) =>
+                // Uh, bad function name...
+                child.castOrNull(c => q"!$c", BooleanType)
 
-      case Add(e1, e2) =>      (e1, e2) evaluate { case (eval1, eval2) => q"$eval1 + $eval2" }
-      case Subtract(e1, e2) => (e1, e2) evaluate { case (eval1, eval2) => q"$eval1 - $eval2" }
-      case Multiply(e1, e2) => (e1, e2) evaluate { case (eval1, eval2) => q"$eval1 * $eval2" }
-      case Divide(e1, e2) =>
-        val eval1 = expressionEvaluator(e1)
-        val eval2 = expressionEvaluator(e2)
+            case Add(e1, e2) => (e1, e2) evaluate { case (eval1, eval2) => q"$eval1 + $eval2" }
+            case Subtract(e1, e2) => (e1, e2) evaluate { case (eval1, eval2) => q"$eval1 - $eval2" }
+            case Multiply(e1, e2) => (e1, e2) evaluate { case (eval1, eval2) => q"$eval1 * $eval2" }
+            case Divide(e1, e2) =>
+                val eval1 = expressionEvaluator(e1)
+                val eval2 = expressionEvaluator(e2)
 
-        eval1.code ++ eval2.code ++
-        q"""
+                eval1.code ++ eval2.code ++
+                        q"""
           var $nullTerm = false
           var $primitiveTerm: ${termForType(e1.dataType)} = 0
 
-          if (${eval1.nullTerm} || ${eval2.nullTerm} ) {
+          if (${eval1.nullTerm}|| ${eval2.nullTerm} ) {
             $nullTerm = true
           } else if (${eval2.primitiveTerm} == 0)
             $nullTerm = true
@@ -381,16 +385,16 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
           }
          """.children
 
-      case Remainder(e1, e2) =>
-        val eval1 = expressionEvaluator(e1)
-        val eval2 = expressionEvaluator(e2)
+            case Remainder(e1, e2) =>
+                val eval1 = expressionEvaluator(e1)
+                val eval2 = expressionEvaluator(e2)
 
-        eval1.code ++ eval2.code ++
-        q"""
+                eval1.code ++ eval2.code ++
+                        q"""
           var $nullTerm = false
           var $primitiveTerm: ${termForType(e1.dataType)} = 0
 
-          if (${eval1.nullTerm} || ${eval2.nullTerm} ) {
+          if (${eval1.nullTerm}|| ${eval2.nullTerm} ) {
             $nullTerm = true
           } else if (${eval2.primitiveTerm} == 0)
             $nullTerm = true
@@ -400,30 +404,30 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
           }
          """.children
 
-      case IsNotNull(e) =>
-        val eval = expressionEvaluator(e)
-        q"""
+            case IsNotNull(e) =>
+                val eval = expressionEvaluator(e)
+                q"""
           ..${eval.code}
           var $nullTerm = false
           var $primitiveTerm: ${termForType(BooleanType)} = !${eval.nullTerm}
         """.children
 
-      case IsNull(e) =>
-        val eval = expressionEvaluator(e)
-        q"""
+            case IsNull(e) =>
+                val eval = expressionEvaluator(e)
+                q"""
           ..${eval.code}
           var $nullTerm = false
           var $primitiveTerm: ${termForType(BooleanType)} = ${eval.nullTerm}
         """.children
 
-      case c @ Coalesce(children) =>
-        q"""
+            case c@Coalesce(children) =>
+                q"""
           var $nullTerm = true
           var $primitiveTerm: ${termForType(c.dataType)} = ${defaultPrimitive(c.dataType)}
         """.children ++
-        children.map { c =>
-          val eval = expressionEvaluator(c)
-          q"""
+                        children.map { c =>
+                            val eval = expressionEvaluator(c)
+                            q"""
             if($nullTerm) {
               ..${eval.code}
               if(!${eval.nullTerm}) {
@@ -432,14 +436,14 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
               }
             }
           """
-        }
+                        }
 
-      case i @ expressions.If(condition, trueValue, falseValue) =>
-        val condEval = expressionEvaluator(condition)
-        val trueEval = expressionEvaluator(trueValue)
-        val falseEval = expressionEvaluator(falseValue)
+            case i@expressions.If(condition, trueValue, falseValue) =>
+                val condEval = expressionEvaluator(condition)
+                val trueEval = expressionEvaluator(trueValue)
+                val falseEval = expressionEvaluator(falseValue)
 
-        q"""
+                q"""
           var $nullTerm = false
           var $primitiveTerm: ${termForType(i.dataType)} = ${defaultPrimitive(i.dataType)}
           ..${condEval.code}
@@ -454,20 +458,20 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
           }
         """.children
 
-      case NewSet(elementType) =>
-        q"""
+            case NewSet(elementType) =>
+                q"""
           val $nullTerm = false
           val $primitiveTerm = new ${hashSetForType(elementType)}()
         """.children
 
-      case AddItemToSet(item, set) =>
-        val itemEval = expressionEvaluator(item)
-        val setEval = expressionEvaluator(set)
+            case AddItemToSet(item, set) =>
+                val itemEval = expressionEvaluator(item)
+                val setEval = expressionEvaluator(set)
 
-        val ArrayType(elementType, _) = set.dataType
+                val ArrayType(elementType, _) = set.dataType
 
-        itemEval.code ++ setEval.code ++
-        q"""
+                itemEval.code ++ setEval.code ++
+                        q"""
            if (!${itemEval.nullTerm}) {
              ${setEval.primitiveTerm}
                .asInstanceOf[${hashSetForType(elementType)}]
@@ -478,14 +482,14 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
            val $primitiveTerm = ${setEval.primitiveTerm}
          """.children
 
-      case CombineSets(left, right) =>
-        val leftEval = expressionEvaluator(left)
-        val rightEval = expressionEvaluator(right)
+            case CombineSets(left, right) =>
+                val leftEval = expressionEvaluator(left)
+                val rightEval = expressionEvaluator(right)
 
-        val ArrayType(elementType, _) = left.dataType
+                val ArrayType(elementType, _) = left.dataType
 
-        leftEval.code ++ rightEval.code ++
-        q"""
+                leftEval.code ++ rightEval.code ++
+                        q"""
           val $nullTerm = false
           var $primitiveTerm: ${hashSetForType(elementType)} = null
 
@@ -500,12 +504,12 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
           }
         """.children
 
-      case MaxOf(e1, e2) =>
-        val eval1 = expressionEvaluator(e1)
-        val eval2 = expressionEvaluator(e2)
+            case MaxOf(e1, e2) =>
+                val eval1 = expressionEvaluator(e1)
+                val eval2 = expressionEvaluator(e2)
 
-        eval1.code ++ eval2.code ++
-        q"""
+                eval1.code ++ eval2.code ++
+                        q"""
           var $nullTerm = false
           var $primitiveTerm: ${termForType(e1.dataType)} = ${defaultPrimitive(e1.dataType)}
 
@@ -524,11 +528,11 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
           }
         """.children
 
-      case UnscaledValue(child) =>
-        val childEval = expressionEvaluator(child)
+            case UnscaledValue(child) =>
+                val childEval = expressionEvaluator(child)
 
-        childEval.code ++
-        q"""
+                childEval.code ++
+                        q"""
          var $nullTerm = ${childEval.nullTerm}
          var $primitiveTerm: Long = if (!$nullTerm) {
            ${childEval.primitiveTerm}.toUnscaledLong
@@ -537,11 +541,11 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
          }
          """.children
 
-      case MakeDecimal(child, precision, scale) =>
-        val childEval = expressionEvaluator(child)
+            case MakeDecimal(child, precision, scale) =>
+                val childEval = expressionEvaluator(child)
 
-        childEval.code ++
-        q"""
+                childEval.code ++
+                        q"""
          var $nullTerm = ${childEval.nullTerm}
          var $primitiveTerm: org.apache.spark.sql.types.Decimal =
            ${defaultPrimitive(DecimalType())}
@@ -552,90 +556,95 @@ abstract class CodeGenerator[InType <: AnyRef, OutType <: AnyRef] extends Loggin
            $nullTerm = $primitiveTerm == null
          }
          """.children
-    }
+        }
 
-    // If there was no match in the partial function above, we fall back on calling the interpreted
-    // expression evaluator.
-    val code: Seq[Tree] =
-      primitiveEvaluation.lift.apply(e).getOrElse {
-        log.debug(s"No rules to generate $e")
-        val tree = reify { e }
-        q"""
+        // If there was no match in the partial function above, we fall back on calling the interpreted
+        // expression evaluator.
+        val code: Seq[Tree] =
+        primitiveEvaluation.lift.apply(e).getOrElse {
+            log.debug(s"No rules to generate $e")
+            val tree = reify {
+                e
+            }
+            q"""
           val $objectTerm = $tree.eval(i)
           val $nullTerm = $objectTerm == null
           val $primitiveTerm = $objectTerm.asInstanceOf[${termForType(e.dataType)}]
          """.children
-      }
+        }
 
-    // Only inject debugging code if debugging is turned on.
-    val debugCode =
-      if (debugLogging) {
-        val localLogger = log
-        val localLoggerTree = reify { localLogger }
-        q"""
+        // Only inject debugging code if debugging is turned on.
+        val debugCode =
+            if (debugLogging) {
+                val localLogger = log
+                val localLoggerTree = reify {
+                    localLogger
+                }
+                q"""
           $localLoggerTree.debug(${e.toString} + ": " +  (if($nullTerm) "null" else $primitiveTerm))
         """ :: Nil
-      } else {
-        Nil
-      }
+            } else {
+                Nil
+            }
 
-    EvaluatedExpression(code ++ debugCode, nullTerm, primitiveTerm, objectTerm)
-  }
-
-  protected def getColumn(inputRow: TermName, dataType: DataType, ordinal: Int) = {
-    dataType match {
-      case dt @ NativeType() => q"$inputRow.${accessorForType(dt)}($ordinal)"
-      case _ => q"$inputRow.apply($ordinal).asInstanceOf[${termForType(dataType)}]"
+        EvaluatedExpression(code ++ debugCode, nullTerm, primitiveTerm, objectTerm)
     }
-  }
 
-  protected def setColumn(
-      destinationRow: TermName,
-      dataType: DataType,
-      ordinal: Int,
-      value: TermName) = {
-    dataType match {
-      case dt @ NativeType() => q"$destinationRow.${mutatorForType(dt)}($ordinal, $value)"
-      case _ => q"$destinationRow.update($ordinal, $value)"
+    protected def getColumn(inputRow: TermName, dataType: DataType, ordinal: Int) = {
+        dataType match {
+            case dt@NativeType() => q"$inputRow.${accessorForType(dt)}($ordinal)"
+            case _ => q"$inputRow.apply($ordinal).asInstanceOf[${termForType(dataType)}]"
+        }
     }
-  }
 
-  protected def accessorForType(dt: DataType) = newTermName(s"get${primitiveForType(dt)}")
-  protected def mutatorForType(dt: DataType) = newTermName(s"set${primitiveForType(dt)}")
+    protected def setColumn(
+                                   destinationRow: TermName,
+                                   dataType: DataType,
+                                   ordinal: Int,
+                                   value: TermName) = {
+        dataType match {
+            case dt@NativeType() => q"$destinationRow.${mutatorForType(dt)}($ordinal, $value)"
+            case _ => q"$destinationRow.update($ordinal, $value)"
+        }
+    }
 
-  protected def hashSetForType(dt: DataType) = dt match {
-    case IntegerType => typeOf[IntegerHashSet]
-    case LongType => typeOf[LongHashSet]
-    case unsupportedType =>
-      sys.error(s"Code generation not support for hashset of type $unsupportedType")
-  }
+    protected def accessorForType(dt: DataType) = newTermName(s"get${primitiveForType(dt)}")
 
-  protected def primitiveForType(dt: DataType) = dt match {
-    case IntegerType => "Int"
-    case LongType => "Long"
-    case ShortType => "Short"
-    case ByteType => "Byte"
-    case DoubleType => "Double"
-    case FloatType => "Float"
-    case BooleanType => "Boolean"
-    case StringType => "String"
-  }
+    protected def mutatorForType(dt: DataType) = newTermName(s"set${primitiveForType(dt)}")
 
-  protected def defaultPrimitive(dt: DataType) = dt match {
-    case BooleanType => ru.Literal(Constant(false))
-    case FloatType => ru.Literal(Constant(-1.0.toFloat))
-    case StringType => ru.Literal(Constant("<uninit>"))
-    case ShortType => ru.Literal(Constant(-1.toShort))
-    case LongType => ru.Literal(Constant(-1L))
-    case ByteType => ru.Literal(Constant(-1.toByte))
-    case DoubleType => ru.Literal(Constant(-1.toDouble))
-    case DecimalType() => q"org.apache.spark.sql.types.Decimal(-1)"
-    case IntegerType => ru.Literal(Constant(-1))
-    case _ => ru.Literal(Constant(null))
-  }
+    protected def hashSetForType(dt: DataType) = dt match {
+        case IntegerType => typeOf[IntegerHashSet]
+        case LongType => typeOf[LongHashSet]
+        case unsupportedType =>
+            sys.error(s"Code generation not support for hashset of type $unsupportedType")
+    }
 
-  protected def termForType(dt: DataType) = dt match {
-    case n: NativeType => n.tag
-    case _ => typeTag[Any]
-  }
+    protected def primitiveForType(dt: DataType) = dt match {
+        case IntegerType => "Int"
+        case LongType => "Long"
+        case ShortType => "Short"
+        case ByteType => "Byte"
+        case DoubleType => "Double"
+        case FloatType => "Float"
+        case BooleanType => "Boolean"
+        case StringType => "String"
+    }
+
+    protected def defaultPrimitive(dt: DataType) = dt match {
+        case BooleanType => ru.Literal(Constant(false))
+        case FloatType => ru.Literal(Constant(-1.0.toFloat))
+        case StringType => ru.Literal(Constant("<uninit>"))
+        case ShortType => ru.Literal(Constant(-1.toShort))
+        case LongType => ru.Literal(Constant(-1L))
+        case ByteType => ru.Literal(Constant(-1.toByte))
+        case DoubleType => ru.Literal(Constant(-1.toDouble))
+        case DecimalType() => q"org.apache.spark.sql.types.Decimal(-1)"
+        case IntegerType => ru.Literal(Constant(-1))
+        case _ => ru.Literal(Constant(null))
+    }
+
+    protected def termForType(dt: DataType) = dt match {
+        case n: NativeType => n.tag
+        case _ => typeTag[Any]
+    }
 }

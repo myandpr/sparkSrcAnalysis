@@ -29,47 +29,47 @@ import io.netty.buffer.Unpooled;
  * A {@link ManagedBuffer} backed by {@link ByteBuffer}.
  */
 public final class NioManagedBuffer extends ManagedBuffer {
-  private final ByteBuffer buf;
+    private final ByteBuffer buf;
 
-  public NioManagedBuffer(ByteBuffer buf) {
-    this.buf = buf;
-  }
+    public NioManagedBuffer(ByteBuffer buf) {
+        this.buf = buf;
+    }
 
-  @Override
-  public long size() {
-    return buf.remaining();
-  }
+    @Override
+    public long size() {
+        return buf.remaining();
+    }
 
-  @Override
-  public ByteBuffer nioByteBuffer() throws IOException {
-    return buf.duplicate();
-  }
+    @Override
+    public ByteBuffer nioByteBuffer() throws IOException {
+        return buf.duplicate();
+    }
 
-  @Override
-  public InputStream createInputStream() throws IOException {
-    return new ByteBufInputStream(Unpooled.wrappedBuffer(buf));
-  }
+    @Override
+    public InputStream createInputStream() throws IOException {
+        return new ByteBufInputStream(Unpooled.wrappedBuffer(buf));
+    }
 
-  @Override
-  public ManagedBuffer retain() {
-    return this;
-  }
+    @Override
+    public ManagedBuffer retain() {
+        return this;
+    }
 
-  @Override
-  public ManagedBuffer release() {
-    return this;
-  }
+    @Override
+    public ManagedBuffer release() {
+        return this;
+    }
 
-  @Override
-  public Object convertToNetty() throws IOException {
-    return Unpooled.wrappedBuffer(buf);
-  }
+    @Override
+    public Object convertToNetty() throws IOException {
+        return Unpooled.wrappedBuffer(buf);
+    }
 
-  @Override
-  public String toString() {
-    return Objects.toStringHelper(this)
-      .add("buf", buf)
-      .toString();
-  }
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("buf", buf)
+                .toString();
+    }
 }
 

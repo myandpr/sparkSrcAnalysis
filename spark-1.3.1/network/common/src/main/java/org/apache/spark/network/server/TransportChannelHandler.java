@@ -32,7 +32,7 @@ import org.apache.spark.network.util.NettyUtils;
 /**
  * The single Transport-level Channel handler which is used for delegating requests to the
  * {@link TransportRequestHandler} and responses to the {@link TransportResponseHandler}.
- *
+ * <p>
  * All channels created in the transport layer are bidirectional. When the Client initiates a Netty
  * Channel with a RequestMessage (which gets handled by the Server's RequestHandler), the Server
  * will produce a ResponseMessage (handled by the Client's ResponseHandler). However, the Server
@@ -42,55 +42,55 @@ import org.apache.spark.network.util.NettyUtils;
  * for the Client's responses to the Server's requests.
  */
 public class TransportChannelHandler extends SimpleChannelInboundHandler<Message> {
-  private final Logger logger = LoggerFactory.getLogger(TransportChannelHandler.class);
+    private final Logger logger = LoggerFactory.getLogger(TransportChannelHandler.class);
 
-  private final TransportClient client;
-  private final TransportResponseHandler responseHandler;
-  private final TransportRequestHandler requestHandler;
+    private final TransportClient client;
+    private final TransportResponseHandler responseHandler;
+    private final TransportRequestHandler requestHandler;
 
-  public TransportChannelHandler(
-      TransportClient client,
-      TransportResponseHandler responseHandler,
-      TransportRequestHandler requestHandler) {
-    this.client = client;
-    this.responseHandler = responseHandler;
-    this.requestHandler = requestHandler;
-  }
-
-  public TransportClient getClient() {
-    return client;
-  }
-
-  @Override
-  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-    logger.warn("Exception in connection from " + NettyUtils.getRemoteAddress(ctx.channel()),
-      cause);
-    requestHandler.exceptionCaught(cause);
-    responseHandler.exceptionCaught(cause);
-    ctx.close();
-  }
-
-  @Override
-  public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-    try {
-      requestHandler.channelUnregistered();
-    } catch (RuntimeException e) {
-      logger.error("Exception from request handler while unregistering channel", e);
+    public TransportChannelHandler(
+            TransportClient client,
+            TransportResponseHandler responseHandler,
+            TransportRequestHandler requestHandler) {
+        this.client = client;
+        this.responseHandler = responseHandler;
+        this.requestHandler = requestHandler;
     }
-    try {
-      responseHandler.channelUnregistered();
-    } catch (RuntimeException e) {
-      logger.error("Exception from response handler while unregistering channel", e);
-    }
-    super.channelUnregistered(ctx);
-  }
 
-  @Override
-  public void channelRead0(ChannelHandlerContext ctx, Message request) {
-    if (request instanceof RequestMessage) {
-      requestHandler.handle((RequestMessage) request);
-    } else {
-      responseHandler.handle((ResponseMessage) request);
+    public TransportClient getClient() {
+        return client;
     }
-  }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        logger.warn("Exception in connection from " + NettyUtils.getRemoteAddress(ctx.channel()),
+                cause);
+        requestHandler.exceptionCaught(cause);
+        responseHandler.exceptionCaught(cause);
+        ctx.close();
+    }
+
+    @Override
+    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        try {
+            requestHandler.channelUnregistered();
+        } catch (RuntimeException e) {
+            logger.error("Exception from request handler while unregistering channel", e);
+        }
+        try {
+            responseHandler.channelUnregistered();
+        } catch (RuntimeException e) {
+            logger.error("Exception from response handler while unregistering channel", e);
+        }
+        super.channelUnregistered(ctx);
+    }
+
+    @Override
+    public void channelRead0(ChannelHandlerContext ctx, Message request) {
+        if (request instanceof RequestMessage) {
+            requestHandler.handle((RequestMessage) request);
+        } else {
+            responseHandler.handle((ResponseMessage) request);
+        }
+    }
 }

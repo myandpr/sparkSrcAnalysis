@@ -23,30 +23,32 @@ import org.apache.spark.mllib.tree.model.TreeEnsembleModel
 import org.apache.spark.rdd.RDD
 
 /**
- * :: DeveloperApi ::
- * Trait for adding "pluggable" loss functions for the gradient boosting algorithm.
- */
+  * :: DeveloperApi ::
+  * Trait for adding "pluggable" loss functions for the gradient boosting algorithm.
+  */
 @DeveloperApi
 trait Loss extends Serializable {
 
-  /**
-   * Method to calculate the gradients for the gradient boosting calculation.
-   * @param model Model of the weak learner.
-   * @param point Instance of the training dataset.
-   * @return Loss gradient.
-   */
-  def gradient(
-      model: TreeEnsembleModel,
-      point: LabeledPoint): Double
+    /**
+      * Method to calculate the gradients for the gradient boosting calculation.
+      *
+      * @param model Model of the weak learner.
+      * @param point Instance of the training dataset.
+      * @return Loss gradient.
+      */
+    def gradient(
+                        model: TreeEnsembleModel,
+                        point: LabeledPoint): Double
 
-  /**
-   * Method to calculate error of the base learner for the gradient boosting calculation.
-   * Note: This method is not used by the gradient boosting algorithm but is useful for debugging
-   * purposes.
-   * @param model Model of the weak learner.
-   * @param data Training dataset: RDD of [[org.apache.spark.mllib.regression.LabeledPoint]].
-   * @return Measure of model error on data
-   */
-  def computeError(model: TreeEnsembleModel, data: RDD[LabeledPoint]): Double
+    /**
+      * Method to calculate error of the base learner for the gradient boosting calculation.
+      * Note: This method is not used by the gradient boosting algorithm but is useful for debugging
+      * purposes.
+      *
+      * @param model Model of the weak learner.
+      * @param data  Training dataset: RDD of [[org.apache.spark.mllib.regression.LabeledPoint]].
+      * @return Measure of model error on data
+      */
+    def computeError(model: TreeEnsembleModel, data: RDD[LabeledPoint]): Double
 
 }

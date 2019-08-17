@@ -28,25 +28,25 @@ import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.sql.hive.thriftserver.{SparkExecuteStatementOperation, ReflectionUtils}
 
 /**
- * Executes queries using Spark SQL, and maintains a list of handles to active queries.
- */
+  * Executes queries using Spark SQL, and maintains a list of handles to active queries.
+  */
 private[thriftserver] class SparkSQLOperationManager(hiveContext: HiveContext)
-  extends OperationManager with Logging {
+        extends OperationManager with Logging {
 
-  val handleToOperation = ReflectionUtils
-    .getSuperField[JMap[OperationHandle, Operation]](this, "handleToOperation")
+    val handleToOperation = ReflectionUtils
+            .getSuperField[JMap[OperationHandle, Operation]](this, "handleToOperation")
 
-  val sessionToActivePool = Map[SessionHandle, String]()
+    val sessionToActivePool = Map[SessionHandle, String]()
 
-  override def newExecuteStatementOperation(
-      parentSession: HiveSession,
-      statement: String,
-      confOverlay: JMap[String, String],
-      async: Boolean): ExecuteStatementOperation = synchronized {
+    override def newExecuteStatementOperation(
+                                                     parentSession: HiveSession,
+                                                     statement: String,
+                                                     confOverlay: JMap[String, String],
+                                                     async: Boolean): ExecuteStatementOperation = synchronized {
 
-    val operation = new SparkExecuteStatementOperation(parentSession, statement, confOverlay)(
-      hiveContext, sessionToActivePool)
-    handleToOperation.put(operation.getHandle, operation)
-    operation
-  }
+        val operation = new SparkExecuteStatementOperation(parentSession, statement, confOverlay)(
+            hiveContext, sessionToActivePool)
+        handleToOperation.put(operation.getHandle, operation)
+        operation
+    }
 }

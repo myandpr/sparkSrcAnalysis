@@ -21,14 +21,14 @@ import org.scalatest.FunSuite
 
 class ResolvedDataSourceSuite extends FunSuite {
 
-  test("builtin sources") {
-    assert(ResolvedDataSource.lookupDataSource("jdbc") ===
-      classOf[org.apache.spark.sql.jdbc.DefaultSource])
+    test("builtin sources") {
+        assert(ResolvedDataSource.lookupDataSource("jdbc") ===
+                classOf[org.apache.spark.sql.jdbc.DefaultSource])
 
-    assert(ResolvedDataSource.lookupDataSource("json") ===
-      classOf[org.apache.spark.sql.json.DefaultSource])
+        assert(ResolvedDataSource.lookupDataSource("json") ===
+                classOf[org.apache.spark.sql.json.DefaultSource])
 
-    assert(ResolvedDataSource.lookupDataSource("parquet") ===
-      classOf[org.apache.spark.sql.parquet.DefaultSource])
-  }
+        assert(ResolvedDataSource.lookupDataSource("parquet") ===
+                classOf[org.apache.spark.sql.parquet.DefaultSource])
+    }
 }

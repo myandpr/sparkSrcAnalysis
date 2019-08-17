@@ -27,13 +27,13 @@ import org.apache.spark.util.TaskCompletionListener;
  */
 public class JavaTaskCompletionListenerImpl implements TaskCompletionListener {
 
-  @Override
-  public void onTaskCompletion(TaskContext context) {
-    context.isCompleted();
-    context.isInterrupted();
-    context.stageId();
-    context.partitionId();
-    context.isRunningLocally();
-    context.addTaskCompletionListener(this);
-  }
+    @Override
+    public void onTaskCompletion(TaskContext context) {
+        context.isCompleted();
+        context.isInterrupted();
+        context.stageId();
+        context.partitionId();
+        context.isRunningLocally();
+        context.addTaskCompletionListener(this);
+    }
 }

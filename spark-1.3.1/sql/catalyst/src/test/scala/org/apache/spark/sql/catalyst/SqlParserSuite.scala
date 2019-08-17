@@ -24,38 +24,38 @@ import org.scalatest.FunSuite
 private[sql] case class TestCommand(cmd: String) extends Command
 
 private[sql] class SuperLongKeywordTestParser extends AbstractSparkSQLParser {
-  protected val EXECUTE   = Keyword("THISISASUPERLONGKEYWORDTEST")
+    protected val EXECUTE = Keyword("THISISASUPERLONGKEYWORDTEST")
 
-  override protected lazy val start: Parser[LogicalPlan] = set
+    override protected lazy val start: Parser[LogicalPlan] = set
 
-  private lazy val set: Parser[LogicalPlan] =
-    EXECUTE ~> ident ^^ {
-      case fileName => TestCommand(fileName)
-    }
+    private lazy val set: Parser[LogicalPlan] =
+        EXECUTE ~> ident ^^ {
+            case fileName => TestCommand(fileName)
+        }
 }
 
 private[sql] class CaseInsensitiveTestParser extends AbstractSparkSQLParser {
-  protected val EXECUTE   = Keyword("EXECUTE")
+    protected val EXECUTE = Keyword("EXECUTE")
 
-  override protected lazy val start: Parser[LogicalPlan] = set
+    override protected lazy val start: Parser[LogicalPlan] = set
 
-  private lazy val set: Parser[LogicalPlan] =
-    EXECUTE ~> ident ^^ {
-      case fileName => TestCommand(fileName)
-    }
+    private lazy val set: Parser[LogicalPlan] =
+        EXECUTE ~> ident ^^ {
+            case fileName => TestCommand(fileName)
+        }
 }
 
 class SqlParserSuite extends FunSuite {
 
-  test("test long keyword") {
-    val parser = new SuperLongKeywordTestParser
-    assert(TestCommand("NotRealCommand") === parser("ThisIsASuperLongKeyWordTest NotRealCommand"))
-  }
+    test("test long keyword") {
+        val parser = new SuperLongKeywordTestParser
+        assert(TestCommand("NotRealCommand") === parser("ThisIsASuperLongKeyWordTest NotRealCommand"))
+    }
 
-  test("test case insensitive") {
-    val parser = new CaseInsensitiveTestParser
-    assert(TestCommand("NotRealCommand") === parser("EXECUTE NotRealCommand"))
-    assert(TestCommand("NotRealCommand") === parser("execute NotRealCommand"))
-    assert(TestCommand("NotRealCommand") === parser("exEcute NotRealCommand"))
-  }
+    test("test case insensitive") {
+        val parser = new CaseInsensitiveTestParser
+        assert(TestCommand("NotRealCommand") === parser("EXECUTE NotRealCommand"))
+        assert(TestCommand("NotRealCommand") === parser("execute NotRealCommand"))
+        assert(TestCommand("NotRealCommand") === parser("exEcute NotRealCommand"))
+    }
 }

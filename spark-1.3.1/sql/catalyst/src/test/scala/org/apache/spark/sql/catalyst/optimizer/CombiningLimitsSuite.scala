@@ -25,48 +25,48 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 
 class CombiningLimitsSuite extends PlanTest {
 
-  object Optimize extends RuleExecutor[LogicalPlan] {
-    val batches =
-      Batch("Combine Limit", FixedPoint(10),
-        CombineLimits) ::
-      Batch("Constant Folding", FixedPoint(10),
-        NullPropagation,
-        ConstantFolding,
-        BooleanSimplification) :: Nil
-  }
+    object Optimize extends RuleExecutor[LogicalPlan] {
+        val batches =
+            Batch("Combine Limit", FixedPoint(10),
+                CombineLimits) ::
+                    Batch("Constant Folding", FixedPoint(10),
+                        NullPropagation,
+                        ConstantFolding,
+                        BooleanSimplification) :: Nil
+    }
 
-  val testRelation = LocalRelation('a.int, 'b.int, 'c.int)
+    val testRelation = LocalRelation('a.int, 'b.int, 'c.int)
 
-  test("limits: combines two limits") {
-    val originalQuery =
-      testRelation
-        .select('a)
-        .limit(10)
-        .limit(5)
+    test("limits: combines two limits") {
+        val originalQuery =
+            testRelation
+                    .select('a)
+                    .limit(10)
+                    .limit(5)
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer =
-      testRelation
-        .select('a)
-        .limit(5).analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer =
+            testRelation
+                    .select('a)
+                    .limit(5).analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 
-  test("limits: combines three limits") {
-    val originalQuery =
-      testRelation
-        .select('a)
-        .limit(2)
-        .limit(7)
-        .limit(5)
+    test("limits: combines three limits") {
+        val originalQuery =
+            testRelation
+                    .select('a)
+                    .limit(2)
+                    .limit(7)
+                    .limit(5)
 
-    val optimized = Optimize(originalQuery.analyze)
-    val correctAnswer =
-      testRelation
-        .select('a)
-        .limit(2).analyze
+        val optimized = Optimize(originalQuery.analyze)
+        val correctAnswer =
+            testRelation
+                    .select('a)
+                    .limit(2).analyze
 
-    comparePlans(optimized, correctAnswer)
-  }
+        comparePlans(optimized, correctAnswer)
+    }
 }

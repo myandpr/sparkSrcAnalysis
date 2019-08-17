@@ -24,71 +24,71 @@ import org.scalatest.FunSuite
 import org.apache.spark.SparkConf
 
 class CompressionCodecSuite extends FunSuite {
-  val conf = new SparkConf(false)
+    val conf = new SparkConf(false)
 
-  def testCodec(codec: CompressionCodec) {
-    // Write 1000 integers to the output stream, compressed.
-    val outputStream = new ByteArrayOutputStream()
-    val out = codec.compressedOutputStream(outputStream)
-    for (i <- 1 until 1000) {
-      out.write(i % 256)
+    def testCodec(codec: CompressionCodec) {
+        // Write 1000 integers to the output stream, compressed.
+        val outputStream = new ByteArrayOutputStream()
+        val out = codec.compressedOutputStream(outputStream)
+        for (i <- 1 until 1000) {
+            out.write(i % 256)
+        }
+        out.close()
+
+        // Read the 1000 integers back.
+        val inputStream = new ByteArrayInputStream(outputStream.toByteArray)
+        val in = codec.compressedInputStream(inputStream)
+        for (i <- 1 until 1000) {
+            assert(in.read() === i % 256)
+        }
+        in.close()
     }
-    out.close()
 
-    // Read the 1000 integers back.
-    val inputStream = new ByteArrayInputStream(outputStream.toByteArray)
-    val in = codec.compressedInputStream(inputStream)
-    for (i <- 1 until 1000) {
-      assert(in.read() === i % 256)
+    test("default compression codec") {
+        val codec = CompressionCodec.createCodec(conf)
+        assert(codec.getClass === classOf[SnappyCompressionCodec])
+        testCodec(codec)
     }
-    in.close()
-  }
 
-  test("default compression codec") {
-    val codec = CompressionCodec.createCodec(conf)
-    assert(codec.getClass === classOf[SnappyCompressionCodec])
-    testCodec(codec)
-  }
-
-  test("lz4 compression codec") {
-    val codec = CompressionCodec.createCodec(conf, classOf[LZ4CompressionCodec].getName)
-    assert(codec.getClass === classOf[LZ4CompressionCodec])
-    testCodec(codec)
-  }
-
-  test("lz4 compression codec short form") {
-    val codec = CompressionCodec.createCodec(conf, "lz4")
-    assert(codec.getClass === classOf[LZ4CompressionCodec])
-    testCodec(codec)
-  }
-
-  test("lzf compression codec") {
-    val codec = CompressionCodec.createCodec(conf, classOf[LZFCompressionCodec].getName)
-    assert(codec.getClass === classOf[LZFCompressionCodec])
-    testCodec(codec)
-  }
-
-  test("lzf compression codec short form") {
-    val codec = CompressionCodec.createCodec(conf, "lzf")
-    assert(codec.getClass === classOf[LZFCompressionCodec])
-    testCodec(codec)
-  }
-
-  test("snappy compression codec") {
-    val codec = CompressionCodec.createCodec(conf, classOf[SnappyCompressionCodec].getName)
-    assert(codec.getClass === classOf[SnappyCompressionCodec])
-    testCodec(codec)
-  }
-
-  test("snappy compression codec short form") {
-    val codec = CompressionCodec.createCodec(conf, "snappy")
-    assert(codec.getClass === classOf[SnappyCompressionCodec])
-    testCodec(codec)
-  }
-
-  test("bad compression codec") {
-    intercept[IllegalArgumentException] {
-      CompressionCodec.createCodec(conf, "foobar")
+    test("lz4 compression codec") {
+        val codec = CompressionCodec.createCodec(conf, classOf[LZ4CompressionCodec].getName)
+        assert(codec.getClass === classOf[LZ4CompressionCodec])
+        testCodec(codec)
     }
-  }
+
+    test("lz4 compression codec short form") {
+        val codec = CompressionCodec.createCodec(conf, "lz4")
+        assert(codec.getClass === classOf[LZ4CompressionCodec])
+        testCodec(codec)
+    }
+
+    test("lzf compression codec") {
+        val codec = CompressionCodec.createCodec(conf, classOf[LZFCompressionCodec].getName)
+        assert(codec.getClass === classOf[LZFCompressionCodec])
+        testCodec(codec)
+    }
+
+    test("lzf compression codec short form") {
+        val codec = CompressionCodec.createCodec(conf, "lzf")
+        assert(codec.getClass === classOf[LZFCompressionCodec])
+        testCodec(codec)
+    }
+
+    test("snappy compression codec") {
+        val codec = CompressionCodec.createCodec(conf, classOf[SnappyCompressionCodec].getName)
+        assert(codec.getClass === classOf[SnappyCompressionCodec])
+        testCodec(codec)
+    }
+
+    test("snappy compression codec short form") {
+        val codec = CompressionCodec.createCodec(conf, "snappy")
+        assert(codec.getClass === classOf[SnappyCompressionCodec])
+        testCodec(codec)
+    }
+
+    test("bad compression codec") {
+        intercept[IllegalArgumentException] {
+            CompressionCodec.createCodec(conf, "foobar")
+        }
+    }
 }

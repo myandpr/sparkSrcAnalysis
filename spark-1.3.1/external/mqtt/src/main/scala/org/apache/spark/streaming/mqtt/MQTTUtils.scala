@@ -24,52 +24,55 @@ import scala.reflect.ClassTag
 import org.apache.spark.streaming.dstream.{ReceiverInputDStream, DStream}
 
 object MQTTUtils {
-  /**
-   * Create an input stream that receives messages pushed by a MQTT publisher.
-   * @param ssc           StreamingContext object
-   * @param brokerUrl     Url of remote MQTT publisher
-   * @param topic         Topic name to subscribe to
-   * @param storageLevel  RDD storage level. Defaults to StorageLevel.MEMORY_AND_DISK_SER_2.
-   */
-  def createStream(
-      ssc: StreamingContext,
-      brokerUrl: String,
-      topic: String,
-      storageLevel: StorageLevel = StorageLevel.MEMORY_AND_DISK_SER_2
-    ): ReceiverInputDStream[String] = {
-    new MQTTInputDStream(ssc, brokerUrl, topic, storageLevel)
-  }
+    /**
+      * Create an input stream that receives messages pushed by a MQTT publisher.
+      *
+      * @param ssc          StreamingContext object
+      * @param brokerUrl    Url of remote MQTT publisher
+      * @param topic        Topic name to subscribe to
+      * @param storageLevel RDD storage level. Defaults to StorageLevel.MEMORY_AND_DISK_SER_2.
+      */
+    def createStream(
+                            ssc: StreamingContext,
+                            brokerUrl: String,
+                            topic: String,
+                            storageLevel: StorageLevel = StorageLevel.MEMORY_AND_DISK_SER_2
+                    ): ReceiverInputDStream[String] = {
+        new MQTTInputDStream(ssc, brokerUrl, topic, storageLevel)
+    }
 
-  /**
-   * Create an input stream that receives messages pushed by a MQTT publisher.
-   * Storage level of the data will be the default StorageLevel.MEMORY_AND_DISK_SER_2.
-   * @param jssc      JavaStreamingContext object
-   * @param brokerUrl Url of remote MQTT publisher
-   * @param topic     Topic name to subscribe to
-   */
-  def createStream(
-      jssc: JavaStreamingContext,
-      brokerUrl: String,
-      topic: String
-    ): JavaReceiverInputDStream[String] = {
-    implicitly[ClassTag[AnyRef]].asInstanceOf[ClassTag[String]]
-    createStream(jssc.ssc, brokerUrl, topic)
-  }
+    /**
+      * Create an input stream that receives messages pushed by a MQTT publisher.
+      * Storage level of the data will be the default StorageLevel.MEMORY_AND_DISK_SER_2.
+      *
+      * @param jssc      JavaStreamingContext object
+      * @param brokerUrl Url of remote MQTT publisher
+      * @param topic     Topic name to subscribe to
+      */
+    def createStream(
+                            jssc: JavaStreamingContext,
+                            brokerUrl: String,
+                            topic: String
+                    ): JavaReceiverInputDStream[String] = {
+        implicitly[ClassTag[AnyRef]].asInstanceOf[ClassTag[String]]
+        createStream(jssc.ssc, brokerUrl, topic)
+    }
 
-  /**
-   * Create an input stream that receives messages pushed by a MQTT publisher.
-   * @param jssc      JavaStreamingContext object
-   * @param brokerUrl     Url of remote MQTT publisher
-   * @param topic         Topic name to subscribe to
-   * @param storageLevel  RDD storage level.
-   */
-  def createStream(
-      jssc: JavaStreamingContext,
-      brokerUrl: String,
-      topic: String,
-      storageLevel: StorageLevel
-    ): JavaReceiverInputDStream[String] = {
-    implicitly[ClassTag[AnyRef]].asInstanceOf[ClassTag[String]]
-    createStream(jssc.ssc, brokerUrl, topic, storageLevel)
-  }
+    /**
+      * Create an input stream that receives messages pushed by a MQTT publisher.
+      *
+      * @param jssc         JavaStreamingContext object
+      * @param brokerUrl    Url of remote MQTT publisher
+      * @param topic        Topic name to subscribe to
+      * @param storageLevel RDD storage level.
+      */
+    def createStream(
+                            jssc: JavaStreamingContext,
+                            brokerUrl: String,
+                            topic: String,
+                            storageLevel: StorageLevel
+                    ): JavaReceiverInputDStream[String] = {
+        implicitly[ClassTag[AnyRef]].asInstanceOf[ClassTag[String]]
+        createStream(jssc.ssc, brokerUrl, topic, storageLevel)
+    }
 }

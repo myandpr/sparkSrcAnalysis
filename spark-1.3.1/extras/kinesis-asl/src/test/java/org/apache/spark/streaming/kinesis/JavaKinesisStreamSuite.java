@@ -29,13 +29,13 @@ import com.amazonaws.services.kinesis.clientlibrary.lib.worker.InitialPositionIn
  * Demonstrate the use of the KinesisUtils Java API
  */
 public class JavaKinesisStreamSuite extends LocalJavaStreamingContext {
-  @Test
-  public void testKinesisStream() {
-    // Tests the API, does not actually test data receiving
-    JavaDStream<byte[]> kinesisStream = KinesisUtils.createStream(ssc, "mySparkStream",
-        "https://kinesis.us-west-2.amazonaws.com", new Duration(2000), 
-        InitialPositionInStream.LATEST, StorageLevel.MEMORY_AND_DISK_2());
-    
-    ssc.stop();
-  }
+    @Test
+    public void testKinesisStream() {
+        // Tests the API, does not actually test data receiving
+        JavaDStream<byte[]> kinesisStream = KinesisUtils.createStream(ssc, "mySparkStream",
+                "https://kinesis.us-west-2.amazonaws.com", new Duration(2000),
+                InitialPositionInStream.LATEST, StorageLevel.MEMORY_AND_DISK_2());
+
+        ssc.stop();
+    }
 }

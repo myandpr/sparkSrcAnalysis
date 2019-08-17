@@ -28,51 +28,57 @@ import io.netty.buffer.ByteBuf;
  * {@link org.apache.spark.network.protocol.ResponseMessage} (either success or failure).
  */
 public final class RpcRequest implements RequestMessage {
-  /** Used to link an RPC request with its response. */
-  public final long requestId;
+    /**
+     * Used to link an RPC request with its response.
+     */
+    public final long requestId;
 
-  /** Serialized message to send to remote RpcHandler. */
-  public final byte[] message;
+    /**
+     * Serialized message to send to remote RpcHandler.
+     */
+    public final byte[] message;
 
-  public RpcRequest(long requestId, byte[] message) {
-    this.requestId = requestId;
-    this.message = message;
-  }
-
-  @Override
-  public Type type() { return Type.RpcRequest; }
-
-  @Override
-  public int encodedLength() {
-    return 8 + Encoders.ByteArrays.encodedLength(message);
-  }
-
-  @Override
-  public void encode(ByteBuf buf) {
-    buf.writeLong(requestId);
-    Encoders.ByteArrays.encode(buf, message);
-  }
-
-  public static RpcRequest decode(ByteBuf buf) {
-    long requestId = buf.readLong();
-    byte[] message = Encoders.ByteArrays.decode(buf);
-    return new RpcRequest(requestId, message);
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    if (other instanceof RpcRequest) {
-      RpcRequest o = (RpcRequest) other;
-      return requestId == o.requestId && Arrays.equals(message, o.message);
+    public RpcRequest(long requestId, byte[] message) {
+        this.requestId = requestId;
+        this.message = message;
     }
-    return false;
-  }
 
-  @Override
-  public String toString() {
-    return Objects.toStringHelper(this)
-      .add("requestId", requestId)
-      .add("message", message)
-      .toString();
-  }
+    @Override
+    public Type type() {
+        return Type.RpcRequest;
+    }
+
+    @Override
+    public int encodedLength() {
+        return 8 + Encoders.ByteArrays.encodedLength(message);
+    }
+
+    @Override
+    public void encode(ByteBuf buf) {
+        buf.writeLong(requestId);
+        Encoders.ByteArrays.encode(buf, message);
+    }
+
+    public static RpcRequest decode(ByteBuf buf) {
+        long requestId = buf.readLong();
+        byte[] message = Encoders.ByteArrays.decode(buf);
+        return new RpcRequest(requestId, message);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof RpcRequest) {
+            RpcRequest o = (RpcRequest) other;
+            return requestId == o.requestId && Arrays.equals(message, o.message);
+        }
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("requestId", requestId)
+                .add("message", message)
+                .toString();
+    }
 }

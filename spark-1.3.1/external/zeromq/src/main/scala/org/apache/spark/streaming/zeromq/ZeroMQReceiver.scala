@@ -27,27 +27,27 @@ import org.apache.spark.Logging
 import org.apache.spark.streaming.receiver.ActorHelper
 
 /**
- * A receiver to subscribe to ZeroMQ stream.
- */
+  * A receiver to subscribe to ZeroMQ stream.
+  */
 private[streaming] class ZeroMQReceiver[T: ClassTag](publisherUrl: String,
-  subscribe: Subscribe,
-  bytesToObjects: Seq[ByteString] => Iterator[T])
-  extends Actor with ActorHelper with Logging {
+                                                     subscribe: Subscribe,
+                                                     bytesToObjects: Seq[ByteString] => Iterator[T])
+        extends Actor with ActorHelper with Logging {
 
-  override def preStart() = ZeroMQExtension(context.system)
-    .newSocket(SocketType.Sub, Listener(self), Connect(publisherUrl), subscribe)
+    override def preStart() = ZeroMQExtension(context.system)
+            .newSocket(SocketType.Sub, Listener(self), Connect(publisherUrl), subscribe)
 
-  def receive: Receive = {
+    def receive: Receive = {
 
-    case Connecting => logInfo("connecting ...")
+        case Connecting => logInfo("connecting ...")
 
-    case m: ZMQMessage =>
-      logDebug("Received message for:" + m.frame(0))
+        case m: ZMQMessage =>
+            logDebug("Received message for:" + m.frame(0))
 
-      // We ignore first frame for processing as it is the topic
-      val bytes = m.frames.tail
-      store(bytesToObjects(bytes))
+            // We ignore first frame for processing as it is the topic
+            val bytes = m.frames.tail
+            store(bytesToObjects(bytes))
 
-    case Closed => logInfo("received closed ")
-  }
+        case Closed => logInfo("received closed ")
+    }
 }

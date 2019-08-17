@@ -21,20 +21,20 @@ import org.apache.spark.streaming.Time
 import scala.util.Try
 
 /**
- * Class representing a Spark computation. It may contain multiple Spark jobs.
- */
+  * Class representing a Spark computation. It may contain multiple Spark jobs.
+  */
 private[streaming]
 class Job(val time: Time, func: () => _) {
-  var id: String = _
-  var result: Try[_] = null
+    var id: String = _
+    var result: Try[_] = null
 
-  def run() {
-    result = Try(func())
-  }
+    def run() {
+        result = Try(func())
+    }
 
-  def setId(number: Int) {
-    id = "streaming job " + time + "." + number
-  }
+    def setId(number: Int) {
+        id = "streaming job " + time + "." + number
+    }
 
-  override def toString = id
+    override def toString = id
 }

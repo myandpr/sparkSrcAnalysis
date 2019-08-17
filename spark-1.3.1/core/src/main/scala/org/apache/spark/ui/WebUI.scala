@@ -31,143 +31,147 @@ import org.apache.spark.util.Utils
 import org.apache.spark.{Logging, SecurityManager, SparkConf}
 
 /**
- * The top level component of the UI hierarchy that contains the server.
- *
- * Each WebUI represents a collection of tabs, each of which in turn represents a collection of
- * pages. The use of tabs is optional, however; a WebUI may choose to include pages directly.
- */
+  * The top level component of the UI hierarchy that contains the server.
+  *
+  * Each WebUI represents a collection of tabs, each of which in turn represents a collection of
+  * pages. The use of tabs is optional, however; a WebUI may choose to include pages directly.
+  */
 private[spark] abstract class WebUI(
-    securityManager: SecurityManager,
-    port: Int,
-    conf: SparkConf,
-    basePath: String = "",
-    name: String = "")
-  extends Logging {
+                                           securityManager: SecurityManager,
+                                           port: Int,
+                                           conf: SparkConf,
+                                           basePath: String = "",
+                                           name: String = "")
+        extends Logging {
 
-  protected val tabs = ArrayBuffer[WebUITab]()
-  protected val handlers = ArrayBuffer[ServletContextHandler]()
-  protected val pageToHandlers = new HashMap[WebUIPage, ArrayBuffer[ServletContextHandler]]
-  protected var serverInfo: Option[ServerInfo] = None
-  protected val localHostName = Utils.localHostName()
-  protected val publicHostName = Option(conf.getenv("SPARK_PUBLIC_DNS")).getOrElse(localHostName)
-  private val className = Utils.getFormattedClassName(this)
+    protected val tabs = ArrayBuffer[WebUITab]()
+    protected val handlers = ArrayBuffer[ServletContextHandler]()
+    protected val pageToHandlers = new HashMap[WebUIPage, ArrayBuffer[ServletContextHandler]]
+    protected var serverInfo: Option[ServerInfo] = None
+    protected val localHostName = Utils.localHostName()
+    protected val publicHostName = Option(conf.getenv("SPARK_PUBLIC_DNS")).getOrElse(localHostName)
+    private val className = Utils.getFormattedClassName(this)
 
-  def getBasePath: String = basePath
-  def getTabs: Seq[WebUITab] = tabs.toSeq
-  def getHandlers: Seq[ServletContextHandler] = handlers.toSeq
-  def getSecurityManager: SecurityManager = securityManager
+    def getBasePath: String = basePath
 
-  /** Attach a tab to this UI, along with all of its attached pages. */
-  def attachTab(tab: WebUITab) {
-    tab.pages.foreach(attachPage)
-    tabs += tab
-  }
-  
-  def detachTab(tab: WebUITab) {
-    tab.pages.foreach(detachPage)
-    tabs -= tab
-  }
-  
-  def detachPage(page: WebUIPage) {
-    pageToHandlers.remove(page).foreach(_.foreach(detachHandler))
-  }
+    def getTabs: Seq[WebUITab] = tabs.toSeq
 
-  /** Attach a page to this UI. */
-  def attachPage(page: WebUIPage) {
-    val pagePath = "/" + page.prefix
-    val renderHandler = createServletHandler(pagePath,
-      (request: HttpServletRequest) => page.render(request), securityManager, basePath)
-    val renderJsonHandler = createServletHandler(pagePath.stripSuffix("/") + "/json",
-      (request: HttpServletRequest) => page.renderJson(request), securityManager, basePath)
-    attachHandler(renderHandler)
-    attachHandler(renderJsonHandler)
-    pageToHandlers.getOrElseUpdate(page, ArrayBuffer[ServletContextHandler]())
-      .append(renderHandler)
-    pageToHandlers.getOrElseUpdate(page, ArrayBuffer[ServletContextHandler]())
-      .append(renderJsonHandler)
-    
-  }
+    def getHandlers: Seq[ServletContextHandler] = handlers.toSeq
 
-  /** Attach a handler to this UI. */
-  def attachHandler(handler: ServletContextHandler) {
-    handlers += handler
-    serverInfo.foreach { info =>
-      info.rootHandler.addHandler(handler)
-      if (!handler.isStarted) {
-        handler.start()
-      }
+    def getSecurityManager: SecurityManager = securityManager
+
+    /** Attach a tab to this UI, along with all of its attached pages. */
+    def attachTab(tab: WebUITab) {
+        tab.pages.foreach(attachPage)
+        tabs += tab
     }
-  }
 
-  /** Detach a handler from this UI. */
-  protected def detachHandler(handler: ServletContextHandler) {
-    handlers -= handler
-    serverInfo.foreach { info =>
-      info.rootHandler.removeHandler(handler)
-      if (handler.isStarted) {
-        handler.stop()
-      }
+    def detachTab(tab: WebUITab) {
+        tab.pages.foreach(detachPage)
+        tabs -= tab
     }
-  }
 
-  /** Initialize all components of the server. */
-  def initialize()
-
-  /** Bind to the HTTP server behind this web interface. */
-  def bind() {
-    assert(!serverInfo.isDefined, "Attempted to bind %s more than once!".format(className))
-    try {
-      serverInfo = Some(startJettyServer("0.0.0.0", port, handlers, conf, name))
-      logInfo("Started %s at http://%s:%d".format(className, publicHostName, boundPort))
-    } catch {
-      case e: Exception =>
-        logError("Failed to bind %s".format(className), e)
-        System.exit(1)
+    def detachPage(page: WebUIPage) {
+        pageToHandlers.remove(page).foreach(_.foreach(detachHandler))
     }
-  }
 
-  /** Return the actual port to which this server is bound. Only valid after bind(). */
-  def boundPort: Int = serverInfo.map(_.boundPort).getOrElse(-1)
+    /** Attach a page to this UI. */
+    def attachPage(page: WebUIPage) {
+        val pagePath = "/" + page.prefix
+        val renderHandler = createServletHandler(pagePath,
+            (request: HttpServletRequest) => page.render(request), securityManager, basePath)
+        val renderJsonHandler = createServletHandler(pagePath.stripSuffix("/") + "/json",
+            (request: HttpServletRequest) => page.renderJson(request), securityManager, basePath)
+        attachHandler(renderHandler)
+        attachHandler(renderJsonHandler)
+        pageToHandlers.getOrElseUpdate(page, ArrayBuffer[ServletContextHandler]())
+                .append(renderHandler)
+        pageToHandlers.getOrElseUpdate(page, ArrayBuffer[ServletContextHandler]())
+                .append(renderJsonHandler)
 
-  /** Stop the server behind this web interface. Only valid after bind(). */
-  def stop() {
-    assert(serverInfo.isDefined,
-      "Attempted to stop %s before binding to a server!".format(className))
-    serverInfo.get.server.stop()
-  }
+    }
+
+    /** Attach a handler to this UI. */
+    def attachHandler(handler: ServletContextHandler) {
+        handlers += handler
+        serverInfo.foreach { info =>
+            info.rootHandler.addHandler(handler)
+            if (!handler.isStarted) {
+                handler.start()
+            }
+        }
+    }
+
+    /** Detach a handler from this UI. */
+    protected def detachHandler(handler: ServletContextHandler) {
+        handlers -= handler
+        serverInfo.foreach { info =>
+            info.rootHandler.removeHandler(handler)
+            if (handler.isStarted) {
+                handler.stop()
+            }
+        }
+    }
+
+    /** Initialize all components of the server. */
+    def initialize()
+
+    /** Bind to the HTTP server behind this web interface. */
+    def bind() {
+        assert(!serverInfo.isDefined, "Attempted to bind %s more than once!".format(className))
+        try {
+            serverInfo = Some(startJettyServer("0.0.0.0", port, handlers, conf, name))
+            logInfo("Started %s at http://%s:%d".format(className, publicHostName, boundPort))
+        } catch {
+            case e: Exception =>
+                logError("Failed to bind %s".format(className), e)
+                System.exit(1)
+        }
+    }
+
+    /** Return the actual port to which this server is bound. Only valid after bind(). */
+    def boundPort: Int = serverInfo.map(_.boundPort).getOrElse(-1)
+
+    /** Stop the server behind this web interface. Only valid after bind(). */
+    def stop() {
+        assert(serverInfo.isDefined,
+            "Attempted to stop %s before binding to a server!".format(className))
+        serverInfo.get.server.stop()
+    }
 }
 
 
 /**
- * A tab that represents a collection of pages.
- * The prefix is appended to the parent address to form a full path, and must not contain slashes.
- */
+  * A tab that represents a collection of pages.
+  * The prefix is appended to the parent address to form a full path, and must not contain slashes.
+  */
 private[spark] abstract class WebUITab(parent: WebUI, val prefix: String) {
-  val pages = ArrayBuffer[WebUIPage]()
-  val name = prefix.capitalize
+    val pages = ArrayBuffer[WebUIPage]()
+    val name = prefix.capitalize
 
-  /** Attach a page to this tab. This prepends the page's prefix with the tab's own prefix. */
-  def attachPage(page: WebUIPage) {
-    page.prefix = (prefix + "/" + page.prefix).stripSuffix("/")
-    pages += page
-  }
+    /** Attach a page to this tab. This prepends the page's prefix with the tab's own prefix. */
+    def attachPage(page: WebUIPage) {
+        page.prefix = (prefix + "/" + page.prefix).stripSuffix("/")
+        pages += page
+    }
 
-  /** Get a list of header tabs from the parent UI. */
-  def headerTabs: Seq[WebUITab] = parent.getTabs
+    /** Get a list of header tabs from the parent UI. */
+    def headerTabs: Seq[WebUITab] = parent.getTabs
 
-  def basePath: String = parent.getBasePath
+    def basePath: String = parent.getBasePath
 }
 
 
 /**
- * A page that represents the leaf node in the UI hierarchy.
- *
- * The direct parent of a WebUIPage is not specified as it can be either a WebUI or a WebUITab.
- * If the parent is a WebUI, the prefix is appended to the parent's address to form a full path.
- * Else, if the parent is a WebUITab, the prefix is appended to the super prefix of the parent
- * to form a relative path. The prefix must not contain slashes.
- */
+  * A page that represents the leaf node in the UI hierarchy.
+  *
+  * The direct parent of a WebUIPage is not specified as it can be either a WebUI or a WebUITab.
+  * If the parent is a WebUI, the prefix is appended to the parent's address to form a full path.
+  * Else, if the parent is a WebUITab, the prefix is appended to the super prefix of the parent
+  * to form a relative path. The prefix must not contain slashes.
+  */
 private[spark] abstract class WebUIPage(var prefix: String) {
-  def render(request: HttpServletRequest): Seq[Node]
-  def renderJson(request: HttpServletRequest): JValue = JNothing
+    def render(request: HttpServletRequest): Seq[Node]
+
+    def renderJson(request: HttpServletRequest): JValue = JNothing
 }

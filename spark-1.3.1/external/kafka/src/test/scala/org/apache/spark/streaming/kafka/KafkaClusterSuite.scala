@@ -23,47 +23,47 @@ import kafka.common.TopicAndPartition
 import org.scalatest.BeforeAndAfterAll
 
 class KafkaClusterSuite extends KafkaStreamSuiteBase with BeforeAndAfterAll {
-  val topic = "kcsuitetopic" + Random.nextInt(10000)
-  val topicAndPartition = TopicAndPartition(topic, 0)
-  var kc: KafkaCluster = null
+    val topic = "kcsuitetopic" + Random.nextInt(10000)
+    val topicAndPartition = TopicAndPartition(topic, 0)
+    var kc: KafkaCluster = null
 
-  override def beforeAll() {
-    setupKafka()
-    createTopic(topic)
-    sendMessages(topic, Map("a" -> 1))
-    kc = new KafkaCluster(Map("metadata.broker.list" -> s"$brokerAddress"))
-  }
+    override def beforeAll() {
+        setupKafka()
+        createTopic(topic)
+        sendMessages(topic, Map("a" -> 1))
+        kc = new KafkaCluster(Map("metadata.broker.list" -> s"$brokerAddress"))
+    }
 
-  override def afterAll() {
-    tearDownKafka()
-  }
+    override def afterAll() {
+        tearDownKafka()
+    }
 
-  test("metadata apis") {
-    val leader = kc.findLeaders(Set(topicAndPartition)).right.get(topicAndPartition)
-    val leaderAddress = s"${leader._1}:${leader._2}"
-    assert(leaderAddress === brokerAddress, "didn't get leader")
+    test("metadata apis") {
+        val leader = kc.findLeaders(Set(topicAndPartition)).right.get(topicAndPartition)
+        val leaderAddress = s"${leader._1}:${leader._2}"
+        assert(leaderAddress === brokerAddress, "didn't get leader")
 
-    val parts = kc.getPartitions(Set(topic)).right.get
-    assert(parts(topicAndPartition), "didn't get partitions")
-  }
+        val parts = kc.getPartitions(Set(topic)).right.get
+        assert(parts(topicAndPartition), "didn't get partitions")
+    }
 
-  test("leader offset apis") {
-    val earliest = kc.getEarliestLeaderOffsets(Set(topicAndPartition)).right.get
-    assert(earliest(topicAndPartition).offset === 0, "didn't get earliest")
+    test("leader offset apis") {
+        val earliest = kc.getEarliestLeaderOffsets(Set(topicAndPartition)).right.get
+        assert(earliest(topicAndPartition).offset === 0, "didn't get earliest")
 
-    val latest = kc.getLatestLeaderOffsets(Set(topicAndPartition)).right.get
-    assert(latest(topicAndPartition).offset === 1, "didn't get latest")
-  }
+        val latest = kc.getLatestLeaderOffsets(Set(topicAndPartition)).right.get
+        assert(latest(topicAndPartition).offset === 1, "didn't get latest")
+    }
 
-  test("consumer offset apis") {
-    val group = "kcsuitegroup" + Random.nextInt(10000)
+    test("consumer offset apis") {
+        val group = "kcsuitegroup" + Random.nextInt(10000)
 
-    val offset = Random.nextInt(10000)
+        val offset = Random.nextInt(10000)
 
-    val set = kc.setConsumerOffsets(group, Map(topicAndPartition -> offset))
-    assert(set.isRight, "didn't set consumer offsets")
+        val set = kc.setConsumerOffsets(group, Map(topicAndPartition -> offset))
+        assert(set.isRight, "didn't set consumer offsets")
 
-    val get = kc.getConsumerOffsets(group, Set(topicAndPartition)).right.get
-    assert(get(topicAndPartition) === offset, "didn't get consumer offsets")
-  }
+        val get = kc.getConsumerOffsets(group, Set(topicAndPartition)).right.get
+        assert(get(topicAndPartition) === offset, "didn't get consumer offsets")
+    }
 }

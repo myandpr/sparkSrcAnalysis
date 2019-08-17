@@ -18,18 +18,18 @@
 package org.apache.spark.streamingtest
 
 /**
- * A test suite to make sure all `implicit` functions work correctly.
- *
- * As `implicit` is a compiler feature, we don't need to run this class.
- * What we need to do is making the compiler happy.
- */
+  * A test suite to make sure all `implicit` functions work correctly.
+  *
+  * As `implicit` is a compiler feature, we don't need to run this class.
+  * What we need to do is making the compiler happy.
+  */
 class ImplicitSuite {
 
-  // We only want to test if `implict` works well with the compiler, so we don't need a real DStream.
-  def mockDStream[T]: org.apache.spark.streaming.dstream.DStream[T] = null
+    // We only want to test if `implict` works well with the compiler, so we don't need a real DStream.
+    def mockDStream[T]: org.apache.spark.streaming.dstream.DStream[T] = null
 
-  def testToPairDStreamFunctions(): Unit = {
-    val dstream: org.apache.spark.streaming.dstream.DStream[(Int, Int)] = mockDStream
-    dstream.groupByKey()
-  }
+    def testToPairDStreamFunctions(): Unit = {
+        val dstream: org.apache.spark.streaming.dstream.DStream[(Int, Int)] = mockDStream
+        dstream.groupByKey()
+    }
 }

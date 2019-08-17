@@ -27,69 +27,67 @@ import org.scalatest.time.SpanSugar._
 import org.apache.spark._
 
 
-
-
 /**
- * Selenium tests for the Spark Web UI.
- */
+  * Selenium tests for the Spark Web UI.
+  */
 class UISeleniumSuite extends FunSuite with WebBrowser with Matchers with BeforeAndAfterAll with TestSuiteBase {
 
-  implicit var webDriver: WebDriver = _
+    implicit var webDriver: WebDriver = _
 
-  override def beforeAll(): Unit = {
-    webDriver = new HtmlUnitDriver
-  }
-
-  override def afterAll(): Unit = {
-    if (webDriver != null) {
-      webDriver.quit()
+    override def beforeAll(): Unit = {
+        webDriver = new HtmlUnitDriver
     }
-  }
 
-  /**
-   * Create a test SparkStreamingContext with the SparkUI enabled.
-   */
-  private def newSparkStreamingContext(): StreamingContext = {
-    val conf = new SparkConf()
-      .setMaster("local")
-      .setAppName("test")
-      .set("spark.ui.enabled", "true")
-    val ssc = new StreamingContext(conf, Seconds(1))
-    assert(ssc.sc.ui.isDefined, "Spark UI is not started!")
-    ssc
-  }
-
-  test("attaching and detaching a Streaming tab") {
-    withStreamingContext(newSparkStreamingContext()) { ssc =>
-      val sparkUI = ssc.sparkContext.ui.get
-
-      eventually(timeout(10 seconds), interval(50 milliseconds)) {
-        go to (sparkUI.appUIAddress.stripSuffix("/"))
-        find(cssSelector( """ul li a[href*="streaming"]""")) should not be (None)
-      }
-
-      eventually(timeout(10 seconds), interval(50 milliseconds)) {
-        // check whether streaming page exists
-        go to (sparkUI.appUIAddress.stripSuffix("/") + "/streaming")
-        val statisticText = findAll(cssSelector("li strong")).map(_.text).toSeq
-        statisticText should contain("Network receivers:")
-        statisticText should contain("Batch interval:")
-      }
-
-      ssc.stop(false)
-
-      eventually(timeout(10 seconds), interval(50 milliseconds)) {
-        go to (sparkUI.appUIAddress.stripSuffix("/"))
-        find(cssSelector( """ul li a[href*="streaming"]""")) should be(None)
-      }
-
-      eventually(timeout(10 seconds), interval(50 milliseconds)) {
-        go to (sparkUI.appUIAddress.stripSuffix("/") + "/streaming")
-        val statisticText = findAll(cssSelector("li strong")).map(_.text).toSeq
-        statisticText should not contain ("Network receivers:")
-        statisticText should not contain ("Batch interval:")
-      }
+    override def afterAll(): Unit = {
+        if (webDriver != null) {
+            webDriver.quit()
+        }
     }
-  }
+
+    /**
+      * Create a test SparkStreamingContext with the SparkUI enabled.
+      */
+    private def newSparkStreamingContext(): StreamingContext = {
+        val conf = new SparkConf()
+                .setMaster("local")
+                .setAppName("test")
+                .set("spark.ui.enabled", "true")
+        val ssc = new StreamingContext(conf, Seconds(1))
+        assert(ssc.sc.ui.isDefined, "Spark UI is not started!")
+        ssc
+    }
+
+    test("attaching and detaching a Streaming tab") {
+        withStreamingContext(newSparkStreamingContext()) { ssc =>
+            val sparkUI = ssc.sparkContext.ui.get
+
+            eventually(timeout(10 seconds), interval(50 milliseconds)) {
+                go to (sparkUI.appUIAddress.stripSuffix("/"))
+                find(cssSelector( """ul li a[href*="streaming"]""")) should not be (None)
+            }
+
+            eventually(timeout(10 seconds), interval(50 milliseconds)) {
+                // check whether streaming page exists
+                go to (sparkUI.appUIAddress.stripSuffix("/") + "/streaming")
+                val statisticText = findAll(cssSelector("li strong")).map(_.text).toSeq
+                statisticText should contain("Network receivers:")
+                statisticText should contain("Batch interval:")
+            }
+
+            ssc.stop(false)
+
+            eventually(timeout(10 seconds), interval(50 milliseconds)) {
+                go to (sparkUI.appUIAddress.stripSuffix("/"))
+                find(cssSelector( """ul li a[href*="streaming"]""")) should be(None)
+            }
+
+            eventually(timeout(10 seconds), interval(50 milliseconds)) {
+                go to (sparkUI.appUIAddress.stripSuffix("/") + "/streaming")
+                val statisticText = findAll(cssSelector("li strong")).map(_.text).toSeq
+                statisticText should not contain ("Network receivers:")
+                statisticText should not contain ("Batch interval:")
+            }
+        }
+    }
 }
   

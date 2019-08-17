@@ -24,19 +24,19 @@ import org.apache.spark.sql.catalyst.expressions.{Attribute, JoinedRow}
 import org.apache.spark.sql.execution.{BinaryNode, SparkPlan}
 
 /**
- * :: DeveloperApi ::
- */
+  * :: DeveloperApi ::
+  */
 @DeveloperApi
 case class CartesianProduct(left: SparkPlan, right: SparkPlan) extends BinaryNode {
-  override def output: Seq[Attribute] = left.output ++ right.output
+    override def output: Seq[Attribute] = left.output ++ right.output
 
-  override def execute(): RDD[Row] = {
-    val leftResults = left.execute().map(_.copy())
-    val rightResults = right.execute().map(_.copy())
+    override def execute(): RDD[Row] = {
+        val leftResults = left.execute().map(_.copy())
+        val rightResults = right.execute().map(_.copy())
 
-    leftResults.cartesian(rightResults).mapPartitions { iter =>
-      val joinedRow = new JoinedRow
-      iter.map(r => joinedRow(r._1, r._2))
+        leftResults.cartesian(rightResults).mapPartitions { iter =>
+            val joinedRow = new JoinedRow
+            iter.map(r => joinedRow(r._1, r._2))
+        }
     }
-  }
 }

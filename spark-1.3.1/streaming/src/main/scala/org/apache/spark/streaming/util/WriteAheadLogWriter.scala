@@ -26,57 +26,59 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem}
 
 /**
- * A writer for writing byte-buffers to a write ahead log file.
- */
+  * A writer for writing byte-buffers to a write ahead log file.
+  */
 private[streaming] class WriteAheadLogWriter(path: String, hadoopConf: Configuration)
-  extends Closeable {
+        extends Closeable {
 
-  private lazy val stream = HdfsUtils.getOutputStream(path, hadoopConf)
+    private lazy val stream = HdfsUtils.getOutputStream(path, hadoopConf)
 
-  private lazy val hadoopFlushMethod = {
-    // Use reflection to get the right flush operation
-    val cls = classOf[FSDataOutputStream]
-    Try(cls.getMethod("hflush")).orElse(Try(cls.getMethod("sync"))).toOption
-  }
-
-  private var nextOffset = stream.getPos()
-  private var closed = false
-
-  /** Write the bytebuffer to the log file */
-  def write(data: ByteBuffer): WriteAheadLogFileSegment = synchronized {
-    assertOpen()
-    data.rewind() // Rewind to ensure all data in the buffer is retrieved
-    val lengthToWrite = data.remaining()
-    val segment = new WriteAheadLogFileSegment(path, nextOffset, lengthToWrite)
-    stream.writeInt(lengthToWrite)
-    if (data.hasArray) {
-      stream.write(data.array())
-    } else {
-      // If the buffer is not backed by an array, we transfer using temp array
-      // Note that despite the extra array copy, this should be faster than byte-by-byte copy
-      while (data.hasRemaining) {
-        val array = new Array[Byte](data.remaining)
-        data.get(array)
-        stream.write(array)
-      }
+    private lazy val hadoopFlushMethod = {
+        // Use reflection to get the right flush operation
+        val cls = classOf[FSDataOutputStream]
+        Try(cls.getMethod("hflush")).orElse(Try(cls.getMethod("sync"))).toOption
     }
-    flush()
-    nextOffset = stream.getPos()
-    segment
-  }
 
-  override def close(): Unit = synchronized {
-    closed = true
-    stream.close()
-  }
+    private var nextOffset = stream.getPos()
+    private var closed = false
 
-  private def flush() {
-    hadoopFlushMethod.foreach { _.invoke(stream) }
-    // Useful for local file system where hflush/sync does not work (HADOOP-7844)
-    stream.getWrappedStream.flush()
-  }
+    /** Write the bytebuffer to the log file */
+    def write(data: ByteBuffer): WriteAheadLogFileSegment = synchronized {
+        assertOpen()
+        data.rewind() // Rewind to ensure all data in the buffer is retrieved
+        val lengthToWrite = data.remaining()
+        val segment = new WriteAheadLogFileSegment(path, nextOffset, lengthToWrite)
+        stream.writeInt(lengthToWrite)
+        if (data.hasArray) {
+            stream.write(data.array())
+        } else {
+            // If the buffer is not backed by an array, we transfer using temp array
+            // Note that despite the extra array copy, this should be faster than byte-by-byte copy
+            while (data.hasRemaining) {
+                val array = new Array[Byte](data.remaining)
+                data.get(array)
+                stream.write(array)
+            }
+        }
+        flush()
+        nextOffset = stream.getPos()
+        segment
+    }
 
-  private def assertOpen() {
-    HdfsUtils.checkState(!closed, "Stream is closed. Create a new Writer to write to file.")
-  }
+    override def close(): Unit = synchronized {
+        closed = true
+        stream.close()
+    }
+
+    private def flush() {
+        hadoopFlushMethod.foreach {
+            _.invoke(stream)
+        }
+        // Useful for local file system where hflush/sync does not work (HADOOP-7844)
+        stream.getWrappedStream.flush()
+    }
+
+    private def assertOpen() {
+        HdfsUtils.checkState(!closed, "Stream is closed. Create a new Writer to write to file.")
+    }
 }

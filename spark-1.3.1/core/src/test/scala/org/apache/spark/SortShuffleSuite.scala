@@ -21,9 +21,9 @@ import org.scalatest.BeforeAndAfterAll
 
 class SortShuffleSuite extends ShuffleSuite with BeforeAndAfterAll {
 
-  // This test suite should run all tests in ShuffleSuite with sort-based shuffle.
+    // This test suite should run all tests in ShuffleSuite with sort-based shuffle.
 
-  override def beforeAll() {
-    conf.set("spark.shuffle.manager", "sort")
-  }
+    override def beforeAll() {
+        conf.set("spark.shuffle.manager", "sort")
+    }
 }

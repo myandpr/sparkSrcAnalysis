@@ -25,51 +25,51 @@ import org.apache.spark.scheduler.TaskSchedulerImpl
 import org.apache.spark.util.AkkaUtils
 
 private[spark] class SimrSchedulerBackend(
-    scheduler: TaskSchedulerImpl,
-    sc: SparkContext,
-    driverFilePath: String)
-  extends CoarseGrainedSchedulerBackend(scheduler, sc.env.actorSystem)
-  with Logging {
+                                                 scheduler: TaskSchedulerImpl,
+                                                 sc: SparkContext,
+                                                 driverFilePath: String)
+        extends CoarseGrainedSchedulerBackend(scheduler, sc.env.actorSystem)
+                with Logging {
 
-  val tmpPath = new Path(driverFilePath + "_tmp")
-  val filePath = new Path(driverFilePath)
+    val tmpPath = new Path(driverFilePath + "_tmp")
+    val filePath = new Path(driverFilePath)
 
-  val maxCores = conf.getInt("spark.simr.executor.cores", 1)
+    val maxCores = conf.getInt("spark.simr.executor.cores", 1)
 
-  override def start() {
-    super.start()
+    override def start() {
+        super.start()
 
-    val driverUrl = AkkaUtils.address(
-      AkkaUtils.protocol(actorSystem),
-      SparkEnv.driverActorSystemName,
-      sc.conf.get("spark.driver.host"),
-      sc.conf.get("spark.driver.port"),
-      CoarseGrainedSchedulerBackend.ACTOR_NAME)
+        val driverUrl = AkkaUtils.address(
+            AkkaUtils.protocol(actorSystem),
+            SparkEnv.driverActorSystemName,
+            sc.conf.get("spark.driver.host"),
+            sc.conf.get("spark.driver.port"),
+            CoarseGrainedSchedulerBackend.ACTOR_NAME)
 
-    val conf = SparkHadoopUtil.get.newConfiguration(sc.conf)
-    val fs = FileSystem.get(conf)
-    val appUIAddress = sc.ui.map(_.appUIAddress).getOrElse("")
+        val conf = SparkHadoopUtil.get.newConfiguration(sc.conf)
+        val fs = FileSystem.get(conf)
+        val appUIAddress = sc.ui.map(_.appUIAddress).getOrElse("")
 
-    logInfo("Writing to HDFS file: "  + driverFilePath)
-    logInfo("Writing Akka address: "  + driverUrl)
-    logInfo("Writing Spark UI Address: " + appUIAddress)
+        logInfo("Writing to HDFS file: " + driverFilePath)
+        logInfo("Writing Akka address: " + driverUrl)
+        logInfo("Writing Spark UI Address: " + appUIAddress)
 
-    // Create temporary file to prevent race condition where executors get empty driverUrl file
-    val temp = fs.create(tmpPath, true)
-    temp.writeUTF(driverUrl)
-    temp.writeInt(maxCores)
-    temp.writeUTF(appUIAddress)
-    temp.close()
+        // Create temporary file to prevent race condition where executors get empty driverUrl file
+        val temp = fs.create(tmpPath, true)
+        temp.writeUTF(driverUrl)
+        temp.writeInt(maxCores)
+        temp.writeUTF(appUIAddress)
+        temp.close()
 
-    // "Atomic" rename
-    fs.rename(tmpPath, filePath)
-  }
+        // "Atomic" rename
+        fs.rename(tmpPath, filePath)
+    }
 
-  override def stop() {
-    val conf = SparkHadoopUtil.get.newConfiguration(sc.conf)
-    val fs = FileSystem.get(conf)
-    fs.delete(new Path(driverFilePath), false)
-    super.stop()
-  }
+    override def stop() {
+        val conf = SparkHadoopUtil.get.newConfiguration(sc.conf)
+        val fs = FileSystem.get(conf)
+        fs.delete(new Path(driverFilePath), false)
+        super.stop()
+    }
 
 }

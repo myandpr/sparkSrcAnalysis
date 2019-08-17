@@ -23,32 +23,32 @@ import org.apache.spark.mllib.util.MLlibTestSparkContext
 
 class Word2VecSuite extends FunSuite with MLlibTestSparkContext {
 
-  // TODO: add more tests
+    // TODO: add more tests
 
-  test("Word2Vec") {
-    val sentence = "a b " * 100 + "a c " * 10
-    val localDoc = Seq(sentence, sentence)
-    val doc = sc.parallelize(localDoc)
-      .map(line => line.split(" ").toSeq)
-    val model = new Word2Vec().setVectorSize(10).setSeed(42L).fit(doc)
-    val syms = model.findSynonyms("a", 2)
-    assert(syms.length == 2)
-    assert(syms(0)._1 == "b")
-    assert(syms(1)._1 == "c")
-  }
+    test("Word2Vec") {
+        val sentence = "a b " * 100 + "a c " * 10
+        val localDoc = Seq(sentence, sentence)
+        val doc = sc.parallelize(localDoc)
+                .map(line => line.split(" ").toSeq)
+        val model = new Word2Vec().setVectorSize(10).setSeed(42L).fit(doc)
+        val syms = model.findSynonyms("a", 2)
+        assert(syms.length == 2)
+        assert(syms(0)._1 == "b")
+        assert(syms(1)._1 == "c")
+    }
 
-  test("Word2VecModel") {
-    val num = 2
-    val word2VecMap = Map(
-      ("china", Array(0.50f, 0.50f, 0.50f, 0.50f)),
-      ("japan", Array(0.40f, 0.50f, 0.50f, 0.50f)),
-      ("taiwan", Array(0.60f, 0.50f, 0.50f, 0.50f)),
-      ("korea", Array(0.45f, 0.60f, 0.60f, 0.60f))
-    )
-    val model = new Word2VecModel(word2VecMap)
-    val syms = model.findSynonyms("china", num)
-    assert(syms.length == num)
-    assert(syms(0)._1 == "taiwan")
-    assert(syms(1)._1 == "japan")
-  }
+    test("Word2VecModel") {
+        val num = 2
+        val word2VecMap = Map(
+            ("china", Array(0.50f, 0.50f, 0.50f, 0.50f)),
+            ("japan", Array(0.40f, 0.50f, 0.50f, 0.50f)),
+            ("taiwan", Array(0.60f, 0.50f, 0.50f, 0.50f)),
+            ("korea", Array(0.45f, 0.60f, 0.60f, 0.60f))
+        )
+        val model = new Word2VecModel(word2VecMap)
+        val syms = model.findSynonyms("china", num)
+        assert(syms.length == num)
+        assert(syms(0)._1 == "taiwan")
+        assert(syms(1)._1 == "japan")
+    }
 }

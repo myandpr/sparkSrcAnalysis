@@ -40,58 +40,74 @@ import org.apache.spark.scheduler.SparkListenerUnpersistRDD;
  * SparkListener directly. This is to prevent java clients
  * from breaking when new events are added to the SparkListener
  * trait.
- *
+ * <p>
  * This is a concrete class instead of abstract to enforce
  * new events get added to both the SparkListener and this adapter
  * in lockstep.
  */
 public class JavaSparkListener implements SparkListener {
 
-  @Override
-  public void onStageCompleted(SparkListenerStageCompleted stageCompleted) { }
+    @Override
+    public void onStageCompleted(SparkListenerStageCompleted stageCompleted) {
+    }
 
-  @Override
-  public void onStageSubmitted(SparkListenerStageSubmitted stageSubmitted) { }
+    @Override
+    public void onStageSubmitted(SparkListenerStageSubmitted stageSubmitted) {
+    }
 
-  @Override
-  public void onTaskStart(SparkListenerTaskStart taskStart) { }
+    @Override
+    public void onTaskStart(SparkListenerTaskStart taskStart) {
+    }
 
-  @Override
-  public void onTaskGettingResult(SparkListenerTaskGettingResult taskGettingResult) { }
+    @Override
+    public void onTaskGettingResult(SparkListenerTaskGettingResult taskGettingResult) {
+    }
 
-  @Override
-  public void onTaskEnd(SparkListenerTaskEnd taskEnd) { }
+    @Override
+    public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
+    }
 
-  @Override
-  public void onJobStart(SparkListenerJobStart jobStart) { }
+    @Override
+    public void onJobStart(SparkListenerJobStart jobStart) {
+    }
 
-  @Override
-  public void onJobEnd(SparkListenerJobEnd jobEnd) { }
+    @Override
+    public void onJobEnd(SparkListenerJobEnd jobEnd) {
+    }
 
-  @Override
-  public void onEnvironmentUpdate(SparkListenerEnvironmentUpdate environmentUpdate) { }
+    @Override
+    public void onEnvironmentUpdate(SparkListenerEnvironmentUpdate environmentUpdate) {
+    }
 
-  @Override
-  public void onBlockManagerAdded(SparkListenerBlockManagerAdded blockManagerAdded) { }
+    @Override
+    public void onBlockManagerAdded(SparkListenerBlockManagerAdded blockManagerAdded) {
+    }
 
-  @Override
-  public void onBlockManagerRemoved(SparkListenerBlockManagerRemoved blockManagerRemoved) { }
+    @Override
+    public void onBlockManagerRemoved(SparkListenerBlockManagerRemoved blockManagerRemoved) {
+    }
 
-  @Override
-  public void onUnpersistRDD(SparkListenerUnpersistRDD unpersistRDD) { }
+    @Override
+    public void onUnpersistRDD(SparkListenerUnpersistRDD unpersistRDD) {
+    }
 
-  @Override
-  public void onApplicationStart(SparkListenerApplicationStart applicationStart) { }
+    @Override
+    public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
+    }
 
-  @Override
-  public void onApplicationEnd(SparkListenerApplicationEnd applicationEnd) { }
+    @Override
+    public void onApplicationEnd(SparkListenerApplicationEnd applicationEnd) {
+    }
 
-  @Override
-  public void onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate executorMetricsUpdate) { }
+    @Override
+    public void onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate executorMetricsUpdate) {
+    }
 
-  @Override
-  public void onExecutorAdded(SparkListenerExecutorAdded executorAdded) { }
+    @Override
+    public void onExecutorAdded(SparkListenerExecutorAdded executorAdded) {
+    }
 
-  @Override
-  public void onExecutorRemoved(SparkListenerExecutorRemoved executorRemoved) { }
+    @Override
+    public void onExecutorRemoved(SparkListenerExecutorRemoved executorRemoved) {
+    }
 }

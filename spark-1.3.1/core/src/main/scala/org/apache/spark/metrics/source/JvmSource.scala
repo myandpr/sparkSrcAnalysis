@@ -21,9 +21,9 @@ import com.codahale.metrics.MetricRegistry
 import com.codahale.metrics.jvm.{GarbageCollectorMetricSet, MemoryUsageGaugeSet}
 
 private[spark] class JvmSource extends Source {
-  override val sourceName = "jvm"
-  override val metricRegistry = new MetricRegistry()
+    override val sourceName = "jvm"
+    override val metricRegistry = new MetricRegistry()
 
-  metricRegistry.registerAll(new GarbageCollectorMetricSet)
-  metricRegistry.registerAll(new MemoryUsageGaugeSet)
+    metricRegistry.registerAll(new GarbageCollectorMetricSet)
+    metricRegistry.registerAll(new MemoryUsageGaugeSet)
 }

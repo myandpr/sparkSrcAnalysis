@@ -23,15 +23,16 @@ import org.apache.spark.storage.ShuffleBlockId
 
 private[spark]
 trait ShuffleBlockManager {
-  type ShuffleId = Int
+    type ShuffleId = Int
 
-  /**
-   * Get shuffle block data managed by the local ShuffleBlockManager.
-   * @return Some(ByteBuffer) if block found, otherwise None.
-   */
-  def getBytes(blockId: ShuffleBlockId): Option[ByteBuffer]
+    /**
+      * Get shuffle block data managed by the local ShuffleBlockManager.
+      *
+      * @return Some(ByteBuffer) if block found, otherwise None.
+      */
+    def getBytes(blockId: ShuffleBlockId): Option[ByteBuffer]
 
-  def getBlockData(blockId: ShuffleBlockId): ManagedBuffer
+    def getBlockData(blockId: ShuffleBlockId): ManagedBuffer
 
-  def stop(): Unit
+    def stop(): Unit
 }

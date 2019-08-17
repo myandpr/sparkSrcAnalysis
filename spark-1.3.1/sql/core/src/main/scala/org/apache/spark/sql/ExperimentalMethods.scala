@@ -20,22 +20,22 @@ package org.apache.spark.sql
 import org.apache.spark.annotation.Experimental
 
 /**
- * :: Experimental ::
- * Holder for experimental methods for the bravest. We make NO guarantee about the stability
- * regarding binary compatibility and source compatibility of methods here.
- *
- * {{{
- *   sqlContext.experimental.extraStrategies += ...
- * }}}
- */
+  * :: Experimental ::
+  * Holder for experimental methods for the bravest. We make NO guarantee about the stability
+  * regarding binary compatibility and source compatibility of methods here.
+  *
+  * {{{
+  *   sqlContext.experimental.extraStrategies += ...
+  * }}}
+  */
 @Experimental
 class ExperimentalMethods protected[sql](sqlContext: SQLContext) {
 
-  /**
-   * Allows extra strategies to be injected into the query planner at runtime.  Note this API
-   * should be consider experimental and is not intended to be stable across releases.
-   */
-  @Experimental
-  var extraStrategies: Seq[Strategy] = Nil
+    /**
+      * Allows extra strategies to be injected into the query planner at runtime.  Note this API
+      * should be consider experimental and is not intended to be stable across releases.
+      */
+    @Experimental
+    var extraStrategies: Seq[Strategy] = Nil
 
 }

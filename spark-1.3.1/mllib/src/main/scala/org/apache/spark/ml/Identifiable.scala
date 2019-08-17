@@ -20,14 +20,14 @@ package org.apache.spark.ml
 import java.util.UUID
 
 /**
- * Object with a unique id.
- */
+  * Object with a unique id.
+  */
 private[ml] trait Identifiable extends Serializable {
 
-  /**
-   * A unique id for the object. The default implementation concatenates the class name, "-", and 8
-   * random hex chars.
-   */
-  private[ml] val uid: String =
-    this.getClass.getSimpleName + "-" + UUID.randomUUID().toString.take(8)
+    /**
+      * A unique id for the object. The default implementation concatenates the class name, "-", and 8
+      * random hex chars.
+      */
+    private[ml] val uid: String =
+        this.getClass.getSimpleName + "-" + UUID.randomUUID().toString.take(8)
 }

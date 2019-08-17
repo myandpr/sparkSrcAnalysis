@@ -25,48 +25,56 @@ import java.io.Serializable;
  */
 public class TripletFields implements Serializable {
 
-  /** Indicates whether the source vertex attribute is included. */
-  public final boolean useSrc;
+    /**
+     * Indicates whether the source vertex attribute is included.
+     */
+    public final boolean useSrc;
 
-  /** Indicates whether the destination vertex attribute is included. */
-  public final boolean useDst;
+    /**
+     * Indicates whether the destination vertex attribute is included.
+     */
+    public final boolean useDst;
 
-  /** Indicates whether the edge attribute is included. */
-  public final boolean useEdge;
+    /**
+     * Indicates whether the edge attribute is included.
+     */
+    public final boolean useEdge;
 
-  /** Constructs a default TripletFields in which all fields are included. */
-  public TripletFields() {
-    this(true, true, true);
-  }
+    /**
+     * Constructs a default TripletFields in which all fields are included.
+     */
+    public TripletFields() {
+        this(true, true, true);
+    }
 
-  public TripletFields(boolean useSrc, boolean useDst, boolean useEdge) {
-    this.useSrc = useSrc;
-    this.useDst = useDst;
-    this.useEdge = useEdge;
-  }
+    public TripletFields(boolean useSrc, boolean useDst, boolean useEdge) {
+        this.useSrc = useSrc;
+        this.useDst = useDst;
+        this.useEdge = useEdge;
+    }
 
-  /**
-   * None of the triplet fields are exposed.
-   */
-  public static final TripletFields None = new TripletFields(false, false, false);
+    /**
+     * None of the triplet fields are exposed.
+     */
+    public static final TripletFields None = new TripletFields(false, false, false);
 
-  /**
-   * Expose only the edge field and not the source or destination field.
-   */
-  public static final TripletFields EdgeOnly = new TripletFields(false, false, true);
+    /**
+     * Expose only the edge field and not the source or destination field.
+     */
+    public static final TripletFields EdgeOnly = new TripletFields(false, false, true);
 
-  /**
-   * Expose the source and edge fields but not the destination field. (Same as Src)
-   */
-  public static final TripletFields Src = new TripletFields(true, false, true);
+    /**
+     * Expose the source and edge fields but not the destination field. (Same as Src)
+     */
+    public static final TripletFields Src = new TripletFields(true, false, true);
 
-  /**
-   * Expose the destination and edge fields but not the source field. (Same as Dst)
-   */
-  public static final TripletFields Dst = new TripletFields(false, true, true);
+    /**
+     * Expose the destination and edge fields but not the source field. (Same as Dst)
+     */
+    public static final TripletFields Dst = new TripletFields(false, true, true);
 
-  /**
-   * Expose all the fields (source, edge, and destination).
-   */
-  public static final TripletFields All = new TripletFields(true, true, true);
+    /**
+     * Expose all the fields (source, edge, and destination).
+     */
+    public static final TripletFields All = new TripletFields(true, true, true);
 }

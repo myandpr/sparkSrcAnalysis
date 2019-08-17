@@ -25,53 +25,54 @@ import org.apache.spark.graphx._
 import org.apache.spark.graphx.util.collection.GraphXPrimitiveKeyOpenHashMap
 
 private[graphx] object VertexPartition {
-  /** Construct a `VertexPartition` from the given vertices. */
-  def apply[VD: ClassTag](iter: Iterator[(VertexId, VD)])
+    /** Construct a `VertexPartition` from the given vertices. */
+    def apply[VD: ClassTag](iter: Iterator[(VertexId, VD)])
     : VertexPartition[VD] = {
-    val (index, values, mask) = VertexPartitionBase.initFrom(iter)
-    new VertexPartition(index, values, mask)
-  }
+        val (index, values, mask) = VertexPartitionBase.initFrom(iter)
+        new VertexPartition(index, values, mask)
+    }
 
-  import scala.language.implicitConversions
+    import scala.language.implicitConversions
 
-  /**
-   * Implicit conversion to allow invoking `VertexPartitionBase` operations directly on a
-   * `VertexPartition`.
-   */
-  implicit def partitionToOps[VD: ClassTag](partition: VertexPartition[VD])
+    /**
+      * Implicit conversion to allow invoking `VertexPartitionBase` operations directly on a
+      * `VertexPartition`.
+      */
+    implicit def partitionToOps[VD: ClassTag](partition: VertexPartition[VD])
     : VertexPartitionOps[VD] = new VertexPartitionOps(partition)
 
-  /**
-   * Implicit evidence that `VertexPartition` is a member of the `VertexPartitionBaseOpsConstructor`
-   * typeclass. This enables invoking `VertexPartitionBase` operations on a `VertexPartition` via an
-   * evidence parameter, as in [[VertexPartitionBaseOps]].
-   */
-  implicit object VertexPartitionOpsConstructor
-    extends VertexPartitionBaseOpsConstructor[VertexPartition] {
-    def toOps[VD: ClassTag](partition: VertexPartition[VD])
-      : VertexPartitionBaseOps[VD, VertexPartition] = partitionToOps(partition)
-  }
+    /**
+      * Implicit evidence that `VertexPartition` is a member of the `VertexPartitionBaseOpsConstructor`
+      * typeclass. This enables invoking `VertexPartitionBase` operations on a `VertexPartition` via an
+      * evidence parameter, as in [[VertexPartitionBaseOps]].
+      */
+    implicit object VertexPartitionOpsConstructor
+            extends VertexPartitionBaseOpsConstructor[VertexPartition] {
+        def toOps[VD: ClassTag](partition: VertexPartition[VD])
+        : VertexPartitionBaseOps[VD, VertexPartition] = partitionToOps(partition)
+    }
+
 }
 
 /** A map from vertex id to vertex attribute. */
 private[graphx] class VertexPartition[VD: ClassTag](
-    val index: VertexIdToIndexMap,
-    val values: Array[VD],
-    val mask: BitSet)
-  extends VertexPartitionBase[VD]
+                                                           val index: VertexIdToIndexMap,
+                                                           val values: Array[VD],
+                                                           val mask: BitSet)
+        extends VertexPartitionBase[VD]
 
 private[graphx] class VertexPartitionOps[VD: ClassTag](self: VertexPartition[VD])
-  extends VertexPartitionBaseOps[VD, VertexPartition](self) {
+        extends VertexPartitionBaseOps[VD, VertexPartition](self) {
 
-  def withIndex(index: VertexIdToIndexMap): VertexPartition[VD] = {
-    new VertexPartition(index, self.values, self.mask)
-  }
+    def withIndex(index: VertexIdToIndexMap): VertexPartition[VD] = {
+        new VertexPartition(index, self.values, self.mask)
+    }
 
-  def withValues[VD2: ClassTag](values: Array[VD2]): VertexPartition[VD2] = {
-    new VertexPartition(self.index, values, self.mask)
-  }
+    def withValues[VD2: ClassTag](values: Array[VD2]): VertexPartition[VD2] = {
+        new VertexPartition(self.index, values, self.mask)
+    }
 
-  def withMask(mask: BitSet): VertexPartition[VD] = {
-    new VertexPartition(self.index, self.values, mask)
-  }
+    def withMask(mask: BitSet): VertexPartition[VD] = {
+        new VertexPartition(self.index, self.values, mask)
+    }
 }

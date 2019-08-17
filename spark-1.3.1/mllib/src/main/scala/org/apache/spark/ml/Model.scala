@@ -21,20 +21,20 @@ import org.apache.spark.annotation.AlphaComponent
 import org.apache.spark.ml.param.ParamMap
 
 /**
- * :: AlphaComponent ::
- * A fitted model, i.e., a [[Transformer]] produced by an [[Estimator]].
- *
- * @tparam M model type
- */
+  * :: AlphaComponent ::
+  * A fitted model, i.e., a [[Transformer]] produced by an [[Estimator]].
+  *
+  * @tparam M model type
+  */
 @AlphaComponent
 abstract class Model[M <: Model[M]] extends Transformer {
-  /**
-   * The parent estimator that produced this model.
-   */
-  val parent: Estimator[M]
+    /**
+      * The parent estimator that produced this model.
+      */
+    val parent: Estimator[M]
 
-  /**
-   * Fitting parameters, such that parent.fit(..., fittingParamMap) could reproduce the model.
-   */
-  val fittingParamMap: ParamMap
+    /**
+      * Fitting parameters, such that parent.fit(..., fittingParamMap) could reproduce the model.
+      */
+    val fittingParamMap: ParamMap
 }

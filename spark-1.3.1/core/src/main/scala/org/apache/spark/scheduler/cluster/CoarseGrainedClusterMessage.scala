@@ -26,63 +26,63 @@ private[spark] sealed trait CoarseGrainedClusterMessage extends Serializable
 
 private[spark] object CoarseGrainedClusterMessages {
 
-  case object RetrieveSparkProps extends CoarseGrainedClusterMessage
+    case object RetrieveSparkProps extends CoarseGrainedClusterMessage
 
-  // Driver to executors
-  case class LaunchTask(data: SerializableBuffer) extends CoarseGrainedClusterMessage
+    // Driver to executors
+    case class LaunchTask(data: SerializableBuffer) extends CoarseGrainedClusterMessage
 
-  case class KillTask(taskId: Long, executor: String, interruptThread: Boolean)
-    extends CoarseGrainedClusterMessage
+    case class KillTask(taskId: Long, executor: String, interruptThread: Boolean)
+            extends CoarseGrainedClusterMessage
 
-  case object RegisteredExecutor extends CoarseGrainedClusterMessage
+    case object RegisteredExecutor extends CoarseGrainedClusterMessage
 
-  case class RegisterExecutorFailed(message: String) extends CoarseGrainedClusterMessage
+    case class RegisterExecutorFailed(message: String) extends CoarseGrainedClusterMessage
 
-  // Executors to driver
-  case class RegisterExecutor(
-      executorId: String,
-      hostPort: String,
-      cores: Int,
-      logUrls: Map[String, String])
-    extends CoarseGrainedClusterMessage {
-    Utils.checkHostPort(hostPort, "Expected host port")
-  }
-
-  case class StatusUpdate(executorId: String, taskId: Long, state: TaskState,
-    data: SerializableBuffer) extends CoarseGrainedClusterMessage
-
-  object StatusUpdate {
-    /** Alternate factory method that takes a ByteBuffer directly for the data field */
-    def apply(executorId: String, taskId: Long, state: TaskState, data: ByteBuffer)
-      : StatusUpdate = {
-      StatusUpdate(executorId, taskId, state, new SerializableBuffer(data))
+    // Executors to driver
+    case class RegisterExecutor(
+                                       executorId: String,
+                                       hostPort: String,
+                                       cores: Int,
+                                       logUrls: Map[String, String])
+            extends CoarseGrainedClusterMessage {
+        Utils.checkHostPort(hostPort, "Expected host port")
     }
-  }
 
-  // Internal messages in driver
-  case object ReviveOffers extends CoarseGrainedClusterMessage
+    case class StatusUpdate(executorId: String, taskId: Long, state: TaskState,
+                            data: SerializableBuffer) extends CoarseGrainedClusterMessage
 
-  case object StopDriver extends CoarseGrainedClusterMessage
+    object StatusUpdate {
+        /** Alternate factory method that takes a ByteBuffer directly for the data field */
+        def apply(executorId: String, taskId: Long, state: TaskState, data: ByteBuffer)
+        : StatusUpdate = {
+            StatusUpdate(executorId, taskId, state, new SerializableBuffer(data))
+        }
+    }
 
-  case object StopExecutor extends CoarseGrainedClusterMessage
+    // Internal messages in driver
+    case object ReviveOffers extends CoarseGrainedClusterMessage
 
-  case object StopExecutors extends CoarseGrainedClusterMessage
+    case object StopDriver extends CoarseGrainedClusterMessage
 
-  case class RemoveExecutor(executorId: String, reason: String) extends CoarseGrainedClusterMessage
+    case object StopExecutor extends CoarseGrainedClusterMessage
 
-  // Exchanged between the driver and the AM in Yarn client mode
-  case class AddWebUIFilter(filterName:String, filterParams: Map[String, String], proxyBase: String)
-    extends CoarseGrainedClusterMessage
+    case object StopExecutors extends CoarseGrainedClusterMessage
 
-  // Messages exchanged between the driver and the cluster manager for executor allocation
-  // In Yarn mode, these are exchanged between the driver and the AM
+    case class RemoveExecutor(executorId: String, reason: String) extends CoarseGrainedClusterMessage
 
-  case object RegisterClusterManager extends CoarseGrainedClusterMessage
+    // Exchanged between the driver and the AM in Yarn client mode
+    case class AddWebUIFilter(filterName: String, filterParams: Map[String, String], proxyBase: String)
+            extends CoarseGrainedClusterMessage
 
-  // Request executors by specifying the new total number of executors desired
-  // This includes executors already pending or running
-  case class RequestExecutors(requestedTotal: Int) extends CoarseGrainedClusterMessage
+    // Messages exchanged between the driver and the cluster manager for executor allocation
+    // In Yarn mode, these are exchanged between the driver and the AM
 
-  case class KillExecutors(executorIds: Seq[String]) extends CoarseGrainedClusterMessage
+    case object RegisterClusterManager extends CoarseGrainedClusterMessage
+
+    // Request executors by specifying the new total number of executors desired
+    // This includes executors already pending or running
+    case class RequestExecutors(requestedTotal: Int) extends CoarseGrainedClusterMessage
+
+    case class KillExecutors(executorIds: Seq[String]) extends CoarseGrainedClusterMessage
 
 }

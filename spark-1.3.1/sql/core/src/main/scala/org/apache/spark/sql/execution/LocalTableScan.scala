@@ -24,17 +24,17 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 
 
 /**
- * Physical plan node for scanning data from a local collection.
- */
+  * Physical plan node for scanning data from a local collection.
+  */
 case class LocalTableScan(output: Seq[Attribute], rows: Seq[Row]) extends LeafNode {
 
-  private lazy val rdd = sqlContext.sparkContext.parallelize(rows)
+    private lazy val rdd = sqlContext.sparkContext.parallelize(rows)
 
-  override def execute(): RDD[Row] = rdd
+    override def execute(): RDD[Row] = rdd
 
-  override def executeCollect(): Array[Row] =
-    rows.map(ScalaReflection.convertRowToScala(_, schema)).toArray
+    override def executeCollect(): Array[Row] =
+        rows.map(ScalaReflection.convertRowToScala(_, schema)).toArray
 
-  override def executeTake(limit: Int): Array[Row] =
-    rows.map(ScalaReflection.convertRowToScala(_, schema)).take(limit).toArray
+    override def executeTake(limit: Int): Array[Row] =
+        rows.map(ScalaReflection.convertRowToScala(_, schema)).take(limit).toArray
 }

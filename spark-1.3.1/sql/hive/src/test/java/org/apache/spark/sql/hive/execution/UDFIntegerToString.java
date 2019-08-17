@@ -20,7 +20,7 @@ package org.apache.spark.sql.hive.execution;
 import org.apache.hadoop.hive.ql.exec.UDF;
 
 public class UDFIntegerToString extends UDF {
-  public String evaluate(Integer i) {
-    return i.toString();
-  }
+    public String evaluate(Integer i) {
+        return i.toString();
+    }
 }

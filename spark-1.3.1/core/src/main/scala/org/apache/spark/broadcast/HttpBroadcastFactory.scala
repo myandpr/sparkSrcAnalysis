@@ -22,26 +22,29 @@ import scala.reflect.ClassTag
 import org.apache.spark.{SecurityManager, SparkConf}
 
 /**
- * A [[org.apache.spark.broadcast.BroadcastFactory]] implementation that uses a
- * HTTP server as the broadcast mechanism. Refer to
- * [[org.apache.spark.broadcast.HttpBroadcast]] for more details about this mechanism.
- */
+  * A [[org.apache.spark.broadcast.BroadcastFactory]] implementation that uses a
+  * HTTP server as the broadcast mechanism. Refer to
+  * [[org.apache.spark.broadcast.HttpBroadcast]] for more details about this mechanism.
+  */
 class HttpBroadcastFactory extends BroadcastFactory {
-  override def initialize(isDriver: Boolean, conf: SparkConf, securityMgr: SecurityManager) {
-    HttpBroadcast.initialize(isDriver, conf, securityMgr)
-  }
+    override def initialize(isDriver: Boolean, conf: SparkConf, securityMgr: SecurityManager) {
+        HttpBroadcast.initialize(isDriver, conf, securityMgr)
+    }
 
-  override def newBroadcast[T: ClassTag](value_ : T, isLocal: Boolean, id: Long) =
-    new HttpBroadcast[T](value_, isLocal, id)
+    override def newBroadcast[T: ClassTag](value_ : T, isLocal: Boolean, id: Long) =
+        new HttpBroadcast[T](value_, isLocal, id)
 
-  override def stop() { HttpBroadcast.stop() }
+    override def stop() {
+        HttpBroadcast.stop()
+    }
 
-  /**
-   * Remove all persisted state associated with the HTTP broadcast with the given ID.
-   * @param removeFromDriver Whether to remove state from the driver
-   * @param blocking Whether to block until unbroadcasted
-   */
-  override def unbroadcast(id: Long, removeFromDriver: Boolean, blocking: Boolean) {
-    HttpBroadcast.unpersist(id, removeFromDriver, blocking)
-  }
+    /**
+      * Remove all persisted state associated with the HTTP broadcast with the given ID.
+      *
+      * @param removeFromDriver Whether to remove state from the driver
+      * @param blocking         Whether to block until unbroadcasted
+      */
+    override def unbroadcast(id: Long, removeFromDriver: Boolean, blocking: Boolean) {
+        HttpBroadcast.unpersist(id, removeFromDriver, blocking)
+    }
 }

@@ -23,9 +23,9 @@ import org.apache.spark.util.Distribution
 import org.apache.spark.annotation.DeveloperApi
 
 /**
- * :: DeveloperApi ::
- * Base trait for events related to StreamingListener
- */
+  * :: DeveloperApi ::
+  * Base trait for events related to StreamingListener
+  */
 @DeveloperApi
 sealed trait StreamingListenerEvent
 
@@ -40,71 +40,72 @@ case class StreamingListenerBatchStarted(batchInfo: BatchInfo) extends Streaming
 
 @DeveloperApi
 case class StreamingListenerReceiverStarted(receiverInfo: ReceiverInfo)
-  extends StreamingListenerEvent
+        extends StreamingListenerEvent
 
 @DeveloperApi
 case class StreamingListenerReceiverError(receiverInfo: ReceiverInfo)
-  extends StreamingListenerEvent
+        extends StreamingListenerEvent
 
 @DeveloperApi
 case class StreamingListenerReceiverStopped(receiverInfo: ReceiverInfo)
-  extends StreamingListenerEvent
+        extends StreamingListenerEvent
 
 /**
- * :: DeveloperApi ::
- * A listener interface for receiving information about an ongoing streaming
- * computation.
- */
+  * :: DeveloperApi ::
+  * A listener interface for receiving information about an ongoing streaming
+  * computation.
+  */
 @DeveloperApi
 trait StreamingListener {
 
-  /** Called when a receiver has been started */
-  def onReceiverStarted(receiverStarted: StreamingListenerReceiverStarted) { }
+    /** Called when a receiver has been started */
+    def onReceiverStarted(receiverStarted: StreamingListenerReceiverStarted) {}
 
-  /** Called when a receiver has reported an error */
-  def onReceiverError(receiverError: StreamingListenerReceiverError) { }
+    /** Called when a receiver has reported an error */
+    def onReceiverError(receiverError: StreamingListenerReceiverError) {}
 
-  /** Called when a receiver has been stopped */
-  def onReceiverStopped(receiverStopped: StreamingListenerReceiverStopped) { }
+    /** Called when a receiver has been stopped */
+    def onReceiverStopped(receiverStopped: StreamingListenerReceiverStopped) {}
 
-  /** Called when a batch of jobs has been submitted for processing. */
-  def onBatchSubmitted(batchSubmitted: StreamingListenerBatchSubmitted) { }
+    /** Called when a batch of jobs has been submitted for processing. */
+    def onBatchSubmitted(batchSubmitted: StreamingListenerBatchSubmitted) {}
 
-  /** Called when processing of a batch of jobs has started.  */
-  def onBatchStarted(batchStarted: StreamingListenerBatchStarted) { }
+    /** Called when processing of a batch of jobs has started.  */
+    def onBatchStarted(batchStarted: StreamingListenerBatchStarted) {}
 
-  /** Called when processing of a batch of jobs has completed. */
-  def onBatchCompleted(batchCompleted: StreamingListenerBatchCompleted) { }
+    /** Called when processing of a batch of jobs has completed. */
+    def onBatchCompleted(batchCompleted: StreamingListenerBatchCompleted) {}
 }
 
 
 /**
- * :: DeveloperApi ::
- * A simple StreamingListener that logs summary statistics across Spark Streaming batches
- * @param numBatchInfos Number of last batches to consider for generating statistics (default: 10)
- */
+  * :: DeveloperApi ::
+  * A simple StreamingListener that logs summary statistics across Spark Streaming batches
+  *
+  * @param numBatchInfos Number of last batches to consider for generating statistics (default: 10)
+  */
 @DeveloperApi
 class StatsReportListener(numBatchInfos: Int = 10) extends StreamingListener {
-  // Queue containing latest completed batches
-  val batchInfos = new Queue[BatchInfo]()
+    // Queue containing latest completed batches
+    val batchInfos = new Queue[BatchInfo]()
 
-  override def onBatchCompleted(batchStarted: StreamingListenerBatchCompleted) {
-    batchInfos.enqueue(batchStarted.batchInfo)
-    if (batchInfos.size > numBatchInfos) batchInfos.dequeue()
-    printStats()
-  }
+    override def onBatchCompleted(batchStarted: StreamingListenerBatchCompleted) {
+        batchInfos.enqueue(batchStarted.batchInfo)
+        if (batchInfos.size > numBatchInfos) batchInfos.dequeue()
+        printStats()
+    }
 
-  def printStats() {
-    showMillisDistribution("Total delay: ", _.totalDelay)
-    showMillisDistribution("Processing time: ", _.processingDelay)
-  }
+    def printStats() {
+        showMillisDistribution("Total delay: ", _.totalDelay)
+        showMillisDistribution("Processing time: ", _.processingDelay)
+    }
 
-  def showMillisDistribution(heading: String, getMetric: BatchInfo => Option[Long]) {
-    org.apache.spark.scheduler.StatsReportListener.showMillisDistribution(
-      heading, extractDistribution(getMetric))
-  }
+    def showMillisDistribution(heading: String, getMetric: BatchInfo => Option[Long]) {
+        org.apache.spark.scheduler.StatsReportListener.showMillisDistribution(
+            heading, extractDistribution(getMetric))
+    }
 
-  def extractDistribution(getMetric: BatchInfo => Option[Long]): Option[Distribution] = {
-    Distribution(batchInfos.flatMap(getMetric(_)).map(_.toDouble))
-  }
+    def extractDistribution(getMetric: BatchInfo => Option[Long]): Option[Distribution] = {
+        Distribution(batchInfos.flatMap(getMetric(_)).map(_.toDouble))
+    }
 }

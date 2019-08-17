@@ -22,46 +22,46 @@ import org.apache.spark.mllib.clustering.GaussianMixture
 import org.apache.spark.mllib.linalg.Vectors
 
 /**
- * An example Gaussian Mixture Model EM app. Run with
- * {{{
- * ./bin/run-example mllib.DenseGaussianMixture <input> <k> <convergenceTol>
- * }}}
- * If you use it as a template to create your own app, please use `spark-submit` to submit your app.
- */
+  * An example Gaussian Mixture Model EM app. Run with
+  * {{{
+  * ./bin/run-example mllib.DenseGaussianMixture <input> <k> <convergenceTol>
+  * }}}
+  * If you use it as a template to create your own app, please use `spark-submit` to submit your app.
+  */
 object DenseGaussianMixture {
-  def main(args: Array[String]): Unit = {
-    if (args.length < 3) {
-      println("usage: DenseGmmEM <input file> <k> <convergenceTol> [maxIterations]")
-    } else {
-      val maxIterations = if (args.length > 3) args(3).toInt else 100
-      run(args(0), args(1).toInt, args(2).toDouble, maxIterations)
+    def main(args: Array[String]): Unit = {
+        if (args.length < 3) {
+            println("usage: DenseGmmEM <input file> <k> <convergenceTol> [maxIterations]")
+        } else {
+            val maxIterations = if (args.length > 3) args(3).toInt else 100
+            run(args(0), args(1).toInt, args(2).toDouble, maxIterations)
+        }
     }
-  }
 
-  private def run(inputFile: String, k: Int, convergenceTol: Double, maxIterations: Int) {
-    val conf = new SparkConf().setAppName("Gaussian Mixture Model EM example")
-    val ctx  = new SparkContext(conf)
-    
-    val data = ctx.textFile(inputFile).map { line =>
-      Vectors.dense(line.trim.split(' ').map(_.toDouble))
-    }.cache()
-      
-    val clusters = new GaussianMixture()
-      .setK(k)
-      .setConvergenceTol(convergenceTol)
-      .setMaxIterations(maxIterations)
-      .run(data)
-    
-    for (i <- 0 until clusters.k) {
-      println("weight=%f\nmu=%s\nsigma=\n%s\n" format 
-        (clusters.weights(i), clusters.gaussians(i).mu, clusters.gaussians(i).sigma))
+    private def run(inputFile: String, k: Int, convergenceTol: Double, maxIterations: Int) {
+        val conf = new SparkConf().setAppName("Gaussian Mixture Model EM example")
+        val ctx = new SparkContext(conf)
+
+        val data = ctx.textFile(inputFile).map { line =>
+            Vectors.dense(line.trim.split(' ').map(_.toDouble))
+        }.cache()
+
+        val clusters = new GaussianMixture()
+                .setK(k)
+                .setConvergenceTol(convergenceTol)
+                .setMaxIterations(maxIterations)
+                .run(data)
+
+        for (i <- 0 until clusters.k) {
+            println("weight=%f\nmu=%s\nsigma=\n%s\n" format
+                    (clusters.weights(i), clusters.gaussians(i).mu, clusters.gaussians(i).sigma))
+        }
+
+        println("Cluster labels (first <= 100):")
+        val clusterLabels = clusters.predict(data)
+        clusterLabels.take(100).foreach { x =>
+            print(" " + x)
+        }
+        println()
     }
-    
-    println("Cluster labels (first <= 100):")
-    val clusterLabels = clusters.predict(data)
-    clusterLabels.take(100).foreach { x =>
-      print(" " + x)
-    }
-    println()
-  }
 }

@@ -18,13 +18,13 @@
 package org.apache.spark.sql
 
 /**
- * A container for a [[DataFrame]], used for implicit conversions.
- */
+  * A container for a [[DataFrame]], used for implicit conversions.
+  */
 private[sql] case class DataFrameHolder(df: DataFrame) {
 
-  // This is declared with parentheses to prevent the Scala compiler from treating
-  // `rdd.toDF("1")` as invoking this toDF and then apply on the returned DataFrame.
-  def toDF(): DataFrame = df
+    // This is declared with parentheses to prevent the Scala compiler from treating
+    // `rdd.toDF("1")` as invoking this toDF and then apply on the returned DataFrame.
+    def toDF(): DataFrame = df
 
-  def toDF(colNames: String*): DataFrame = df.toDF(colNames :_*)
+    def toDF(colNames: String*): DataFrame = df.toDF(colNames: _*)
 }

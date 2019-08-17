@@ -22,43 +22,44 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types.{StringType, NumericType}
 
 /**
- * Generates bytecode for an [[Ordering]] of [[Row Rows]] for a given set of
- * [[Expression Expressions]].
- */
+  * Generates bytecode for an [[Ordering]] of [[Row Rows]] for a given set of
+  * [[Expression Expressions]].
+  */
 object GenerateOrdering extends CodeGenerator[Seq[SortOrder], Ordering[Row]] with Logging {
-  import scala.reflect.runtime.{universe => ru}
-  import scala.reflect.runtime.universe._
 
- protected def canonicalize(in: Seq[SortOrder]): Seq[SortOrder] =
-    in.map(ExpressionCanonicalizer(_).asInstanceOf[SortOrder])
+    import scala.reflect.runtime.{universe => ru}
+    import scala.reflect.runtime.universe._
 
-  protected def bind(in: Seq[SortOrder], inputSchema: Seq[Attribute]): Seq[SortOrder] =
-    in.map(BindReferences.bindReference(_, inputSchema))
+    protected def canonicalize(in: Seq[SortOrder]): Seq[SortOrder] =
+        in.map(ExpressionCanonicalizer(_).asInstanceOf[SortOrder])
 
-  protected def create(ordering: Seq[SortOrder]): Ordering[Row] = {
-    val a = newTermName("a")
-    val b = newTermName("b")
-    val comparisons = ordering.zipWithIndex.map { case (order, i) =>
-      val evalA = expressionEvaluator(order.child)
-      val evalB = expressionEvaluator(order.child)
+    protected def bind(in: Seq[SortOrder], inputSchema: Seq[Attribute]): Seq[SortOrder] =
+        in.map(BindReferences.bindReference(_, inputSchema))
 
-      val compare = order.child.dataType match {
-        case _: NumericType =>
-          q"""
+    protected def create(ordering: Seq[SortOrder]): Ordering[Row] = {
+        val a = newTermName("a")
+        val b = newTermName("b")
+        val comparisons = ordering.zipWithIndex.map { case (order, i) =>
+            val evalA = expressionEvaluator(order.child)
+            val evalB = expressionEvaluator(order.child)
+
+            val compare = order.child.dataType match {
+                case _: NumericType =>
+                    q"""
           val comp = ${evalA.primitiveTerm} - ${evalB.primitiveTerm}
           if(comp != 0) {
             return ${if (order.direction == Ascending) q"comp.toInt" else q"-comp.toInt"}
           }
           """
-        case StringType =>
-          if (order.direction == Ascending) {
-            q"""return ${evalA.primitiveTerm}.compare(${evalB.primitiveTerm})"""
-          } else {
-            q"""return ${evalB.primitiveTerm}.compare(${evalA.primitiveTerm})"""
-          }
-      }
+                case StringType =>
+                    if (order.direction == Ascending) {
+                        q"""return ${evalA.primitiveTerm}.compare(${evalB.primitiveTerm})"""
+                    } else {
+                        q"""return ${evalB.primitiveTerm}.compare(${evalA.primitiveTerm})"""
+                    }
+            }
 
-      q"""
+            q"""
         i = $a
         ..${evalA.code}
         i = $b
@@ -73,15 +74,16 @@ object GenerateOrdering extends CodeGenerator[Seq[SortOrder], Ordering[Row]] wit
           $compare
         }
       """
-    }
+        }
 
-    val q"class $orderingName extends $orderingType { ..$body }" = reify {
-      class SpecificOrdering extends Ordering[Row] {
-        val o = ordering
-      }
-    }.tree.children.head
+        val q"class $orderingName extends $orderingType { ..$body }" = reify {
+            class SpecificOrdering extends Ordering[Row] {
+                val o = ordering
+            }
+        }.tree.children.head
 
-    val code = q"""
+        val code =
+            q"""
       class $orderingName extends $orderingType {
         ..$body
         def compare(a: $rowType, b: $rowType): Int = {
@@ -92,7 +94,7 @@ object GenerateOrdering extends CodeGenerator[Seq[SortOrder], Ordering[Row]] wit
       }
       new $orderingName()
       """
-    logDebug(s"Generated Ordering: $code")
-    toolBox.eval(code).asInstanceOf[Ordering[Row]]
-  }
+        logDebug(s"Generated Ordering: $code")
+        toolBox.eval(code).asInstanceOf[Ordering[Row]]
+    }
 }

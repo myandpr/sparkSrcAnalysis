@@ -24,14 +24,14 @@ import org.junit.Test;
 import org.apache.spark.streaming.LocalJavaStreamingContext;
 
 public class JavaMQTTStreamSuite extends LocalJavaStreamingContext {
-  @Test
-  public void testMQTTStream() {
-    String brokerUrl = "abc";
-    String topic = "def";
+    @Test
+    public void testMQTTStream() {
+        String brokerUrl = "abc";
+        String topic = "def";
 
-    // tests the API, does not actually test data receiving
-    JavaReceiverInputDStream<String> test1 = MQTTUtils.createStream(ssc, brokerUrl, topic);
-    JavaReceiverInputDStream<String> test2 = MQTTUtils.createStream(ssc, brokerUrl, topic,
-      StorageLevel.MEMORY_AND_DISK_SER_2());
-  }
+        // tests the API, does not actually test data receiving
+        JavaReceiverInputDStream<String> test1 = MQTTUtils.createStream(ssc, brokerUrl, topic);
+        JavaReceiverInputDStream<String> test2 = MQTTUtils.createStream(ssc, brokerUrl, topic,
+                StorageLevel.MEMORY_AND_DISK_SER_2());
+    }
 }

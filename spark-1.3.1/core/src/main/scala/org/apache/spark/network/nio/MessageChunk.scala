@@ -24,18 +24,18 @@ import scala.collection.mutable.ArrayBuffer
 private[nio]
 class MessageChunk(val header: MessageChunkHeader, val buffer: ByteBuffer) {
 
-  val size = if (buffer == null) 0 else buffer.remaining
+    val size = if (buffer == null) 0 else buffer.remaining
 
-  lazy val buffers = {
-    val ab = new ArrayBuffer[ByteBuffer]()
-    ab += header.buffer
-    if (buffer != null) {
-      ab += buffer
+    lazy val buffers = {
+        val ab = new ArrayBuffer[ByteBuffer]()
+        ab += header.buffer
+        if (buffer != null) {
+            ab += buffer
+        }
+        ab
     }
-    ab
-  }
 
-  override def toString = {
-    "" + this.getClass.getSimpleName + " (id = " + header.id + ", size = " + size + ")"
-  }
+    override def toString = {
+        "" + this.getClass.getSimpleName + " (id = " + header.id + ", size = " + size + ")"
+    }
 }

@@ -22,42 +22,42 @@ import org.junit.Test;
 
 public class JavaTimeSuite {
 
-  // Just testing the methods that are specially exposed for Java.
-  // This does not repeat all tests found in the Scala suite.
+    // Just testing the methods that are specially exposed for Java.
+    // This does not repeat all tests found in the Scala suite.
 
-  @Test
-  public void testLess() {
-    Assert.assertTrue(new Time(999).less(new Time(1000)));
-  }
+    @Test
+    public void testLess() {
+        Assert.assertTrue(new Time(999).less(new Time(1000)));
+    }
 
-  @Test
-  public void testLessEq() {
-    Assert.assertTrue(new Time(1000).lessEq(new Time(1000)));
-  }
+    @Test
+    public void testLessEq() {
+        Assert.assertTrue(new Time(1000).lessEq(new Time(1000)));
+    }
 
-  @Test
-  public void testGreater() {
-    Assert.assertTrue(new Time(1000).greater(new Time(999)));
-  }
+    @Test
+    public void testGreater() {
+        Assert.assertTrue(new Time(1000).greater(new Time(999)));
+    }
 
-  @Test
-  public void testGreaterEq() {
-    Assert.assertTrue(new Time(1000).greaterEq(new Time(1000)));
-  }
+    @Test
+    public void testGreaterEq() {
+        Assert.assertTrue(new Time(1000).greaterEq(new Time(1000)));
+    }
 
-  @Test
-  public void testPlus() {
-    Assert.assertEquals(new Time(1100), new Time(1000).plus(new Duration(100)));
-  }
+    @Test
+    public void testPlus() {
+        Assert.assertEquals(new Time(1100), new Time(1000).plus(new Duration(100)));
+    }
 
-  @Test
-  public void testMinusTime() {
-    Assert.assertEquals(new Duration(900), new Time(1000).minus(new Time(100)));
-  }
+    @Test
+    public void testMinusTime() {
+        Assert.assertEquals(new Duration(900), new Time(1000).minus(new Time(100)));
+    }
 
-  @Test
-  public void testMinusDuration() {
-    Assert.assertEquals(new Time(900), new Time(1000).minus(new Duration(100)));
-  }
+    @Test
+    public void testMinusDuration() {
+        Assert.assertEquals(new Time(900), new Time(1000).minus(new Duration(100)));
+    }
 
 }

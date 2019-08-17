@@ -17,33 +17,33 @@
 
 package org.apache.spark.scheduler
 
-import com.codahale.metrics.{Gauge,MetricRegistry}
+import com.codahale.metrics.{Gauge, MetricRegistry}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.metrics.source.Source
 
 private[spark] class DAGSchedulerSource(val dagScheduler: DAGScheduler)
-    extends Source {
-  override val metricRegistry = new MetricRegistry()
-  override val sourceName = "DAGScheduler"
+        extends Source {
+    override val metricRegistry = new MetricRegistry()
+    override val sourceName = "DAGScheduler"
 
-  metricRegistry.register(MetricRegistry.name("stage", "failedStages"), new Gauge[Int] {
-    override def getValue: Int = dagScheduler.failedStages.size
-  })
+    metricRegistry.register(MetricRegistry.name("stage", "failedStages"), new Gauge[Int] {
+        override def getValue: Int = dagScheduler.failedStages.size
+    })
 
-  metricRegistry.register(MetricRegistry.name("stage", "runningStages"), new Gauge[Int] {
-    override def getValue: Int = dagScheduler.runningStages.size
-  })
+    metricRegistry.register(MetricRegistry.name("stage", "runningStages"), new Gauge[Int] {
+        override def getValue: Int = dagScheduler.runningStages.size
+    })
 
-  metricRegistry.register(MetricRegistry.name("stage", "waitingStages"), new Gauge[Int] {
-    override def getValue: Int = dagScheduler.waitingStages.size
-  })
+    metricRegistry.register(MetricRegistry.name("stage", "waitingStages"), new Gauge[Int] {
+        override def getValue: Int = dagScheduler.waitingStages.size
+    })
 
-  metricRegistry.register(MetricRegistry.name("job", "allJobs"), new Gauge[Int] {
-    override def getValue: Int = dagScheduler.numTotalJobs
-  })
+    metricRegistry.register(MetricRegistry.name("job", "allJobs"), new Gauge[Int] {
+        override def getValue: Int = dagScheduler.numTotalJobs
+    })
 
-  metricRegistry.register(MetricRegistry.name("job", "activeJobs"), new Gauge[Int] {
-    override def getValue: Int = dagScheduler.activeJobs.size
-  })
+    metricRegistry.register(MetricRegistry.name("job", "activeJobs"), new Gauge[Int] {
+        override def getValue: Int = dagScheduler.activeJobs.size
+    })
 }

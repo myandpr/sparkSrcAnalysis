@@ -23,28 +23,28 @@ import org.apache.spark.scheduler.TaskSchedulerImpl
 import org.apache.spark.util.IntParam
 
 private[spark] class YarnClusterSchedulerBackend(
-    scheduler: TaskSchedulerImpl,
-    sc: SparkContext)
-  extends YarnSchedulerBackend(scheduler, sc) {
+                                                        scheduler: TaskSchedulerImpl,
+                                                        sc: SparkContext)
+        extends YarnSchedulerBackend(scheduler, sc) {
 
-  override def start() {
-    super.start()
-    totalExpectedExecutors = DEFAULT_NUMBER_EXECUTORS
-    if (System.getenv("SPARK_EXECUTOR_INSTANCES") != null) {
-      totalExpectedExecutors = IntParam.unapply(System.getenv("SPARK_EXECUTOR_INSTANCES"))
-        .getOrElse(totalExpectedExecutors)
+    override def start() {
+        super.start()
+        totalExpectedExecutors = DEFAULT_NUMBER_EXECUTORS
+        if (System.getenv("SPARK_EXECUTOR_INSTANCES") != null) {
+            totalExpectedExecutors = IntParam.unapply(System.getenv("SPARK_EXECUTOR_INSTANCES"))
+                    .getOrElse(totalExpectedExecutors)
+        }
+        // System property can override environment variable.
+        totalExpectedExecutors = sc.getConf.getInt("spark.executor.instances", totalExpectedExecutors)
     }
-    // System property can override environment variable.
-    totalExpectedExecutors = sc.getConf.getInt("spark.executor.instances", totalExpectedExecutors)
-  }
 
-  override def applicationId(): String =
+    override def applicationId(): String =
     // In YARN Cluster mode, spark.yarn.app.id is expect to be set
     // before user application is launched.
     // So, if spark.yarn.app.id is not set, it is something wrong.
-    sc.getConf.getOption("spark.yarn.app.id").getOrElse {
-      logError("Application ID is not set.")
-      super.applicationId
-    }
+        sc.getConf.getOption("spark.yarn.app.id").getOrElse {
+            logError("Application ID is not set.")
+            super.applicationId
+        }
 
 }

@@ -23,36 +23,36 @@ import org.apache.spark.util.{AkkaUtils, Utils}
 
 private[spark] object TestClient {
 
-  class TestListener extends AppClientListener with Logging {
-    def connected(id: String) {
-      logInfo("Connected to master, got app ID " + id)
+    class TestListener extends AppClientListener with Logging {
+        def connected(id: String) {
+            logInfo("Connected to master, got app ID " + id)
+        }
+
+        def disconnected() {
+            logInfo("Disconnected from master")
+            System.exit(0)
+        }
+
+        def dead(reason: String) {
+            logInfo("Application died with error: " + reason)
+            System.exit(0)
+        }
+
+        def executorAdded(id: String, workerId: String, hostPort: String, cores: Int, memory: Int) {}
+
+        def executorRemoved(id: String, message: String, exitStatus: Option[Int]) {}
     }
 
-    def disconnected() {
-      logInfo("Disconnected from master")
-      System.exit(0)
+    def main(args: Array[String]) {
+        val url = args(0)
+        val conf = new SparkConf
+        val (actorSystem, _) = AkkaUtils.createActorSystem("spark", Utils.localIpAddress, 0,
+            conf = conf, securityManager = new SecurityManager(conf))
+        val desc = new ApplicationDescription("TestClient", Some(1), 512,
+            Command("spark.deploy.client.TestExecutor", Seq(), Map(), Seq(), Seq(), Seq()), "ignored")
+        val listener = new TestListener
+        val client = new AppClient(actorSystem, Array(url), desc, listener, new SparkConf)
+        client.start()
+        actorSystem.awaitTermination()
     }
-
-    def dead(reason: String) {
-      logInfo("Application died with error: " + reason)
-      System.exit(0)
-    }
-
-    def executorAdded(id: String, workerId: String, hostPort: String, cores: Int, memory: Int) {}
-
-    def executorRemoved(id: String, message: String, exitStatus: Option[Int]) {}
-  }
-
-  def main(args: Array[String]) {
-    val url = args(0)
-    val conf = new SparkConf
-    val (actorSystem, _) = AkkaUtils.createActorSystem("spark", Utils.localIpAddress, 0,
-      conf = conf, securityManager = new SecurityManager(conf))
-    val desc = new ApplicationDescription("TestClient", Some(1), 512,
-      Command("spark.deploy.client.TestExecutor", Seq(), Map(), Seq(), Seq(), Seq()), "ignored")
-    val listener = new TestListener
-    val client = new AppClient(actorSystem, Array(url), desc, listener, new SparkConf)
-    client.start()
-    actorSystem.awaitTermination()
-  }
 }

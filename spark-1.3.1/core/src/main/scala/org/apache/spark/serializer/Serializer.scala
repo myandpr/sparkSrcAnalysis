@@ -27,118 +27,121 @@ import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.util.{Utils, ByteBufferInputStream, NextIterator}
 
 /**
- * :: DeveloperApi ::
- * A serializer. Because some serialization libraries are not thread safe, this class is used to
- * create [[org.apache.spark.serializer.SerializerInstance]] objects that do the actual
- * serialization and are guaranteed to only be called from one thread at a time.
- *
- * Implementations of this trait should implement:
- *
- * 1. a zero-arg constructor or a constructor that accepts a [[org.apache.spark.SparkConf]]
- * as parameter. If both constructors are defined, the latter takes precedence.
- *
- * 2. Java serialization interface.
- *
- * Note that serializers are not required to be wire-compatible across different versions of Spark.
- * They are intended to be used to serialize/de-serialize data within a single Spark application.
- */
+  * :: DeveloperApi ::
+  * A serializer. Because some serialization libraries are not thread safe, this class is used to
+  * create [[org.apache.spark.serializer.SerializerInstance]] objects that do the actual
+  * serialization and are guaranteed to only be called from one thread at a time.
+  *
+  * Implementations of this trait should implement:
+  *
+  * 1. a zero-arg constructor or a constructor that accepts a [[org.apache.spark.SparkConf]]
+  * as parameter. If both constructors are defined, the latter takes precedence.
+  *
+  * 2. Java serialization interface.
+  *
+  * Note that serializers are not required to be wire-compatible across different versions of Spark.
+  * They are intended to be used to serialize/de-serialize data within a single Spark application.
+  */
 @DeveloperApi
 abstract class Serializer {
 
-  /**
-   * Default ClassLoader to use in deserialization. Implementations of [[Serializer]] should
-   * make sure it is using this when set.
-   */
-  @volatile protected var defaultClassLoader: Option[ClassLoader] = None
+    /**
+      * Default ClassLoader to use in deserialization. Implementations of [[Serializer]] should
+      * make sure it is using this when set.
+      */
+    @volatile protected var defaultClassLoader: Option[ClassLoader] = None
 
-  /**
-   * Sets a class loader for the serializer to use in deserialization.
-   *
-   * @return this Serializer object
-   */
-  def setDefaultClassLoader(classLoader: ClassLoader): Serializer = {
-    defaultClassLoader = Some(classLoader)
-    this
-  }
+    /**
+      * Sets a class loader for the serializer to use in deserialization.
+      *
+      * @return this Serializer object
+      */
+    def setDefaultClassLoader(classLoader: ClassLoader): Serializer = {
+        defaultClassLoader = Some(classLoader)
+        this
+    }
 
-  /** Creates a new [[SerializerInstance]]. */
-  def newInstance(): SerializerInstance
+    /** Creates a new [[SerializerInstance]]. */
+    def newInstance(): SerializerInstance
 }
 
 
 @DeveloperApi
 object Serializer {
-  def getSerializer(serializer: Serializer): Serializer = {
-    if (serializer == null) SparkEnv.get.serializer else serializer
-  }
+    def getSerializer(serializer: Serializer): Serializer = {
+        if (serializer == null) SparkEnv.get.serializer else serializer
+    }
 
-  def getSerializer(serializer: Option[Serializer]): Serializer = {
-    serializer.getOrElse(SparkEnv.get.serializer)
-  }
+    def getSerializer(serializer: Option[Serializer]): Serializer = {
+        serializer.getOrElse(SparkEnv.get.serializer)
+    }
 }
 
 
 /**
- * :: DeveloperApi ::
- * An instance of a serializer, for use by one thread at a time.
- */
+  * :: DeveloperApi ::
+  * An instance of a serializer, for use by one thread at a time.
+  */
 @DeveloperApi
 abstract class SerializerInstance {
-  def serialize[T: ClassTag](t: T): ByteBuffer
+    def serialize[T: ClassTag](t: T): ByteBuffer
 
-  def deserialize[T: ClassTag](bytes: ByteBuffer): T
+    def deserialize[T: ClassTag](bytes: ByteBuffer): T
 
-  def deserialize[T: ClassTag](bytes: ByteBuffer, loader: ClassLoader): T
+    def deserialize[T: ClassTag](bytes: ByteBuffer, loader: ClassLoader): T
 
-  def serializeStream(s: OutputStream): SerializationStream
+    def serializeStream(s: OutputStream): SerializationStream
 
-  def deserializeStream(s: InputStream): DeserializationStream
+    def deserializeStream(s: InputStream): DeserializationStream
 }
 
 /**
- * :: DeveloperApi ::
- * A stream for writing serialized objects.
- */
+  * :: DeveloperApi ::
+  * A stream for writing serialized objects.
+  */
 @DeveloperApi
 abstract class SerializationStream {
-  def writeObject[T: ClassTag](t: T): SerializationStream
-  def flush(): Unit
-  def close(): Unit
+    def writeObject[T: ClassTag](t: T): SerializationStream
 
-  def writeAll[T: ClassTag](iter: Iterator[T]): SerializationStream = {
-    while (iter.hasNext) {
-      writeObject(iter.next())
+    def flush(): Unit
+
+    def close(): Unit
+
+    def writeAll[T: ClassTag](iter: Iterator[T]): SerializationStream = {
+        while (iter.hasNext) {
+            writeObject(iter.next())
+        }
+        this
     }
-    this
-  }
 }
 
 
 /**
- * :: DeveloperApi ::
- * A stream for reading serialized objects.
- */
+  * :: DeveloperApi ::
+  * A stream for reading serialized objects.
+  */
 @DeveloperApi
 abstract class DeserializationStream {
-  def readObject[T: ClassTag](): T
-  def close(): Unit
+    def readObject[T: ClassTag](): T
 
-  /**
-   * Read the elements of this stream through an iterator. This can only be called once, as
-   * reading each element will consume data from the input source.
-   */
-  def asIterator: Iterator[Any] = new NextIterator[Any] {
-    override protected def getNext() = {
-      try {
-        readObject[Any]()
-      } catch {
-        case eof: EOFException =>
-          finished = true
-      }
-    }
+    def close(): Unit
 
-    override protected def close() {
-      DeserializationStream.this.close()
+    /**
+      * Read the elements of this stream through an iterator. This can only be called once, as
+      * reading each element will consume data from the input source.
+      */
+    def asIterator: Iterator[Any] = new NextIterator[Any] {
+        override protected def getNext() = {
+            try {
+                readObject[Any]()
+            } catch {
+                case eof: EOFException =>
+                    finished = true
+            }
+        }
+
+        override protected def close() {
+            DeserializationStream.this.close()
+        }
     }
-  }
 }

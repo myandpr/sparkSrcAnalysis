@@ -36,80 +36,80 @@ import org.apache.spark.network.protocol.RpcResponse;
 import org.apache.spark.network.protocol.StreamChunkId;
 
 public class TransportResponseHandlerSuite {
-  @Test
-  public void handleSuccessfulFetch() {
-    StreamChunkId streamChunkId = new StreamChunkId(1, 0);
+    @Test
+    public void handleSuccessfulFetch() {
+        StreamChunkId streamChunkId = new StreamChunkId(1, 0);
 
-    TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
-    ChunkReceivedCallback callback = mock(ChunkReceivedCallback.class);
-    handler.addFetchRequest(streamChunkId, callback);
-    assertEquals(1, handler.numOutstandingRequests());
+        TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
+        ChunkReceivedCallback callback = mock(ChunkReceivedCallback.class);
+        handler.addFetchRequest(streamChunkId, callback);
+        assertEquals(1, handler.numOutstandingRequests());
 
-    handler.handle(new ChunkFetchSuccess(streamChunkId, new TestManagedBuffer(123)));
-    verify(callback, times(1)).onSuccess(eq(0), (ManagedBuffer) any());
-    assertEquals(0, handler.numOutstandingRequests());
-  }
+        handler.handle(new ChunkFetchSuccess(streamChunkId, new TestManagedBuffer(123)));
+        verify(callback, times(1)).onSuccess(eq(0), (ManagedBuffer) any());
+        assertEquals(0, handler.numOutstandingRequests());
+    }
 
-  @Test
-  public void handleFailedFetch() {
-    StreamChunkId streamChunkId = new StreamChunkId(1, 0);
-    TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
-    ChunkReceivedCallback callback = mock(ChunkReceivedCallback.class);
-    handler.addFetchRequest(streamChunkId, callback);
-    assertEquals(1, handler.numOutstandingRequests());
+    @Test
+    public void handleFailedFetch() {
+        StreamChunkId streamChunkId = new StreamChunkId(1, 0);
+        TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
+        ChunkReceivedCallback callback = mock(ChunkReceivedCallback.class);
+        handler.addFetchRequest(streamChunkId, callback);
+        assertEquals(1, handler.numOutstandingRequests());
 
-    handler.handle(new ChunkFetchFailure(streamChunkId, "some error msg"));
-    verify(callback, times(1)).onFailure(eq(0), (Throwable) any());
-    assertEquals(0, handler.numOutstandingRequests());
-  }
+        handler.handle(new ChunkFetchFailure(streamChunkId, "some error msg"));
+        verify(callback, times(1)).onFailure(eq(0), (Throwable) any());
+        assertEquals(0, handler.numOutstandingRequests());
+    }
 
-  @Test
-  public void clearAllOutstandingRequests() {
-    TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
-    ChunkReceivedCallback callback = mock(ChunkReceivedCallback.class);
-    handler.addFetchRequest(new StreamChunkId(1, 0), callback);
-    handler.addFetchRequest(new StreamChunkId(1, 1), callback);
-    handler.addFetchRequest(new StreamChunkId(1, 2), callback);
-    assertEquals(3, handler.numOutstandingRequests());
+    @Test
+    public void clearAllOutstandingRequests() {
+        TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
+        ChunkReceivedCallback callback = mock(ChunkReceivedCallback.class);
+        handler.addFetchRequest(new StreamChunkId(1, 0), callback);
+        handler.addFetchRequest(new StreamChunkId(1, 1), callback);
+        handler.addFetchRequest(new StreamChunkId(1, 2), callback);
+        assertEquals(3, handler.numOutstandingRequests());
 
-    handler.handle(new ChunkFetchSuccess(new StreamChunkId(1, 0), new TestManagedBuffer(12)));
-    handler.exceptionCaught(new Exception("duh duh duhhhh"));
+        handler.handle(new ChunkFetchSuccess(new StreamChunkId(1, 0), new TestManagedBuffer(12)));
+        handler.exceptionCaught(new Exception("duh duh duhhhh"));
 
-    // should fail both b2 and b3
-    verify(callback, times(1)).onSuccess(eq(0), (ManagedBuffer) any());
-    verify(callback, times(1)).onFailure(eq(1), (Throwable) any());
-    verify(callback, times(1)).onFailure(eq(2), (Throwable) any());
-    assertEquals(0, handler.numOutstandingRequests());
-  }
+        // should fail both b2 and b3
+        verify(callback, times(1)).onSuccess(eq(0), (ManagedBuffer) any());
+        verify(callback, times(1)).onFailure(eq(1), (Throwable) any());
+        verify(callback, times(1)).onFailure(eq(2), (Throwable) any());
+        assertEquals(0, handler.numOutstandingRequests());
+    }
 
-  @Test
-  public void handleSuccessfulRPC() {
-    TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
-    RpcResponseCallback callback = mock(RpcResponseCallback.class);
-    handler.addRpcRequest(12345, callback);
-    assertEquals(1, handler.numOutstandingRequests());
+    @Test
+    public void handleSuccessfulRPC() {
+        TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
+        RpcResponseCallback callback = mock(RpcResponseCallback.class);
+        handler.addRpcRequest(12345, callback);
+        assertEquals(1, handler.numOutstandingRequests());
 
-    handler.handle(new RpcResponse(54321, new byte[7])); // should be ignored
-    assertEquals(1, handler.numOutstandingRequests());
+        handler.handle(new RpcResponse(54321, new byte[7])); // should be ignored
+        assertEquals(1, handler.numOutstandingRequests());
 
-    byte[] arr = new byte[10];
-    handler.handle(new RpcResponse(12345, arr));
-    verify(callback, times(1)).onSuccess(eq(arr));
-    assertEquals(0, handler.numOutstandingRequests());
-  }
+        byte[] arr = new byte[10];
+        handler.handle(new RpcResponse(12345, arr));
+        verify(callback, times(1)).onSuccess(eq(arr));
+        assertEquals(0, handler.numOutstandingRequests());
+    }
 
-  @Test
-  public void handleFailedRPC() {
-    TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
-    RpcResponseCallback callback = mock(RpcResponseCallback.class);
-    handler.addRpcRequest(12345, callback);
-    assertEquals(1, handler.numOutstandingRequests());
+    @Test
+    public void handleFailedRPC() {
+        TransportResponseHandler handler = new TransportResponseHandler(new LocalChannel());
+        RpcResponseCallback callback = mock(RpcResponseCallback.class);
+        handler.addRpcRequest(12345, callback);
+        assertEquals(1, handler.numOutstandingRequests());
 
-    handler.handle(new RpcFailure(54321, "uh-oh!")); // should be ignored
-    assertEquals(1, handler.numOutstandingRequests());
+        handler.handle(new RpcFailure(54321, "uh-oh!")); // should be ignored
+        assertEquals(1, handler.numOutstandingRequests());
 
-    handler.handle(new RpcFailure(12345, "oh no"));
-    verify(callback, times(1)).onFailure((Throwable) any());
-    assertEquals(0, handler.numOutstandingRequests());
-  }
+        handler.handle(new RpcFailure(12345, "oh no"));
+        verify(callback, times(1)).onFailure((Throwable) any());
+        assertEquals(0, handler.numOutstandingRequests());
+    }
 }

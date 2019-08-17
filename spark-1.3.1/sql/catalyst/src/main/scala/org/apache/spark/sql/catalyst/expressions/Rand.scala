@@ -23,14 +23,15 @@ import org.apache.spark.sql.types.{DataType, DoubleType}
 
 
 case object Rand extends LeafExpression {
-  override def dataType: DataType = DoubleType
-  override def nullable: Boolean = false
+    override def dataType: DataType = DoubleType
 
-  private[this] lazy val rand = new Random
+    override def nullable: Boolean = false
 
-  override def eval(input: Row = null): EvaluatedType = {
-    rand.nextDouble().asInstanceOf[EvaluatedType]
-  }
+    private[this] lazy val rand = new Random
 
-  override def toString: String = "RAND()"
+    override def eval(input: Row = null): EvaluatedType = {
+        rand.nextDouble().asInstanceOf[EvaluatedType]
+    }
+
+    override def toString: String = "RAND()"
 }

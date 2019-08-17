@@ -18,8 +18,8 @@
 package org.apache.spark;
 
 public enum JobExecutionStatus {
-  RUNNING,
-  SUCCEEDED,
-  FAILED,
-  UNKNOWN
+    RUNNING,
+    SUCCEEDED,
+    FAILED,
+    UNKNOWN
 }

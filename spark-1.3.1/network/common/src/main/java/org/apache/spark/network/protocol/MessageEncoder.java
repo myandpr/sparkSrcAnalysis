@@ -33,50 +33,50 @@ import org.slf4j.LoggerFactory;
 @ChannelHandler.Sharable
 public final class MessageEncoder extends MessageToMessageEncoder<Message> {
 
-  private final Logger logger = LoggerFactory.getLogger(MessageEncoder.class);
+    private final Logger logger = LoggerFactory.getLogger(MessageEncoder.class);
 
-  /***
-   * Encodes a Message by invoking its encode() method. For non-data messages, we will add one
-   * ByteBuf to 'out' containing the total frame length, the message type, and the message itself.
-   * In the case of a ChunkFetchSuccess, we will also add the ManagedBuffer corresponding to the
-   * data to 'out', in order to enable zero-copy transfer.
-   */
-  @Override
-  public void encode(ChannelHandlerContext ctx, Message in, List<Object> out) {
-    Object body = null;
-    long bodyLength = 0;
+    /***
+     * Encodes a Message by invoking its encode() method. For non-data messages, we will add one
+     * ByteBuf to 'out' containing the total frame length, the message type, and the message itself.
+     * In the case of a ChunkFetchSuccess, we will also add the ManagedBuffer corresponding to the
+     * data to 'out', in order to enable zero-copy transfer.
+     */
+    @Override
+    public void encode(ChannelHandlerContext ctx, Message in, List<Object> out) {
+        Object body = null;
+        long bodyLength = 0;
 
-    // Only ChunkFetchSuccesses have data besides the header.
-    // The body is used in order to enable zero-copy transfer for the payload.
-    if (in instanceof ChunkFetchSuccess) {
-      ChunkFetchSuccess resp = (ChunkFetchSuccess) in;
-      try {
-        bodyLength = resp.buffer.size();
-        body = resp.buffer.convertToNetty();
-      } catch (Exception e) {
-        // Re-encode this message as BlockFetchFailure.
-        logger.error(String.format("Error opening block %s for client %s",
-          resp.streamChunkId, ctx.channel().remoteAddress()), e);
-        encode(ctx, new ChunkFetchFailure(resp.streamChunkId, e.getMessage()), out);
-        return;
-      }
+        // Only ChunkFetchSuccesses have data besides the header.
+        // The body is used in order to enable zero-copy transfer for the payload.
+        if (in instanceof ChunkFetchSuccess) {
+            ChunkFetchSuccess resp = (ChunkFetchSuccess) in;
+            try {
+                bodyLength = resp.buffer.size();
+                body = resp.buffer.convertToNetty();
+            } catch (Exception e) {
+                // Re-encode this message as BlockFetchFailure.
+                logger.error(String.format("Error opening block %s for client %s",
+                        resp.streamChunkId, ctx.channel().remoteAddress()), e);
+                encode(ctx, new ChunkFetchFailure(resp.streamChunkId, e.getMessage()), out);
+                return;
+            }
+        }
+
+        Message.Type msgType = in.type();
+        // All messages have the frame length, message type, and message itself.
+        int headerLength = 8 + msgType.encodedLength() + in.encodedLength();
+        long frameLength = headerLength + bodyLength;
+        ByteBuf header = ctx.alloc().heapBuffer(headerLength);
+        header.writeLong(frameLength);
+        msgType.encode(header);
+        in.encode(header);
+        assert header.writableBytes() == 0;
+
+        if (body != null && bodyLength > 0) {
+            out.add(new MessageWithHeader(header, body, bodyLength));
+        } else {
+            out.add(header);
+        }
     }
-
-    Message.Type msgType = in.type();
-    // All messages have the frame length, message type, and message itself.
-    int headerLength = 8 + msgType.encodedLength() + in.encodedLength();
-    long frameLength = headerLength + bodyLength;
-    ByteBuf header = ctx.alloc().heapBuffer(headerLength);
-    header.writeLong(frameLength);
-    msgType.encode(header);
-    in.encode(header);
-    assert header.writableBytes() == 0;
-
-    if (body != null && bodyLength > 0) {
-      out.add(new MessageWithHeader(header, body, bodyLength));
-    } else {
-      out.add(header);
-    }
-  }
 
 }

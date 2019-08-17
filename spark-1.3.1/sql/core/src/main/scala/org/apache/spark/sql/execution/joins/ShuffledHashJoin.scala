@@ -25,28 +25,28 @@ import org.apache.spark.sql.catalyst.plans.physical.{ClusteredDistribution, Part
 import org.apache.spark.sql.execution.{BinaryNode, SparkPlan}
 
 /**
- * :: DeveloperApi ::
- * Performs an inner hash join of two child relations by first shuffling the data using the join
- * keys.
- */
+  * :: DeveloperApi ::
+  * Performs an inner hash join of two child relations by first shuffling the data using the join
+  * keys.
+  */
 @DeveloperApi
 case class ShuffledHashJoin(
-    leftKeys: Seq[Expression],
-    rightKeys: Seq[Expression],
-    buildSide: BuildSide,
-    left: SparkPlan,
-    right: SparkPlan)
-  extends BinaryNode with HashJoin {
+                                   leftKeys: Seq[Expression],
+                                   rightKeys: Seq[Expression],
+                                   buildSide: BuildSide,
+                                   left: SparkPlan,
+                                   right: SparkPlan)
+        extends BinaryNode with HashJoin {
 
-  override def outputPartitioning: Partitioning = left.outputPartitioning
+    override def outputPartitioning: Partitioning = left.outputPartitioning
 
-  override def requiredChildDistribution: Seq[ClusteredDistribution] =
-    ClusteredDistribution(leftKeys) :: ClusteredDistribution(rightKeys) :: Nil
+    override def requiredChildDistribution: Seq[ClusteredDistribution] =
+        ClusteredDistribution(leftKeys) :: ClusteredDistribution(rightKeys) :: Nil
 
-  override def execute(): RDD[Row] = {
-    buildPlan.execute().zipPartitions(streamedPlan.execute()) { (buildIter, streamIter) =>
-      val hashed = HashedRelation(buildIter, buildSideKeyGenerator)
-      hashJoin(streamIter, hashed)
+    override def execute(): RDD[Row] = {
+        buildPlan.execute().zipPartitions(streamedPlan.execute()) { (buildIter, streamIter) =>
+            val hashed = HashedRelation(buildIter, buildSideKeyGenerator)
+            hashJoin(streamIter, hashed)
+        }
     }
-  }
 }

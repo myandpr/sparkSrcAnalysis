@@ -22,34 +22,34 @@ import java.nio.channels.WritableByteChannel;
 
 public class ByteArrayWritableChannel implements WritableByteChannel {
 
-  private final byte[] data;
-  private int offset;
+    private final byte[] data;
+    private int offset;
 
-  public ByteArrayWritableChannel(int size) {
-    this.data = new byte[size];
-    this.offset = 0;
-  }
+    public ByteArrayWritableChannel(int size) {
+        this.data = new byte[size];
+        this.offset = 0;
+    }
 
-  public byte[] getData() {
-    return data;
-  }
+    public byte[] getData() {
+        return data;
+    }
 
-  @Override
-  public int write(ByteBuffer src) {
-    int available = src.remaining();
-    src.get(data, offset, available);
-    offset += available;
-    return available;
-  }
+    @Override
+    public int write(ByteBuffer src) {
+        int available = src.remaining();
+        src.get(data, offset, available);
+        offset += available;
+        return available;
+    }
 
-  @Override
-  public void close() {
+    @Override
+    public void close() {
 
-  }
+    }
 
-  @Override
-  public boolean isOpen() {
-    return true;
-  }
+    @Override
+    public boolean isOpen() {
+        return true;
+    }
 
 }

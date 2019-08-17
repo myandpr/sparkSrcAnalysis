@@ -22,59 +22,65 @@ import org.apache.spark.sql.catalyst.rules
 import org.apache.spark.sql.catalyst.util
 
 /**
- * A collection of generators that build custom bytecode at runtime for performing the evaluation
- * of catalyst expression.
- */
+  * A collection of generators that build custom bytecode at runtime for performing the evaluation
+  * of catalyst expression.
+  */
 package object codegen {
 
-  /**
-   * A lock to protect invoking the scala compiler at runtime, since it is not thread safe in Scala
-   * 2.10.
-   */
-  protected[codegen] val globalLock = org.apache.spark.sql.catalyst.ScalaReflectionLock
+    /**
+      * A lock to protect invoking the scala compiler at runtime, since it is not thread safe in Scala
+      * 2.10.
+      */
+    protected[codegen] val globalLock = org.apache.spark.sql.catalyst.ScalaReflectionLock
 
-  /** Canonicalizes an expression so those that differ only by names can reuse the same code. */
-  object ExpressionCanonicalizer extends rules.RuleExecutor[Expression] {
-    val batches =
-      Batch("CleanExpressions", FixedPoint(20), CleanExpressions) :: Nil
+    /** Canonicalizes an expression so those that differ only by names can reuse the same code. */
+    object ExpressionCanonicalizer extends rules.RuleExecutor[Expression] {
+        val batches =
+            Batch("CleanExpressions", FixedPoint(20), CleanExpressions) :: Nil
 
-    object CleanExpressions extends rules.Rule[Expression] {
-      def apply(e: Expression): Expression = e transform {
-        case Alias(c, _) => c
-      }
+        object CleanExpressions extends rules.Rule[Expression] {
+            def apply(e: Expression): Expression = e transform {
+                case Alias(c, _) => c
+            }
+        }
+
     }
-  }
 
-  /**
-   * :: DeveloperApi ::
-   * Dumps the bytecode from a class to the screen using javap.
-   */
-  @DeveloperApi
-  object DumpByteCode {
-    import scala.sys.process._
-    val dumpDirectory = util.getTempFilePath("sparkSqlByteCode")
-    dumpDirectory.mkdir()
+    /**
+      * :: DeveloperApi ::
+      * Dumps the bytecode from a class to the screen using javap.
+      */
+    @DeveloperApi
+    object DumpByteCode {
 
-    def apply(obj: Any): Unit = {
-      val generatedClass = obj.getClass
-      val classLoader =
-        generatedClass
-          .getClassLoader
-          .asInstanceOf[scala.tools.nsc.interpreter.AbstractFileClassLoader]
-      val generatedBytes = classLoader.classBytes(generatedClass.getName)
+        import scala.sys.process._
 
-      val packageDir = new java.io.File(dumpDirectory, generatedClass.getPackage.getName)
-      if (!packageDir.exists()) { packageDir.mkdir() }
+        val dumpDirectory = util.getTempFilePath("sparkSqlByteCode")
+        dumpDirectory.mkdir()
 
-      val classFile =
-        new java.io.File(packageDir, generatedClass.getName.split("\\.").last + ".class")
+        def apply(obj: Any): Unit = {
+            val generatedClass = obj.getClass
+            val classLoader =
+                generatedClass
+                        .getClassLoader
+                        .asInstanceOf[scala.tools.nsc.interpreter.AbstractFileClassLoader]
+            val generatedBytes = classLoader.classBytes(generatedClass.getName)
 
-      val outfile = new java.io.FileOutputStream(classFile)
-      outfile.write(generatedBytes)
-      outfile.close()
+            val packageDir = new java.io.File(dumpDirectory, generatedClass.getPackage.getName)
+            if (!packageDir.exists()) {
+                packageDir.mkdir()
+            }
 
-      println(
-        s"javap -p -v -classpath ${dumpDirectory.getCanonicalPath} ${generatedClass.getName}".!!)
+            val classFile =
+                new java.io.File(packageDir, generatedClass.getName.split("\\.").last + ".class")
+
+            val outfile = new java.io.FileOutputStream(classFile)
+            outfile.write(generatedBytes)
+            outfile.close()
+
+            println(
+                s"javap -p -v -classpath ${dumpDirectory.getCanonicalPath} ${generatedClass.getName}".!!)
+        }
     }
-  }
+
 }

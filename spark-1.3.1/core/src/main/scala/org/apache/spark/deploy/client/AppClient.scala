@@ -33,174 +33,174 @@ import org.apache.spark.deploy.master.Master
 import org.apache.spark.util.{ActorLogReceive, Utils, AkkaUtils}
 
 /**
- * Interface allowing applications to speak with a Spark deploy cluster. Takes a master URL,
- * an app description, and a listener for cluster events, and calls back the listener when various
- * events occur.
- *
- * @param masterUrls Each url should look like spark://host:port.
- */
+  * Interface allowing applications to speak with a Spark deploy cluster. Takes a master URL,
+  * an app description, and a listener for cluster events, and calls back the listener when various
+  * events occur.
+  *
+  * @param masterUrls Each url should look like spark://host:port.
+  */
 private[spark] class AppClient(
-    actorSystem: ActorSystem,
-    masterUrls: Array[String],
-    appDescription: ApplicationDescription,
-    listener: AppClientListener,
-    conf: SparkConf)
-  extends Logging {
+                                      actorSystem: ActorSystem,
+                                      masterUrls: Array[String],
+                                      appDescription: ApplicationDescription,
+                                      listener: AppClientListener,
+                                      conf: SparkConf)
+        extends Logging {
 
-  val masterAkkaUrls = masterUrls.map(Master.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
+    val masterAkkaUrls = masterUrls.map(Master.toAkkaUrl(_, AkkaUtils.protocol(actorSystem)))
 
-  val REGISTRATION_TIMEOUT = 20.seconds
-  val REGISTRATION_RETRIES = 3
+    val REGISTRATION_TIMEOUT = 20.seconds
+    val REGISTRATION_RETRIES = 3
 
-  var masterAddress: Address = null
-  var actor: ActorRef = null
-  var appId: String = null
-  var registered = false
-  var activeMasterUrl: String = null
+    var masterAddress: Address = null
+    var actor: ActorRef = null
+    var appId: String = null
+    var registered = false
+    var activeMasterUrl: String = null
 
-  class ClientActor extends Actor with ActorLogReceive with Logging {
-    var master: ActorSelection = null
-    var alreadyDisconnected = false  // To avoid calling listener.disconnected() multiple times
-    var alreadyDead = false  // To avoid calling listener.dead() multiple times
-    var registrationRetryTimer: Option[Cancellable] = None
+    class ClientActor extends Actor with ActorLogReceive with Logging {
+        var master: ActorSelection = null
+        var alreadyDisconnected = false // To avoid calling listener.disconnected() multiple times
+        var alreadyDead = false // To avoid calling listener.dead() multiple times
+        var registrationRetryTimer: Option[Cancellable] = None
 
-    override def preStart() {
-      context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
-      try {
-        registerWithMaster()
-      } catch {
-        case e: Exception =>
-          logWarning("Failed to connect to master", e)
-          markDisconnected()
-          context.stop(self)
-      }
-    }
-
-    def tryRegisterAllMasters() {
-      for (masterAkkaUrl <- masterAkkaUrls) {
-        logInfo("Connecting to master " + masterAkkaUrl + "...")
-        //引用master actor发送注册application信息
-        val actor = context.actorSelection(masterAkkaUrl)
-        actor ! RegisterApplication(appDescription)
-      }
-    }
-
-    def registerWithMaster() {
-      tryRegisterAllMasters()
-      import context.dispatcher
-      var retries = 0
-      registrationRetryTimer = Some {
-        context.system.scheduler.schedule(REGISTRATION_TIMEOUT, REGISTRATION_TIMEOUT) {
-          Utils.tryOrExit {
-            retries += 1
-            if (registered) {
-              registrationRetryTimer.foreach(_.cancel())
-            } else if (retries >= REGISTRATION_RETRIES) {
-              markDead("All masters are unresponsive! Giving up.")
-            } else {
-              tryRegisterAllMasters()
+        override def preStart() {
+            context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
+            try {
+                registerWithMaster()
+            } catch {
+                case e: Exception =>
+                    logWarning("Failed to connect to master", e)
+                    markDisconnected()
+                    context.stop(self)
             }
-          }
-        }
-      }
-    }
-
-    def changeMaster(url: String) {
-      // activeMasterUrl is a valid Spark url since we receive it from master.
-      activeMasterUrl = url
-      master = context.actorSelection(
-        Master.toAkkaUrl(activeMasterUrl, AkkaUtils.protocol(actorSystem)))
-      masterAddress = Master.toAkkaAddress(activeMasterUrl, AkkaUtils.protocol(actorSystem))
-    }
-
-    private def isPossibleMaster(remoteUrl: Address) = {
-      masterAkkaUrls.map(AddressFromURIString(_).hostPort).contains(remoteUrl.hostPort)
-    }
-
-    override def receiveWithLogging = {
-      case RegisteredApplication(appId_, masterUrl) =>
-        appId = appId_
-        registered = true
-        changeMaster(masterUrl)
-        listener.connected(appId)
-
-      case ApplicationRemoved(message) =>
-        markDead("Master removed our application: %s".format(message))
-        context.stop(self)
-
-      case ExecutorAdded(id: Int, workerId: String, hostPort: String, cores: Int, memory: Int) =>
-        val fullId = appId + "/" + id
-        logInfo("Executor added: %s on %s (%s) with %d cores".format(fullId, workerId, hostPort,
-          cores))
-        master ! ExecutorStateChanged(appId, id, ExecutorState.RUNNING, None, None)
-        listener.executorAdded(fullId, workerId, hostPort, cores, memory)
-
-      case ExecutorUpdated(id, state, message, exitStatus) =>
-        val fullId = appId + "/" + id
-        val messageText = message.map(s => " (" + s + ")").getOrElse("")
-        logInfo("Executor updated: %s is now %s%s".format(fullId, state, messageText))
-        if (ExecutorState.isFinished(state)) {
-          listener.executorRemoved(fullId, message.getOrElse(""), exitStatus)
         }
 
-      case MasterChanged(masterUrl, masterWebUiUrl) =>
-        logInfo("Master has changed, new master is at " + masterUrl)
-        changeMaster(masterUrl)
-        alreadyDisconnected = false
-        sender ! MasterChangeAcknowledged(appId)
+        def tryRegisterAllMasters() {
+            for (masterAkkaUrl <- masterAkkaUrls) {
+                logInfo("Connecting to master " + masterAkkaUrl + "...")
+                //引用master actor发送注册application信息
+                val actor = context.actorSelection(masterAkkaUrl)
+                actor ! RegisterApplication(appDescription)
+            }
+        }
 
-      case DisassociatedEvent(_, address, _) if address == masterAddress =>
-        logWarning(s"Connection to $address failed; waiting for master to reconnect...")
-        markDisconnected()
+        def registerWithMaster() {
+            tryRegisterAllMasters()
+            import context.dispatcher
+            var retries = 0
+            registrationRetryTimer = Some {
+                context.system.scheduler.schedule(REGISTRATION_TIMEOUT, REGISTRATION_TIMEOUT) {
+                    Utils.tryOrExit {
+                        retries += 1
+                        if (registered) {
+                            registrationRetryTimer.foreach(_.cancel())
+                        } else if (retries >= REGISTRATION_RETRIES) {
+                            markDead("All masters are unresponsive! Giving up.")
+                        } else {
+                            tryRegisterAllMasters()
+                        }
+                    }
+                }
+            }
+        }
 
-      case AssociationErrorEvent(cause, _, address, _, _) if isPossibleMaster(address) =>
-        logWarning(s"Could not connect to $address: $cause")
+        def changeMaster(url: String) {
+            // activeMasterUrl is a valid Spark url since we receive it from master.
+            activeMasterUrl = url
+            master = context.actorSelection(
+                Master.toAkkaUrl(activeMasterUrl, AkkaUtils.protocol(actorSystem)))
+            masterAddress = Master.toAkkaAddress(activeMasterUrl, AkkaUtils.protocol(actorSystem))
+        }
 
-      case StopAppClient =>
-        markDead("Application has been stopped.")
-        sender ! true
-        context.stop(self)
+        private def isPossibleMaster(remoteUrl: Address) = {
+            masterAkkaUrls.map(AddressFromURIString(_).hostPort).contains(remoteUrl.hostPort)
+        }
+
+        override def receiveWithLogging = {
+            case RegisteredApplication(appId_, masterUrl) =>
+                appId = appId_
+                registered = true
+                changeMaster(masterUrl)
+                listener.connected(appId)
+
+            case ApplicationRemoved(message) =>
+                markDead("Master removed our application: %s".format(message))
+                context.stop(self)
+
+            case ExecutorAdded(id: Int, workerId: String, hostPort: String, cores: Int, memory: Int) =>
+                val fullId = appId + "/" + id
+                logInfo("Executor added: %s on %s (%s) with %d cores".format(fullId, workerId, hostPort,
+                    cores))
+                master ! ExecutorStateChanged(appId, id, ExecutorState.RUNNING, None, None)
+                listener.executorAdded(fullId, workerId, hostPort, cores, memory)
+
+            case ExecutorUpdated(id, state, message, exitStatus) =>
+                val fullId = appId + "/" + id
+                val messageText = message.map(s => " (" + s + ")").getOrElse("")
+                logInfo("Executor updated: %s is now %s%s".format(fullId, state, messageText))
+                if (ExecutorState.isFinished(state)) {
+                    listener.executorRemoved(fullId, message.getOrElse(""), exitStatus)
+                }
+
+            case MasterChanged(masterUrl, masterWebUiUrl) =>
+                logInfo("Master has changed, new master is at " + masterUrl)
+                changeMaster(masterUrl)
+                alreadyDisconnected = false
+                sender ! MasterChangeAcknowledged(appId)
+
+            case DisassociatedEvent(_, address, _) if address == masterAddress =>
+                logWarning(s"Connection to $address failed; waiting for master to reconnect...")
+                markDisconnected()
+
+            case AssociationErrorEvent(cause, _, address, _, _) if isPossibleMaster(address) =>
+                logWarning(s"Could not connect to $address: $cause")
+
+            case StopAppClient =>
+                markDead("Application has been stopped.")
+                sender ! true
+                context.stop(self)
+        }
+
+        /**
+          * Notify the listener that we disconnected, if we hadn't already done so before.
+          */
+        def markDisconnected() {
+            if (!alreadyDisconnected) {
+                listener.disconnected()
+                alreadyDisconnected = true
+            }
+        }
+
+        def markDead(reason: String) {
+            if (!alreadyDead) {
+                listener.dead(reason)
+                alreadyDead = true
+            }
+        }
+
+        override def postStop() {
+            registrationRetryTimer.foreach(_.cancel())
+        }
+
     }
 
-    /**
-     * Notify the listener that we disconnected, if we hadn't already done so before.
-     */
-    def markDisconnected() {
-      if (!alreadyDisconnected) {
-        listener.disconnected()
-        alreadyDisconnected = true
-      }
+    def start() {
+        // Just launch an actor; it will call back into the listener.
+        actor = actorSystem.actorOf(Props(new ClientActor))
     }
 
-    def markDead(reason: String) {
-      if (!alreadyDead) {
-        listener.dead(reason)
-        alreadyDead = true
-      }
+    def stop() {
+        if (actor != null) {
+            try {
+                val timeout = AkkaUtils.askTimeout(conf)
+                val future = actor.ask(StopAppClient)(timeout)
+                Await.result(future, timeout)
+            } catch {
+                case e: TimeoutException =>
+                    logInfo("Stop request to Master timed out; it may already be shut down.")
+            }
+            actor = null
+        }
     }
-
-    override def postStop() {
-      registrationRetryTimer.foreach(_.cancel())
-    }
-
-  }
-
-  def start() {
-    // Just launch an actor; it will call back into the listener.
-    actor = actorSystem.actorOf(Props(new ClientActor))
-  }
-
-  def stop() {
-    if (actor != null) {
-      try {
-        val timeout = AkkaUtils.askTimeout(conf)
-        val future = actor.ask(StopAppClient)(timeout)
-        Await.result(future, timeout)
-      } catch {
-        case e: TimeoutException =>
-          logInfo("Stop request to Master timed out; it may already be shut down.")
-      }
-      actor = null
-    }
-  }
 }

@@ -31,44 +31,44 @@ import org.apache.spark.network.util.TransportConf;
  * server should be setup with a {@link SaslRpcHandler} with matching keys for the given appId.
  */
 public class SaslClientBootstrap implements TransportClientBootstrap {
-  private final Logger logger = LoggerFactory.getLogger(SaslClientBootstrap.class);
+    private final Logger logger = LoggerFactory.getLogger(SaslClientBootstrap.class);
 
-  private final TransportConf conf;
-  private final String appId;
-  private final SecretKeyHolder secretKeyHolder;
+    private final TransportConf conf;
+    private final String appId;
+    private final SecretKeyHolder secretKeyHolder;
 
-  public SaslClientBootstrap(TransportConf conf, String appId, SecretKeyHolder secretKeyHolder) {
-    this.conf = conf;
-    this.appId = appId;
-    this.secretKeyHolder = secretKeyHolder;
-  }
-
-  /**
-   * Performs SASL authentication by sending a token, and then proceeding with the SASL
-   * challenge-response tokens until we either successfully authenticate or throw an exception
-   * due to mismatch.
-   */
-  @Override
-  public void doBootstrap(TransportClient client) {
-    SparkSaslClient saslClient = new SparkSaslClient(appId, secretKeyHolder);
-    try {
-      byte[] payload = saslClient.firstToken();
-
-      while (!saslClient.isComplete()) {
-        SaslMessage msg = new SaslMessage(appId, payload);
-        ByteBuf buf = Unpooled.buffer(msg.encodedLength());
-        msg.encode(buf);
-
-        byte[] response = client.sendRpcSync(buf.array(), conf.saslRTTimeoutMs());
-        payload = saslClient.response(response);
-      }
-    } finally {
-      try {
-        // Once authentication is complete, the server will trust all remaining communication.
-        saslClient.dispose();
-      } catch (RuntimeException e) {
-        logger.error("Error while disposing SASL client", e);
-      }
+    public SaslClientBootstrap(TransportConf conf, String appId, SecretKeyHolder secretKeyHolder) {
+        this.conf = conf;
+        this.appId = appId;
+        this.secretKeyHolder = secretKeyHolder;
     }
-  }
+
+    /**
+     * Performs SASL authentication by sending a token, and then proceeding with the SASL
+     * challenge-response tokens until we either successfully authenticate or throw an exception
+     * due to mismatch.
+     */
+    @Override
+    public void doBootstrap(TransportClient client) {
+        SparkSaslClient saslClient = new SparkSaslClient(appId, secretKeyHolder);
+        try {
+            byte[] payload = saslClient.firstToken();
+
+            while (!saslClient.isComplete()) {
+                SaslMessage msg = new SaslMessage(appId, payload);
+                ByteBuf buf = Unpooled.buffer(msg.encodedLength());
+                msg.encode(buf);
+
+                byte[] response = client.sendRpcSync(buf.array(), conf.saslRTTimeoutMs());
+                payload = saslClient.response(response);
+            }
+        } finally {
+            try {
+                // Once authentication is complete, the server will trust all remaining communication.
+                saslClient.dispose();
+            } catch (RuntimeException e) {
+                logger.error("Error while disposing SASL client", e);
+            }
+        }
+    }
 }

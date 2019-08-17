@@ -25,63 +25,64 @@ import org.apache.spark.sql.catalyst.expressions.GenericMutableRow
 import org.apache.spark.sql.types.DataType
 
 class TestNullableColumnAccessor[T <: DataType, JvmType](
-    buffer: ByteBuffer,
-    columnType: ColumnType[T, JvmType])
-  extends BasicColumnAccessor(buffer, columnType)
-  with NullableColumnAccessor
+                                                                buffer: ByteBuffer,
+                                                                columnType: ColumnType[T, JvmType])
+        extends BasicColumnAccessor(buffer, columnType)
+                with NullableColumnAccessor
 
 object TestNullableColumnAccessor {
-  def apply[T <: DataType, JvmType](buffer: ByteBuffer, columnType: ColumnType[T, JvmType]) = {
-    // Skips the column type ID
-    buffer.getInt()
-    new TestNullableColumnAccessor(buffer, columnType)
-  }
+    def apply[T <: DataType, JvmType](buffer: ByteBuffer, columnType: ColumnType[T, JvmType]) = {
+        // Skips the column type ID
+        buffer.getInt()
+        new TestNullableColumnAccessor(buffer, columnType)
+    }
 }
 
 class NullableColumnAccessorSuite extends FunSuite {
-  import ColumnarTestUtils._
 
-  Seq(
-    INT, LONG, SHORT, BOOLEAN, BYTE, STRING, DOUBLE, FLOAT, BINARY, GENERIC, DATE, TIMESTAMP
-  ).foreach {
-    testNullableColumnAccessor(_)
-  }
+    import ColumnarTestUtils._
 
-  def testNullableColumnAccessor[T <: DataType, JvmType](
-      columnType: ColumnType[T, JvmType]): Unit = {
-
-    val typeName = columnType.getClass.getSimpleName.stripSuffix("$")
-    val nullRow = makeNullRow(1)
-
-    test(s"Nullable $typeName column accessor: empty column") {
-      val builder = TestNullableColumnBuilder(columnType)
-      val accessor = TestNullableColumnAccessor(builder.build(), columnType)
-      assert(!accessor.hasNext)
+    Seq(
+        INT, LONG, SHORT, BOOLEAN, BYTE, STRING, DOUBLE, FLOAT, BINARY, GENERIC, DATE, TIMESTAMP
+    ).foreach {
+        testNullableColumnAccessor(_)
     }
 
-    test(s"Nullable $typeName column accessor: access null values") {
-      val builder = TestNullableColumnBuilder(columnType)
-      val randomRow = makeRandomRow(columnType)
+    def testNullableColumnAccessor[T <: DataType, JvmType](
+                                                                  columnType: ColumnType[T, JvmType]): Unit = {
 
-      (0 until 4).foreach { _ =>
-        builder.appendFrom(randomRow, 0)
-        builder.appendFrom(nullRow, 0)
-      }
+        val typeName = columnType.getClass.getSimpleName.stripSuffix("$")
+        val nullRow = makeNullRow(1)
 
-      val accessor = TestNullableColumnAccessor(builder.build(), columnType)
-      val row = new GenericMutableRow(1)
+        test(s"Nullable $typeName column accessor: empty column") {
+            val builder = TestNullableColumnBuilder(columnType)
+            val accessor = TestNullableColumnAccessor(builder.build(), columnType)
+            assert(!accessor.hasNext)
+        }
 
-      (0 until 4).foreach { _ =>
-        assert(accessor.hasNext)
-        accessor.extractTo(row, 0)
-        assert(row(0) === randomRow(0))
+        test(s"Nullable $typeName column accessor: access null values") {
+            val builder = TestNullableColumnBuilder(columnType)
+            val randomRow = makeRandomRow(columnType)
 
-        assert(accessor.hasNext)
-        accessor.extractTo(row, 0)
-        assert(row.isNullAt(0))
-      }
+            (0 until 4).foreach { _ =>
+                builder.appendFrom(randomRow, 0)
+                builder.appendFrom(nullRow, 0)
+            }
 
-      assert(!accessor.hasNext)
+            val accessor = TestNullableColumnAccessor(builder.build(), columnType)
+            val row = new GenericMutableRow(1)
+
+            (0 until 4).foreach { _ =>
+                assert(accessor.hasNext)
+                accessor.extractTo(row, 0)
+                assert(row(0) === randomRow(0))
+
+                assert(accessor.hasNext)
+                accessor.extractTo(row, 0)
+                assert(row.isNullAt(0))
+            }
+
+            assert(!accessor.hasNext)
+        }
     }
-  }
 }

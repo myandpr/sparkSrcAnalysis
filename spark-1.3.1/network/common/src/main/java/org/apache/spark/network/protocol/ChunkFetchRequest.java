@@ -25,42 +25,44 @@ import io.netty.buffer.ByteBuf;
  * {@link org.apache.spark.network.protocol.ResponseMessage} (either success or failure).
  */
 public final class ChunkFetchRequest implements RequestMessage {
-  public final StreamChunkId streamChunkId;
+    public final StreamChunkId streamChunkId;
 
-  public ChunkFetchRequest(StreamChunkId streamChunkId) {
-    this.streamChunkId = streamChunkId;
-  }
-
-  @Override
-  public Type type() { return Type.ChunkFetchRequest; }
-
-  @Override
-  public int encodedLength() {
-    return streamChunkId.encodedLength();
-  }
-
-  @Override
-  public void encode(ByteBuf buf) {
-    streamChunkId.encode(buf);
-  }
-
-  public static ChunkFetchRequest decode(ByteBuf buf) {
-    return new ChunkFetchRequest(StreamChunkId.decode(buf));
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    if (other instanceof ChunkFetchRequest) {
-      ChunkFetchRequest o = (ChunkFetchRequest) other;
-      return streamChunkId.equals(o.streamChunkId);
+    public ChunkFetchRequest(StreamChunkId streamChunkId) {
+        this.streamChunkId = streamChunkId;
     }
-    return false;
-  }
 
-  @Override
-  public String toString() {
-    return Objects.toStringHelper(this)
-      .add("streamChunkId", streamChunkId)
-      .toString();
-  }
+    @Override
+    public Type type() {
+        return Type.ChunkFetchRequest;
+    }
+
+    @Override
+    public int encodedLength() {
+        return streamChunkId.encodedLength();
+    }
+
+    @Override
+    public void encode(ByteBuf buf) {
+        streamChunkId.encode(buf);
+    }
+
+    public static ChunkFetchRequest decode(ByteBuf buf) {
+        return new ChunkFetchRequest(StreamChunkId.decode(buf));
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof ChunkFetchRequest) {
+            ChunkFetchRequest o = (ChunkFetchRequest) other;
+            return streamChunkId.equals(o.streamChunkId);
+        }
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this)
+                .add("streamChunkId", streamChunkId)
+                .toString();
+    }
 }

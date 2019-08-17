@@ -43,105 +43,105 @@ import org.apache.spark.sql.types.StructType;
 import org.apache.spark.util.Utils;
 
 public class JavaMetastoreDataSourcesSuite {
-  private transient JavaSparkContext sc;
-  private transient HiveContext sqlContext;
+    private transient JavaSparkContext sc;
+    private transient HiveContext sqlContext;
 
-  String originalDefaultSource;
-  File path;
-  Path hiveManagedPath;
-  FileSystem fs;
-  DataFrame df;
+    String originalDefaultSource;
+    File path;
+    Path hiveManagedPath;
+    FileSystem fs;
+    DataFrame df;
 
-  private void checkAnswer(DataFrame actual, List<Row> expected) {
-    String errorMessage = QueryTest$.MODULE$.checkAnswer(actual, expected);
-    if (errorMessage != null) {
-      Assert.fail(errorMessage);
-    }
-  }
-
-  @Before
-  public void setUp() throws IOException {
-    sqlContext = TestHive$.MODULE$;
-    sc = new JavaSparkContext(sqlContext.sparkContext());
-
-    originalDefaultSource = sqlContext.conf().defaultDataSourceName();
-    path =
-      Utils.createTempDir(System.getProperty("java.io.tmpdir"), "datasource").getCanonicalFile();
-    if (path.exists()) {
-      path.delete();
-    }
-    hiveManagedPath = new Path(sqlContext.catalog().hiveDefaultTableFilePath("javaSavedTable"));
-    fs = hiveManagedPath.getFileSystem(sc.hadoopConfiguration());
-    if (fs.exists(hiveManagedPath)){
-      fs.delete(hiveManagedPath, true);
+    private void checkAnswer(DataFrame actual, List<Row> expected) {
+        String errorMessage = QueryTest$.MODULE$.checkAnswer(actual, expected);
+        if (errorMessage != null) {
+            Assert.fail(errorMessage);
+        }
     }
 
-    List<String> jsonObjects = new ArrayList<String>(10);
-    for (int i = 0; i < 10; i++) {
-      jsonObjects.add("{\"a\":" + i + ", \"b\":\"str" + i + "\"}");
+    @Before
+    public void setUp() throws IOException {
+        sqlContext = TestHive$.MODULE$;
+        sc = new JavaSparkContext(sqlContext.sparkContext());
+
+        originalDefaultSource = sqlContext.conf().defaultDataSourceName();
+        path =
+                Utils.createTempDir(System.getProperty("java.io.tmpdir"), "datasource").getCanonicalFile();
+        if (path.exists()) {
+            path.delete();
+        }
+        hiveManagedPath = new Path(sqlContext.catalog().hiveDefaultTableFilePath("javaSavedTable"));
+        fs = hiveManagedPath.getFileSystem(sc.hadoopConfiguration());
+        if (fs.exists(hiveManagedPath)) {
+            fs.delete(hiveManagedPath, true);
+        }
+
+        List<String> jsonObjects = new ArrayList<String>(10);
+        for (int i = 0; i < 10; i++) {
+            jsonObjects.add("{\"a\":" + i + ", \"b\":\"str" + i + "\"}");
+        }
+        JavaRDD<String> rdd = sc.parallelize(jsonObjects);
+        df = sqlContext.jsonRDD(rdd);
+        df.registerTempTable("jsonTable");
     }
-    JavaRDD<String> rdd = sc.parallelize(jsonObjects);
-    df = sqlContext.jsonRDD(rdd);
-    df.registerTempTable("jsonTable");
-  }
 
-  @After
-  public void tearDown() throws IOException {
-    // Clean up tables.
-    sqlContext.sql("DROP TABLE IF EXISTS javaSavedTable");
-    sqlContext.sql("DROP TABLE IF EXISTS externalTable");
-  }
+    @After
+    public void tearDown() throws IOException {
+        // Clean up tables.
+        sqlContext.sql("DROP TABLE IF EXISTS javaSavedTable");
+        sqlContext.sql("DROP TABLE IF EXISTS externalTable");
+    }
 
-  @Test
-  public void saveExternalTableAndQueryIt() {
-    Map<String, String> options = new HashMap<String, String>();
-    options.put("path", path.toString());
-    df.saveAsTable("javaSavedTable", "org.apache.spark.sql.json", SaveMode.Append, options);
+    @Test
+    public void saveExternalTableAndQueryIt() {
+        Map<String, String> options = new HashMap<String, String>();
+        options.put("path", path.toString());
+        df.saveAsTable("javaSavedTable", "org.apache.spark.sql.json", SaveMode.Append, options);
 
-    checkAnswer(
-      sqlContext.sql("SELECT * FROM javaSavedTable"),
-      df.collectAsList());
+        checkAnswer(
+                sqlContext.sql("SELECT * FROM javaSavedTable"),
+                df.collectAsList());
 
-    DataFrame loadedDF =
-      sqlContext.createExternalTable("externalTable", "org.apache.spark.sql.json", options);
+        DataFrame loadedDF =
+                sqlContext.createExternalTable("externalTable", "org.apache.spark.sql.json", options);
 
-    checkAnswer(loadedDF, df.collectAsList());
-    checkAnswer(
-      sqlContext.sql("SELECT * FROM externalTable"),
-      df.collectAsList());
-  }
+        checkAnswer(loadedDF, df.collectAsList());
+        checkAnswer(
+                sqlContext.sql("SELECT * FROM externalTable"),
+                df.collectAsList());
+    }
 
-  @Test
-  public void saveExternalTableWithSchemaAndQueryIt() {
-    Map<String, String> options = new HashMap<String, String>();
-    options.put("path", path.toString());
-    df.saveAsTable("javaSavedTable", "org.apache.spark.sql.json", SaveMode.Append, options);
+    @Test
+    public void saveExternalTableWithSchemaAndQueryIt() {
+        Map<String, String> options = new HashMap<String, String>();
+        options.put("path", path.toString());
+        df.saveAsTable("javaSavedTable", "org.apache.spark.sql.json", SaveMode.Append, options);
 
-    checkAnswer(
-      sqlContext.sql("SELECT * FROM javaSavedTable"),
-      df.collectAsList());
+        checkAnswer(
+                sqlContext.sql("SELECT * FROM javaSavedTable"),
+                df.collectAsList());
 
-    List<StructField> fields = new ArrayList<StructField>();
-    fields.add(DataTypes.createStructField("b", DataTypes.StringType, true));
-    StructType schema = DataTypes.createStructType(fields);
-    DataFrame loadedDF =
-      sqlContext.createExternalTable("externalTable", "org.apache.spark.sql.json", schema, options);
+        List<StructField> fields = new ArrayList<StructField>();
+        fields.add(DataTypes.createStructField("b", DataTypes.StringType, true));
+        StructType schema = DataTypes.createStructType(fields);
+        DataFrame loadedDF =
+                sqlContext.createExternalTable("externalTable", "org.apache.spark.sql.json", schema, options);
 
-    checkAnswer(
-      loadedDF,
-      sqlContext.sql("SELECT b FROM javaSavedTable").collectAsList());
-    checkAnswer(
-      sqlContext.sql("SELECT * FROM externalTable"),
-      sqlContext.sql("SELECT b FROM javaSavedTable").collectAsList());
-  }
+        checkAnswer(
+                loadedDF,
+                sqlContext.sql("SELECT b FROM javaSavedTable").collectAsList());
+        checkAnswer(
+                sqlContext.sql("SELECT * FROM externalTable"),
+                sqlContext.sql("SELECT b FROM javaSavedTable").collectAsList());
+    }
 
-  @Test
-  public void saveTableAndQueryIt() {
-    Map<String, String> options = new HashMap<String, String>();
-    df.saveAsTable("javaSavedTable", "org.apache.spark.sql.json", SaveMode.Append, options);
+    @Test
+    public void saveTableAndQueryIt() {
+        Map<String, String> options = new HashMap<String, String>();
+        df.saveAsTable("javaSavedTable", "org.apache.spark.sql.json", SaveMode.Append, options);
 
-    checkAnswer(
-      sqlContext.sql("SELECT * FROM javaSavedTable"),
-      df.collectAsList());
-  }
+        checkAnswer(
+                sqlContext.sql("SELECT * FROM javaSavedTable"),
+                df.collectAsList());
+    }
 }

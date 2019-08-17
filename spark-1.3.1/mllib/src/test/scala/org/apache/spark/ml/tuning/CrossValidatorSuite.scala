@@ -27,30 +27,30 @@ import org.apache.spark.sql.{SQLContext, DataFrame}
 
 class CrossValidatorSuite extends FunSuite with MLlibTestSparkContext {
 
-  @transient var dataset: DataFrame = _
+    @transient var dataset: DataFrame = _
 
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    val sqlContext = new SQLContext(sc)
-    dataset = sqlContext.createDataFrame(
-      sc.parallelize(generateLogisticInput(1.0, 1.0, 100, 42), 2))
-  }
+    override def beforeAll(): Unit = {
+        super.beforeAll()
+        val sqlContext = new SQLContext(sc)
+        dataset = sqlContext.createDataFrame(
+            sc.parallelize(generateLogisticInput(1.0, 1.0, 100, 42), 2))
+    }
 
-  test("cross validation with logistic regression") {
-    val lr = new LogisticRegression
-    val lrParamMaps = new ParamGridBuilder()
-      .addGrid(lr.regParam, Array(0.001, 1000.0))
-      .addGrid(lr.maxIter, Array(0, 10))
-      .build()
-    val eval = new BinaryClassificationEvaluator
-    val cv = new CrossValidator()
-      .setEstimator(lr)
-      .setEstimatorParamMaps(lrParamMaps)
-      .setEvaluator(eval)
-      .setNumFolds(3)
-    val cvModel = cv.fit(dataset)
-    val bestParamMap = cvModel.bestModel.fittingParamMap
-    assert(bestParamMap(lr.regParam) === 0.001)
-    assert(bestParamMap(lr.maxIter) === 10)
-  }
+    test("cross validation with logistic regression") {
+        val lr = new LogisticRegression
+        val lrParamMaps = new ParamGridBuilder()
+                .addGrid(lr.regParam, Array(0.001, 1000.0))
+                .addGrid(lr.maxIter, Array(0, 10))
+                .build()
+        val eval = new BinaryClassificationEvaluator
+        val cv = new CrossValidator()
+                .setEstimator(lr)
+                .setEstimatorParamMaps(lrParamMaps)
+                .setEvaluator(eval)
+                .setNumFolds(3)
+        val cvModel = cv.fit(dataset)
+        val bestParamMap = cvModel.bestModel.fittingParamMap
+        assert(bestParamMap(lr.regParam) === 0.001)
+        assert(bestParamMap(lr.maxIter) === 10)
+    }
 }

@@ -20,16 +20,16 @@ package org.apache.spark.scheduler.cluster.mesos
 import org.apache.spark.SparkContext
 
 private[spark] object MemoryUtils {
-  // These defaults copied from YARN
-  val OVERHEAD_FRACTION = 1.07
-  val OVERHEAD_MINIMUM = 384
+    // These defaults copied from YARN
+    val OVERHEAD_FRACTION = 1.07
+    val OVERHEAD_MINIMUM = 384
 
-  def calculateTotalMemory(sc: SparkContext) = {
-    math.max(
-      sc.conf.getOption("spark.mesos.executor.memoryOverhead")
-        .getOrElse(OVERHEAD_MINIMUM.toString)
-        .toInt + sc.executorMemory,
-        OVERHEAD_FRACTION * sc.executorMemory
-    )
-  }
+    def calculateTotalMemory(sc: SparkContext) = {
+        math.max(
+            sc.conf.getOption("spark.mesos.executor.memoryOverhead")
+                    .getOrElse(OVERHEAD_MINIMUM.toString)
+                    .toInt + sc.executorMemory,
+            OVERHEAD_FRACTION * sc.executorMemory
+        )
+    }
 }

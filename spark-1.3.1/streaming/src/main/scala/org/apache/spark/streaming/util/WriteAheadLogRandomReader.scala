@@ -22,33 +22,33 @@ import java.nio.ByteBuffer
 import org.apache.hadoop.conf.Configuration
 
 /**
- * A random access reader for reading write ahead log files written using
- * [[org.apache.spark.streaming.util.WriteAheadLogWriter]]. Given the file segment info,
- * this reads the record (bytebuffer) from the log file.
- */
+  * A random access reader for reading write ahead log files written using
+  * [[org.apache.spark.streaming.util.WriteAheadLogWriter]]. Given the file segment info,
+  * this reads the record (bytebuffer) from the log file.
+  */
 private[streaming] class WriteAheadLogRandomReader(path: String, conf: Configuration)
-  extends Closeable {
+        extends Closeable {
 
-  private val instream = HdfsUtils.getInputStream(path, conf)
-  private var closed = false
+    private val instream = HdfsUtils.getInputStream(path, conf)
+    private var closed = false
 
-  def read(segment: WriteAheadLogFileSegment): ByteBuffer = synchronized {
-    assertOpen()
-    instream.seek(segment.offset)
-    val nextLength = instream.readInt()
-    HdfsUtils.checkState(nextLength == segment.length,
-      s"Expected message length to be ${segment.length}, but was $nextLength")
-    val buffer = new Array[Byte](nextLength)
-    instream.readFully(buffer)
-    ByteBuffer.wrap(buffer)
-  }
+    def read(segment: WriteAheadLogFileSegment): ByteBuffer = synchronized {
+        assertOpen()
+        instream.seek(segment.offset)
+        val nextLength = instream.readInt()
+        HdfsUtils.checkState(nextLength == segment.length,
+            s"Expected message length to be ${segment.length}, but was $nextLength")
+        val buffer = new Array[Byte](nextLength)
+        instream.readFully(buffer)
+        ByteBuffer.wrap(buffer)
+    }
 
-  override def close(): Unit = synchronized {
-    closed = true
-    instream.close()
-  }
+    override def close(): Unit = synchronized {
+        closed = true
+        instream.close()
+    }
 
-  private def assertOpen() {
-    HdfsUtils.checkState(!closed, "Stream is closed. Create a new Reader to read from the file.")
-  }
+    private def assertOpen() {
+        HdfsUtils.checkState(!closed, "Stream is closed. Create a new Reader to read from the file.")
+    }
 }

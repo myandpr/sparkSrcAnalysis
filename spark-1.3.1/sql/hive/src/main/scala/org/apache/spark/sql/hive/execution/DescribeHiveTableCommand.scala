@@ -29,37 +29,37 @@ import org.apache.spark.sql.hive.HiveShim
 import org.apache.spark.sql.SQLContext
 
 /**
- * Implementation for "describe [extended] table".
- */
+  * Implementation for "describe [extended] table".
+  */
 private[hive]
 case class DescribeHiveTableCommand(
-    table: MetastoreRelation,
-    override val output: Seq[Attribute],
-    isExtended: Boolean) extends RunnableCommand {
+                                           table: MetastoreRelation,
+                                           override val output: Seq[Attribute],
+                                           isExtended: Boolean) extends RunnableCommand {
 
-  override def run(sqlContext: SQLContext): Seq[Row] = {
-    // Trying to mimic the format of Hive's output. But not exactly the same.
-    var results: Seq[(String, String, String)] = Nil
+    override def run(sqlContext: SQLContext): Seq[Row] = {
+        // Trying to mimic the format of Hive's output. But not exactly the same.
+        var results: Seq[(String, String, String)] = Nil
 
-    val columns: Seq[FieldSchema] = table.hiveQlTable.getCols
-    val partitionColumns: Seq[FieldSchema] = table.hiveQlTable.getPartCols
-    results ++= columns.map(field => (field.getName, field.getType, field.getComment))
-    if (partitionColumns.nonEmpty) {
-      val partColumnInfo =
-        partitionColumns.map(field => (field.getName, field.getType, field.getComment))
-      results ++=
-        partColumnInfo ++
-          Seq(("# Partition Information", "", "")) ++
-          Seq((s"# ${output.get(0).name}", output.get(1).name, output.get(2).name)) ++
-          partColumnInfo
+        val columns: Seq[FieldSchema] = table.hiveQlTable.getCols
+        val partitionColumns: Seq[FieldSchema] = table.hiveQlTable.getPartCols
+        results ++= columns.map(field => (field.getName, field.getType, field.getComment))
+        if (partitionColumns.nonEmpty) {
+            val partColumnInfo =
+                partitionColumns.map(field => (field.getName, field.getType, field.getComment))
+            results ++=
+                    partColumnInfo ++
+                            Seq(("# Partition Information", "", "")) ++
+                            Seq((s"# ${output.get(0).name}", output.get(1).name, output.get(2).name)) ++
+                            partColumnInfo
+        }
+
+        if (isExtended) {
+            results ++= Seq(("Detailed Table Information", table.hiveQlTable.getTTable.toString, ""))
+        }
+
+        results.map { case (name, dataType, comment) =>
+            Row(name, dataType, comment)
+        }
     }
-
-    if (isExtended) {
-      results ++= Seq(("Detailed Table Information", table.hiveQlTable.getTTable.toString, ""))
-    }
-
-    results.map { case (name, dataType, comment) =>
-      Row(name, dataType, comment)
-    }
-  }
 }
