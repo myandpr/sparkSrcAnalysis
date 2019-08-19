@@ -39,6 +39,10 @@ import org.apache.spark.util.{ActorLogReceive, Utils, AkkaUtils}
   *
   * @param masterUrls Each url should look like spark://host:port.
   */
+/*
+*
+* 所谓“注册”，就是同步一些元数据结构，保持集群的一致性，一般没有什么线程启动之类的额外操作
+* */
 private[spark] class AppClient(
                                       actorSystem: ActorSystem,
                                       masterUrls: Array[String],

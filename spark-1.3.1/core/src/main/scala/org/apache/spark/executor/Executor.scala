@@ -236,6 +236,10 @@ private[spark] class Executor(
                 val resultSize = serializedDirectResult.limit
 
                 // directSend = sending directly back to the driver
+                /*
+                *
+                * 这部分才是把计算结果发送的Driver的过程，到了driver后，由Driver聚合结果
+                * */
                 val serializedResult = {
                     if (maxResultSize > 0 && resultSize > maxResultSize) {
                         logWarning(s"Finished $taskName (TID $taskId). Result is larger than maxResultSize " +
@@ -255,6 +259,13 @@ private[spark] class Executor(
                     }
                 }
 
+                /*
+                *
+                * 这句话，就是将resultTask计算结果serializeResult发送给Driver的过程
+                * execBackend.statusUpdate->
+                * CoarseGrainedExecutorBackend.statusUpdate->
+                * driver ! StatusUpdate(executorId, taskId, state, data)
+                * */
                 execBackend.statusUpdate(taskId, TaskState.FINISHED, serializedResult)
 
             } catch {
