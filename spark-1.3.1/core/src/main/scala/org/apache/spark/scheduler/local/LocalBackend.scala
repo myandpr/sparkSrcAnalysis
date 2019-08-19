@@ -58,6 +58,10 @@ private[spark] class LocalActor(
     private val executor = new Executor(
         localExecutorId, localExecutorHostname, SparkEnv.get, isLocal = true)
 
+    /*
+    *
+    * localActor（也就是schedulerBackend的actor，对消息处理主要有两种：1、ReviveOffers，启动task；2、KillTask，杀死task
+    * */
     override def receiveWithLogging = {
         case ReviveOffers =>
             reviveOffers()
@@ -76,6 +80,10 @@ private[spark] class LocalActor(
             executor.stop()
     }
 
+    /*
+    *
+    * reviveOffers就是将task在executor上启动
+    * */
     def reviveOffers() {
         val offers = Seq(new WorkerOffer(localExecutorId, localExecutorHostname, freeCores))
         val tasks = scheduler.resourceOffers(offers).flatten
@@ -102,6 +110,10 @@ private[spark] class LocalBackend(scheduler: TaskSchedulerImpl, val totalCores: 
     private val appId = "local-" + System.currentTimeMillis
     var localActor: ActorRef = null
 
+    /*
+    *
+    * 所谓的backend.start()就是启动了一个backend的actor
+    * */
     override def start() {
         localActor = SparkEnv.get.actorSystem.actorOf(
             Props(new LocalActor(scheduler, this, totalCores)),

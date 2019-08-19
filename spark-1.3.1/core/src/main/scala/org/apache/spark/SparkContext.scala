@@ -513,7 +513,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
 
 
     /*
-    * 拿到该SparkContext中启动的SparkEnv中的actorSystem，启动actor
+    * 拿到该SparkContext中启动的SparkEnv中的actorSystem，启动心跳检测actor
     * */
     private val heartbeatReceiver = env.actorSystem.actorOf(
         Props(new HeartbeatReceiver(taskScheduler)), "HeartbeatReceiver")
@@ -549,6 +549,14 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     * 9、启动TaskScheduler
     * 因为DAGScheduler创建需要TaskScheduler，所以先启动TaskScheduler
     * 首先启动backend.start()
+    *
+    * TaskScheduler.start()->
+    * backend.start() + 开启推测任务执行->
+    * 启动backend的actor，SparkEnv.get.actorSystem.actorOf->
+    * 接受ReviveOffers信息调用reviveOffers函数->
+    * executor.launchTask()->
+    * tr = TaskRunner(taskid)->
+    * threadPool.execute(tr)
     * */
     taskScheduler.start()
     /*
@@ -2518,6 +2526,7 @@ object SparkContext extends Logging {
                 * TaskSchedulerImpl初始化backend，调用了schedulableBuilder构建调度器
                 *
                 * TaskSchedulerImpl.initialize(backend)->schedulableBuilder(rootPool)
+                * TaskScheduler.initialize（backend）是把backend赋与了TaskScheduler中的backend变量。
                 * */
                 scheduler.initialize(backend)
                 (backend, scheduler)

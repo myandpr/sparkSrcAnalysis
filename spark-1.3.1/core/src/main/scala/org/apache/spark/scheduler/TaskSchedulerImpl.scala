@@ -105,6 +105,11 @@ private[spark] class TaskSchedulerImpl(
     protected val executorIdToHost = new HashMap[String, String]
 
     // Listener object to pass upcalls into
+    /*
+    *
+    * 用到了四个东西：1、DAGScheduler；2、SchedulerBackend；3、mapOutpTracker；4、SchedulebleBuilder
+    *
+    * */
     var dagScheduler: DAGScheduler = null
 
     var backend: SchedulerBackend = null
@@ -121,6 +126,8 @@ private[spark] class TaskSchedulerImpl(
         case e: java.util.NoSuchElementException =>
             throw new SparkException(s"Unrecognized spark.scheduler.mode: $schedulingModeConf")
     }
+
+
 
     // This is a var so that we can reset it for testing purposes.
     private[spark] var taskResultGetter = new TaskResultGetter(sc.env, this)
@@ -171,6 +178,9 @@ private[spark] class TaskSchedulerImpl(
         backend.start()
 
         if (!isLocal && conf.getBoolean("spark.speculation", false)) {
+            /*
+            * 开启推测执行
+            * */
             logInfo("Starting speculative execution thread")
             import sc.env.actorSystem.dispatcher
             sc.env.actorSystem.scheduler.schedule(SPECULATION_INTERVAL milliseconds,
@@ -186,12 +196,27 @@ private[spark] class TaskSchedulerImpl(
         waitBackendReady()
     }
 
+    /*
+    *
+    * 一个stage的tasks封装成TaskSet提交
+    * TaskSet里面有val tasks: Array[Task[_]],
+    * 根据TaskSet创建TaskSetManager，将TaskSetManager添加到schedulableBuilder
+    * */
     override def submitTasks(taskSet: TaskSet) {
         val tasks = taskSet.tasks
         logInfo("Adding task set " + taskSet.id + " with " + tasks.length + " tasks")
         this.synchronized {
+            /*
+            *
+            * 按照这个TaskSet创建一个TaskSetManager，一对一的
+            * 还定义了task失败重试最大次数
+            * */
             val manager = createTaskSetManager(taskSet, maxTaskFailures)
             activeTaskSets(taskSet.id) = manager
+            /*
+            *
+            * 将TaskSetManager添加到schedulableBuilder中
+            * */
             schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
             if (!isLocal && !hasReceivedTask) {
@@ -209,6 +234,11 @@ private[spark] class TaskSchedulerImpl(
             }
             hasReceivedTask = true
         }
+        /*
+        *
+        *executor.launchTask->tr = TaskRunner(taskid)->threadPool.execute(tr)
+        *
+        * */
         backend.reviveOffers()
     }
 
@@ -219,6 +249,10 @@ private[spark] class TaskSchedulerImpl(
         new TaskSetManager(this, taskSet, maxTaskFailures)
     }
 
+    /*
+    *
+    * 删除task都是通过schedulerBackend做的，通过向backend的actor发送killtask命令，actor调用executor.killtask函数删除的；
+    * */
     override def cancelTasks(stageId: Int, interruptThread: Boolean): Unit = synchronized {
         logInfo("Cancelling stage " + stageId)
         activeTaskSets.find(_._2.stageId == stageId).foreach { case (_, tsm) =>
@@ -230,6 +264,10 @@ private[spark] class TaskSchedulerImpl(
             //    simply abort the stage.
             tsm.runningTasksSet.foreach { tid =>
                 val execId = taskIdToExecutorId(tid)
+                /*
+                *
+                * 对backend的actor发送KillTask消息，然后调用executor.killtask函数，在线程中删除他
+                * */
                 backend.killTask(tid, execId, interruptThread)
             }
             tsm.abort("Stage %s cancelled".format(stageId))
@@ -242,6 +280,10 @@ private[spark] class TaskSchedulerImpl(
       * given TaskSetManager have completed, so state associated with the TaskSetManager should be
       * cleaned up.
       */
+    /*
+    *
+    * 表明该TaskSetManager里的所有task都完成了
+    * */
     def taskSetFinished(manager: TaskSetManager): Unit = synchronized {
         activeTaskSets -= manager.taskSet.id
         manager.parent.removeSchedulable(manager)
@@ -249,6 +291,9 @@ private[spark] class TaskSchedulerImpl(
                 .format(manager.taskSet.id, manager.parent.name))
     }
 
+    /*
+    *
+    * */
     private def resourceOfferSingleTaskSet(
                                                   taskSet: TaskSetManager,
                                                   maxLocality: TaskLocality,
@@ -288,6 +333,15 @@ private[spark] class TaskSchedulerImpl(
       * sets for tasks in order of priority. We fill each node with tasks in a round-robin manner so
       * that tasks are balanced across the cluster.
       */
+    /*
+    *
+    * CM调用去给slaves上用round-robin方式分配task，使得tasks均匀的分布在各个node节点上
+    * WorkerOffer代表某个executor上空闲的资源
+    * TaskDescription代表某个task被分配到哪个executor上执行
+    *
+    * resourceOffers最终返回每个task分配的executor信息的Seq集合
+    *
+    * */
     def resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]] = synchronized {
         // Mark each slave as alive and remember its hostname
         // Also track if new executor is added
@@ -306,10 +360,17 @@ private[spark] class TaskSchedulerImpl(
         }
 
         // Randomly shuffle offers to avoid always placing tasks on the same set of workers.
+        /*
+        * 打乱顺序
+        * */
         val shuffledOffers = Random.shuffle(offers)
         // Build a list of tasks to assign to each worker.
         val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores))
         val availableCpus = shuffledOffers.map(o => o.cores).toArray
+        /*
+        *
+        * 返回调度池中排序的TaskSetManager
+        * */
         val sortedTaskSets = rootPool.getSortedTaskSetQueue
         for (taskSet <- sortedTaskSets) {
             logDebug("parentName: %s, name: %s, runningTasks: %s".format(
@@ -445,6 +506,10 @@ private[spark] class TaskSchedulerImpl(
         }
     }
 
+    /*
+    *
+    * 关闭TaskScheduler就是关闭schedulerBackend
+    * */
     override def stop() {
         if (backend != null) {
             backend.stop()
@@ -455,6 +520,9 @@ private[spark] class TaskSchedulerImpl(
         starvationTimer.cancel()
     }
 
+    /*
+    * 默认并行度是调用TaskScheduler.defaultParallelism()，内部调用backend.defaultParallelism()
+    * */
     override def defaultParallelism() = backend.defaultParallelism()
 
     // Check for speculatable tasks in all our active jobs.

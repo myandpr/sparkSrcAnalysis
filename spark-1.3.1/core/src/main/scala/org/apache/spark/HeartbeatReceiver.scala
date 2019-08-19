@@ -37,6 +37,9 @@ private[spark] case class HeartbeatResponse(reregisterBlockManager: Boolean)
 /**
   * Lives in the driver to receive heartbeats from executors..
   */
+/*
+* 活跃在driver端，接受executor的心跳消息
+* */
 private[spark] class HeartbeatReceiver(scheduler: TaskScheduler)
         extends Actor with ActorLogReceive with Logging {
 

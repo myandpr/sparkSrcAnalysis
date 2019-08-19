@@ -80,6 +80,10 @@ private[spark] class Executor(
     }
 
     // Start worker thread pool
+    /*
+    *
+    * 启动一个线程池
+    * */
     val threadPool = Utils.newDaemonCachedThreadPool("Executor task launch worker")
 
     val executorSource = new ExecutorSource(this, executorId)
@@ -119,6 +123,10 @@ private[spark] class Executor(
 
     startDriverHeartbeater()
 
+    /*
+    *
+    * 讲task各种信息封装成taskRunner，用threadPool线程池中调用execute启动该TaskRunner
+    * */
     def launchTask(
                           context: ExecutorBackend,
                           taskId: Long,
