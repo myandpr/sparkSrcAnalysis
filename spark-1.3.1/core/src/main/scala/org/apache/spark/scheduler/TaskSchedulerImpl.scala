@@ -136,6 +136,9 @@ private[spark] class TaskSchedulerImpl(
         this.dagScheduler = dagScheduler
     }
 
+    /*
+    * 重要的初始化函数，主要是在SparkContext中createTaskScheduler函数调用
+    * */
     def initialize(backend: SchedulerBackend) {
         this.backend = backend
         // temporarily set rootPool name to empty

@@ -64,6 +64,10 @@ private[spark] class AppClient(
         var alreadyDead = false // To avoid calling listener.dead() multiple times
         var registrationRetryTimer: Option[Cancellable] = None
 
+        /*
+        *
+        * 前期准备工作就是向CM注册
+        * */
         override def preStart() {
             context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
             try {
@@ -76,6 +80,10 @@ private[spark] class AppClient(
             }
         }
 
+        /*
+        *
+        * 像所有master注册，和Master.scala文件中的函数类似
+        * */
         def tryRegisterAllMasters() {
             for (masterAkkaUrl <- masterAkkaUrls) {
                 logInfo("Connecting to master " + masterAkkaUrl + "...")
@@ -85,6 +93,9 @@ private[spark] class AppClient(
             }
         }
 
+        /*
+        * 向CM注册
+        * */
         def registerWithMaster() {
             tryRegisterAllMasters()
             import context.dispatcher
@@ -95,6 +106,9 @@ private[spark] class AppClient(
                         retries += 1
                         if (registered) {
                             registrationRetryTimer.foreach(_.cancel())
+                            /*
+                            * 连接CM三次失败就放弃
+                            * */
                         } else if (retries >= REGISTRATION_RETRIES) {
                             markDead("All masters are unresponsive! Giving up.")
                         } else {
@@ -187,6 +201,9 @@ private[spark] class AppClient(
 
     def start() {
         // Just launch an actor; it will call back into the listener.
+        /*
+        *石锤了，这句话就是启动actor的意思。
+        * */
         actor = actorSystem.actorOf(Props(new ClientActor))
     }
 

@@ -22,7 +22,19 @@ import org.apache.spark.deploy.{ApplicationDescription, Command}
 import org.apache.spark.deploy.client.{AppClient, AppClientListener}
 import org.apache.spark.scheduler.{ExecutorExited, ExecutorLossReason, SlaveLost, TaskSchedulerImpl}
 import org.apache.spark.util.{AkkaUtils, Utils}
-
+/*
+* 继承至CoarseGrainedSchedulerBackend
+* 和LocalBackend的区别是，LocalBackend没有启动AppClient，并且LocalBackend有自己的actor
+* 参考SparkContext.scala的createTaskScheduler函数，2481行
+* */
+/*
+*
+* 该类主要是完成部署的支持工作，包括：
+* 1、在preStart()中，app的注册
+* 2、DriverActor的启动
+* 3、AppClient的启动
+*
+* */
 private[spark] class SparkDeploySchedulerBackend(
                                                         scheduler: TaskSchedulerImpl,
                                                         sc: SparkContext,
@@ -43,6 +55,10 @@ private[spark] class SparkDeploySchedulerBackend(
     val totalExpectedCores = maxCores.getOrElse(0)
 
     override def start() {
+        /*
+        * 创建并启动driverActor，用于通信
+        * driverActor = actorSystem.actorOf(Props(new DriverActor(properties)), name = CoarseGrainedSchedulerBackend.ACTOR_NAME)
+        * */
         super.start()
 
         // The endpoint for executors to talk to us
@@ -69,6 +85,9 @@ private[spark] class SparkDeploySchedulerBackend(
         // When testing, expose the parent class path to the child. This is processed by
         // compute-classpath.{cmd,sh} and makes all needed jars available to child processes
         // when the assembly is built with the "*-provided" profiles enabled.
+        /*
+        * 测试的，不看
+        * */
         val testingClassPath =
         if (sys.props.contains("spark.testing")) {
             sys.props("java.class.path").split(java.io.File.pathSeparator).toSeq
@@ -79,13 +98,28 @@ private[spark] class SparkDeploySchedulerBackend(
         // Start executors with a few necessary configs for registering with the scheduler
         val sparkJavaOpts = Utils.sparkJavaOpts(conf, SparkConf.isExecutorStartupConf)
         val javaOpts = sparkJavaOpts ++ extraJavaOpts
+        /*
+        * 把CoarseGrainedExecutorBackend封装成command，然后交给appDesc
+        * */
         val command = Command("org.apache.spark.executor.CoarseGrainedExecutorBackend",
             args, sc.executorEnvs, classPathEntries ++ testingClassPath, libraryPathEntries, javaOpts)
         val appUIAddress = sc.ui.map(_.appUIAddress).getOrElse("")
+        /*
+        * 将command封装成一个appDesc，ApplicationDescription
+        * */
         val appDesc = new ApplicationDescription(sc.appName, maxCores, sc.executorMemory, command,
             appUIAddress, sc.eventLogDir, sc.eventLogCodec)
 
+        /*
+        * 将appDesc封装成AppClient，
+        * 第一个参数sc.env.actorSystem，传入了actor通信机制
+        * */
         client = new AppClient(sc.env.actorSystem, masters, appDesc, this, conf)
+        /*
+        * 启动AppClient，本质就是如下的启动一个ClientActor的Actor
+        * actor = actorSystem.actorOf(Props(new ClientActor))
+        *
+        * */
         client.start()
 
         waitForRegistration()

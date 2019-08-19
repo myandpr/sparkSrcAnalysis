@@ -416,6 +416,17 @@ private[spark] class Master(
                 logInfo("Registered app " + description.name + " with ID " + app.id)
                 persistenceEngine.addApplication(app)
                 sender ! RegisteredApplication(app.id, masterUrl)
+                /*
+                *
+                *
+                *
+                *
+                * 该调度函数schedule()非常非常重要！！！
+                *
+                *
+                *
+                *
+                * */
                 schedule()
             }
         }
@@ -657,6 +668,10 @@ private[spark] class Master(
         val numWorkersAlive = shuffledAliveWorkers.size
         var curPos = 0
 
+        /*
+        *
+        * 首先启动一个个等待调度的app对应的Driver
+        * */
         for (driver <- waitingDrivers.toList) { // iterate over a copy of waitingDrivers
             // We assign workers to each waiting driver in a round-robin fashion. For each driver, we
             // start from the last worker that was assigned a driver, and continue onwards until we have
@@ -668,7 +683,8 @@ private[spark] class Master(
                 numWorkersVisited += 1
                 if (worker.memoryFree >= driver.desc.mem && worker.coresFree >= driver.desc.cores) {
                     /*
-                    * 启动driver线程
+                    * 启动driver线程，
+                    * 向work的actor发送LaunchDriver信号
                     * */
                     launchDriver(worker, driver)
                     waitingDrivers -= driver
@@ -680,6 +696,11 @@ private[spark] class Master(
 
         // Right now this is a very simple FIFO scheduler. We keep trying to fit in the first app
         // in the queue, then the second app, etc.
+        /*
+        *
+        * 下面开始给app分executor、cores费喷资源，调度app过程
+        * 对app进行FIFO原则，也就是分摊到尽可能多的节点上
+        * */
         if (spreadOutApps) {
             // Try to spread out each app among all the nodes, until it has all its cores
             for (app <- waitingApps if app.coresLeft > 0) {
@@ -708,6 +729,9 @@ private[spark] class Master(
                 }
             }
         } else {
+            /*
+            * 这种方式和上面的方式的区别是，这种方式尽量可能用到少量的节点完成这个任务
+            * */
             // Pack each app into as few nodes as possible until we've assigned all its cores
             for (worker <- workers if worker.coresFree > 0 && worker.state == WorkerState.ALIVE) {
                 for (app <- waitingApps if app.coresLeft > 0) {

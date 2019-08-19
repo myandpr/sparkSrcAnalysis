@@ -517,6 +517,9 @@ private[spark] class Worker(
                 self,
                 akkaUrl)
             drivers(driverId) = driver
+            /*
+            * 启动driver
+            * */
             driver.start()
 
             coresUsed += driverDesc.cores

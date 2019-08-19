@@ -42,6 +42,10 @@ private case class StopExecutor()
   * LocalBackend asynchronous, which is necessary to prevent deadlock between LocalBackend
   * and the TaskSchedulerImpl.
   */
+/*
+*
+* 该backend文件有两个class：1、backend的actor，负责处理接收到的消息；2、backend的class
+* */
 private[spark] class LocalActor(
                                        scheduler: TaskSchedulerImpl,
                                        executorBackend: LocalBackend,
@@ -112,7 +116,8 @@ private[spark] class LocalBackend(scheduler: TaskSchedulerImpl, val totalCores: 
 
     /*
     *
-    * 所谓的backend.start()就是启动了一个backend的actor
+    * 所谓的backend.start()就是启动了一个backend的actor，
+    * 接下来的几个函数，都是向这个actor发消息执行相应的命令。所以backend.start()必须先启动，backend才能执行很多操作
     * */
     override def start() {
         localActor = SparkEnv.get.actorSystem.actorOf(
@@ -124,6 +129,10 @@ private[spark] class LocalBackend(scheduler: TaskSchedulerImpl, val totalCores: 
         localActor ! StopExecutor
     }
 
+    /*
+    *
+    *reviveOffers函数本质是向backend的actor发送ReviveOffers消息，启动task
+    * */
     override def reviveOffers() {
         localActor ! ReviveOffers
     }
