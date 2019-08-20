@@ -44,17 +44,17 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="TaskSchedulerImpl.scala" pinned="false" current-in-tab="false">
+      <file leaf-file-name="TaskSchedulerImpl.scala" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/core/src/main/scala/org/apache/spark/scheduler/TaskSchedulerImpl.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="749">
-              <caret line="244" column="12" lean-forward="false" selection-start-line="244" selection-start-column="12" selection-end-line="244" selection-end-column="12" />
+            <state relative-caret-position="388">
+              <caret line="225" column="69" lean-forward="true" selection-start-line="225" selection-start-column="69" selection-end-line="225" selection-end-column="69" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="CoarseGrainedSchedulerBackend.scala" pinned="false" current-in-tab="true">
+      <file leaf-file-name="CoarseGrainedSchedulerBackend.scala" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/core/src/main/scala/org/apache/spark/scheduler/cluster/CoarseGrainedSchedulerBackend.scala">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="293">
@@ -156,8 +156,8 @@
       <find>reviveOffers()</find>
       <find>submitTasks</find>
       <find>start()</find>
-      <find>reviveOffers</find>
       <find>statusUpdate</find>
+      <find>reviveOffers</find>
     </findStrings>
   </component>
   <component name="GradleLocalSettings">
@@ -922,14 +922,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/core/src/main/scala/org/apache/spark/scheduler/TaskSchedulerImpl.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="749">
-          <caret line="244" column="12" lean-forward="false" selection-start-line="244" selection-start-column="12" selection-end-line="244" selection-end-column="12" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/core/src/main/scala/org/apache/spark/scheduler/cluster/ExecutorData.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="304">
@@ -974,6 +966,14 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="293">
           <caret line="174" column="12" lean-forward="false" selection-start-line="174" selection-start-column="12" selection-end-line="174" selection-end-column="12" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/core/src/main/scala/org/apache/spark/scheduler/TaskSchedulerImpl.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="388">
+          <caret line="225" column="69" lean-forward="true" selection-start-line="225" selection-start-column="69" selection-end-line="225" selection-end-column="69" />
           <folding />
         </state>
       </provider>
