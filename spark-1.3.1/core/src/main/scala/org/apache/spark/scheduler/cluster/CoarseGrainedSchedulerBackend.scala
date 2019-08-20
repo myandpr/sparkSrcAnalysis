@@ -40,6 +40,11 @@ import org.apache.spark.util.{ActorLogReceive, SerializableBuffer, AkkaUtils, Ut
   * coarse-grained Mesos mode or standalone processes for Spark's standalone deploy mode
   * (spark.deploy.*).
   */
+/*
+*
+*CoarseGrainedSchedulerBackend是属于Driver端的backend，在该class中包含着一个DriverActor，用来通信，接受executor发来的信号，同时接受来自DAGScheduler端的信号
+*
+* */
 private[spark]
 class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSystem: ActorSystem)
         extends ExecutorAllocationClient with SchedulerBackend with Logging {
@@ -85,6 +90,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
             context.system.scheduler.schedule(0.millis, reviveInterval.millis, self, ReviveOffers)
         }
 
+        /*
+        *
+        * DriverActor主要接收几种message：executor相关的Register stop remove Executor、task相关的ReviveOffers、killtask等
+        * */
         def receiveWithLogging = {
             case RegisterExecutor(executorId, hostPort, cores, logUrls) =>
                 Utils.checkHostPort(hostPort, "Host port expected " + hostPort)
@@ -228,6 +237,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
     var driverActor: ActorRef = null
     val taskIdsOnSlave = new HashMap[String, HashSet[String]]
 
+    /*
+    *
+    * CoarseGrainedSchedulerBackend的start方法就是启动DriverActor进行通信，该DriverActor就在该class类中定义
+    * */
     override def start() {
         val properties = new ArrayBuffer[(String, String)]
         for ((key, value) <- scheduler.sc.conf.getAll) {
