@@ -77,9 +77,8 @@ override def statusUpdate(taskId: Long, state: TaskState, data: ByteBuffer) {
     }
 7、该driver还是CoarseGrainedSchedulerBackend的DriverActor
 
-
-
 ```
+下面是这条线上，一些重要类的简化：
 ```
 CoarseGrainedSchedulerBackend withSchedulerBackend{
     class DriverActor extends Actor {
@@ -119,4 +118,7 @@ Executor class{
 
 }
 ```
+### 跟一条线，从DAGScheduler.submitMissingTasks提交开始
+```
 
+```
