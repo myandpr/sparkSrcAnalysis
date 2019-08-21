@@ -72,13 +72,13 @@ class TaskRunner(taskId) Runnable{
     }
 
 }
-6、CoarseGrainedExecutorBackend.statusUpdate()
+9、CoarseGrainedExecutorBackend.statusUpdate()
 override def statusUpdate(taskId: Long, state: TaskState, data: ByteBuffer) {
         driver ! StatusUpdate(executorId, taskId, state, data)
     }
-7、该driver还是CoarseGrainedSchedulerBackend的DriverActor
+10、该driver还是CoarseGrainedSchedulerBackend的DriverActor
 
-8、在第4步骤中的TaskSchedulerImpl.resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]]对每个TaskSet调用了resourceOfferSingleTaskSet
+11、在第4步骤中的TaskSchedulerImpl.resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]]对每个TaskSet调用了resourceOfferSingleTaskSet
 def resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]]={
         for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {
             do {
