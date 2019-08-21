@@ -319,6 +319,10 @@ private[spark] class TaskSchedulerImpl(
                     /*
                     * taskSet.resourceOffer(execId, host, maxLocality)返回的是Option[TaskDescription]，也就是每个该TaskSet的每个task映射的executor号
                     * */
+                    /*
+                    *
+                    * 这是TaskSet的resourceOffer，不是CoarseGrainedSchedulerBackend的resourceOffers
+                    * */
                     for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
                         tasks(i) += task
                         val tid = task.taskId
@@ -354,6 +358,8 @@ private[spark] class TaskSchedulerImpl(
     *
     * resourceOffers最终返回每个task分配的executor信息的Seq集合
     *
+    *
+    * 对当前所有TaskSet处理
     * */
     def resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]] = synchronized {
         // Mark each slave as alive and remember its hostname
@@ -404,7 +410,7 @@ private[spark] class TaskSchedulerImpl(
         * */
         /*
         *
-        * 该步骤直接拿到了当前提交到TaskScheduler里的所有taskSets，line 435行要对她们操作的！最后返回调用好的TaskDescription 所有task的对应关系
+        * 该步骤直接拿到了当前提交到TaskScheduler里的所有taskSetManager，line 435行要对她们操作的！最后返回调用好的TaskDescription 所有task的对应关系
         * */
         val sortedTaskSets = rootPool.getSortedTaskSetQueue
         for (taskSet <- sortedTaskSets) {
@@ -425,6 +431,9 @@ private[spark] class TaskSchedulerImpl(
         * 按就近原则进行Task调度
         * */
         var launchedTask = false
+        /*
+        * 其中taskSet是TaskSetManager
+        * */
         for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {
             do {
                 /*

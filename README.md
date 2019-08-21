@@ -12,6 +12,7 @@ TaskSchedulerImpl.submitTasks(taskSet: TaskSet){
     backend.reviveOffers()
 }
 2、backend.reviveOffers()
+//通过backend给backend自己的actor发消息，自己再处理
 CoarseGrainedSchedulerBackend.reviveOffers(){
     driverActor ! ReviveOffers
 }
@@ -77,6 +78,35 @@ override def statusUpdate(taskId: Long, state: TaskState, data: ByteBuffer) {
     }
 7、该driver还是CoarseGrainedSchedulerBackend的DriverActor
 
+8、在第4步骤中的TaskSchedulerImpl.resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]]对每个TaskSet调用了resourceOfferSingleTaskSet
+def resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]]={
+        for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {
+            do {
+                /*
+                * 该函数执行完后，更新了参数tasks: Seq[ArrayBuffer[TaskDescription]]，返回一个bool，应该表示启动了的task
+                * 最后一个参数tasks被更新了，在line 396行定义的
+                * */
+                launchedTask = resourceOfferSingleTaskSet(
+                    taskSet, maxLocality, shuffledOffers, availableCpus, tasks)
+            } while (launchedTask)
+        }
+}
+
+TackSchedulerImpl.resourceOfferSingleTaskSet(taskSet: TaskSetManager){
+    for (i <- 0 until shuffledOffers.size) {
+        for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
+
+        }
+    }
+}
+
+TaskSetManager.resourceOffer
+def resourceOffer(
+                             execId: String,
+                             host: String,
+                             maxLocality: TaskLocality.TaskLocality)
+    : Option[TaskDescription] = {}
+
 ```
 下面是这条线上，一些重要类的简化：
 ```
@@ -133,6 +163,38 @@ override def submitTasks(taskSet: TaskSet) {
     val manager = createTaskSetManager(taskSet, maxTaskFailures)
     schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
     backend.reviveOffers()
+}
+```
+### reviveOffers()
+
+```
+TaskSchedulerImpl.submitTasks{
+    backend.reveveOffers()
+}
+    override def reviveOffers() {
+        /*
+        *
+        * 在TaskSchedulerImpl中的submitTasks由backend.reviveOffers()调用
+        * ReviveOffers是本CoarseGrainedSchedulerBackend发送给本CoarseGrainedSchedulerBackend的
+        * */
+        driverActor ! ReviveOffers
+    }
+```
+用到的重要类
+```
+CoarseGrainedSchedulerBackend withSchedulerBackend{
+    class DriverActor extends Actor {
+        def receiveWithLogging = {
+            case RegisterExecutor =>
+            case StatusUpdate =>
+            case ReviveOffers => makeOffers()
+            case KillTask =>
+            case StopDerver =>
+            case StopExecutors =>
+            case RemoveExecutor =>
+            
+        }
+    }
 }
 ```
 接下来就是上一条线了。

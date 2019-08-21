@@ -30,6 +30,10 @@ import org.apache.spark.util.Utils
   * buildPools: build the tree nodes(pools)
   * addTaskSetManager: build the leaf nodes(TaskSetManagers)
   */
+/*
+*
+* 调度器三大函数，
+* */
 private[spark] trait SchedulableBuilder {
     def rootPool: Pool
 
@@ -41,6 +45,10 @@ private[spark] trait SchedulableBuilder {
 private[spark] class FIFOSchedulableBuilder(val rootPool: Pool)
         extends SchedulableBuilder with Logging {
 
+    /*
+    *
+    * FIFO的调度器的buildPools是空的，但是FAIR的调度器不是空的
+    * */
     override def buildPools() {
         // nothing
     }

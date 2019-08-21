@@ -189,7 +189,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         def launchTasks(tasks: Seq[Seq[TaskDescription]]) {
             /*
             *
-            * 对每个task，调用一次LaunchTask发送给executorActor
+            * launchTasks对每个task，调用一次LaunchTask发送给executorActor
             * */
             for (task <- tasks.flatten) {
                 val ser = SparkEnv.get.closureSerializer.newInstance()
@@ -285,6 +285,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
     }
 
     override def reviveOffers() {
+        /*
+        *
+        * 在TaskSchedulerImpl中的submitTasks由backend.reviveOffers()调用
+        * ReviveOffers是本CoarseGrainedSchedulerBackend发送给本CoarseGrainedSchedulerBackend的
+        * */
         driverActor ! ReviveOffers
     }
 
