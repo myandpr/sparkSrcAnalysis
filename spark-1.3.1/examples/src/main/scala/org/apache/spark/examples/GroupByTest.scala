@@ -21,6 +21,7 @@ import java.util.Random
 
 import org.apache.spark.{SparkConf, SparkContext, SparkFiles}
 import org.apache.spark.SparkContext._
+import org.apache.spark.storage.StorageLevel
 
 /**
   * Usage: GroupByTest [numMappers] [numKVPairs] [KeySize] [numReducers]
@@ -54,7 +55,7 @@ object GroupByTest {
                 arr1(i) = (ranGen.nextInt(Int.MaxValue), byteArr)
             }
             arr1
-        }.cache()
+        }.persist(StorageLevel.DISK_ONLY)
         // Enforce that everything has been calculated and in cache
         pairs1.count()
 

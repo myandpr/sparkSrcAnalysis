@@ -297,6 +297,10 @@ private[spark] class TaskSchedulerImpl(
     /*
     *
     * */
+    /*
+    *
+    * 该函数执行完后，更新了参数tasks: Seq[ArrayBuffer[TaskDescription]]，返回一个bool，应该表示启动了的task
+    * */
     private def resourceOfferSingleTaskSet(
                                                   taskSet: TaskSetManager,
                                                   maxLocality: TaskLocality,
@@ -304,11 +308,17 @@ private[spark] class TaskSchedulerImpl(
                                                   availableCpus: Array[Int],
                                                   tasks: Seq[ArrayBuffer[TaskDescription]]): Boolean = {
         var launchedTask = false
+        /*
+        * 对每一个executor进行处理
+        * */
         for (i <- 0 until shuffledOffers.size) {
             val execId = shuffledOffers(i).executorId
             val host = shuffledOffers(i).host
             if (availableCpus(i) >= CPUS_PER_TASK) {
                 try {
+                    /*
+                    * taskSet.resourceOffer(execId, host, maxLocality)返回的是Option[TaskDescription]，也就是每个该TaskSet的每个task映射的executor号
+                    * */
                     for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
                         tasks(i) += task
                         val tid = task.taskId
@@ -348,6 +358,9 @@ private[spark] class TaskSchedulerImpl(
     def resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]] = synchronized {
         // Mark each slave as alive and remember its hostname
         // Also track if new executor is added
+        /*
+        * 处理新的executor加入
+        * */
         var newExecAvail = false
         for (o <- offers) {
             executorIdToHost(o.executorId) = o.host
@@ -364,21 +377,43 @@ private[spark] class TaskSchedulerImpl(
 
         // Randomly shuffle offers to avoid always placing tasks on the same set of workers.
         /*
-        * 打乱顺序
+        * 打乱顺序，使得Task均匀分配到各个worker节点上
+        * */
+        /*
+        * 这一步是将executor乱序了
         * */
         val shuffledOffers = Random.shuffle(offers)
         // Build a list of tasks to assign to each worker.
+        /*
+        * 对每一个case class WorkerOffer(executorId: String, host: String, cores: Int)创建一个new ArrayBuffer[TaskDescription](o.cores)
+        * 每个executor的ArrayBuffer有cores个元素，元素类型是TaskDescription
+        * 因为每个core对应一个task
+        * 意义：每个executor创建一个对tasks的映射
+        * tasks = Seq(ArrayBuffer[TaskDescription](o.cores),ArrayBuffer[TaskDescription](o.cores),ArrayBuffer[TaskDescription](o.cores),ArrayBuffer[TaskDescription](o.cores).....)
+        * availableCpus = Seq(o.cores, o.cores, o.cores, o.cores.......)
+        * tasks和avaibaleCpus是一一对应的
+        * */
         val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores))
         val availableCpus = shuffledOffers.map(o => o.cores).toArray
         /*
         *
         * 返回调度池中排序的TaskSetManager
+        * 根据调度策略获取ArrayBuffer[TaskSetManager]
+        * 返回override def getSortedTaskSetQueue: ArrayBuffer[TaskSetManager] = {}
+        * 其中rootPool在初始化就赋值了
+        * */
+        /*
+        *
+        * 该步骤直接拿到了当前提交到TaskScheduler里的所有taskSets，line 435行要对她们操作的！最后返回调用好的TaskDescription 所有task的对应关系
         * */
         val sortedTaskSets = rootPool.getSortedTaskSetQueue
         for (taskSet <- sortedTaskSets) {
             logDebug("parentName: %s, name: %s, runningTasks: %s".format(
                 taskSet.parent.name, taskSet.name, taskSet.runningTasks))
             if (newExecAvail) {
+                /*
+                * 如果有新加入的executor，就添加到TaskSet中
+                * */
                 taskSet.executorAdded()
             }
         }
@@ -386,9 +421,16 @@ private[spark] class TaskSchedulerImpl(
         // Take each TaskSet in our scheduling order, and then offer it each node in increasing order
         // of locality levels so that it gets a chance to launch local tasks on all of them.
         // NOTE: the preferredLocality order: PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY
+        /*
+        * 按就近原则进行Task调度
+        * */
         var launchedTask = false
         for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {
             do {
+                /*
+                * 该函数执行完后，更新了参数tasks: Seq[ArrayBuffer[TaskDescription]]，返回一个bool，应该表示启动了的task
+                * 最后一个参数tasks被更新了，在line 396行定义的
+                * */
                 launchedTask = resourceOfferSingleTaskSet(
                     taskSet, maxLocality, shuffledOffers, availableCpus, tasks)
             } while (launchedTask)

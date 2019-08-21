@@ -162,6 +162,11 @@ abstract class RDD[T: ClassTag](
             throw new UnsupportedOperationException(
                 "Cannot change storage level of an RDD after it was already assigned a level")
         }
+        /*
+        *
+        *保存在HashMap就是保存在内存了
+        * private[spark] val persistentRdds = new TimeStampedWeakValueHashMap[Int, RDD[_]]
+        * */
         sc.persistRDD(this)
         // Register the RDD with the ContextCleaner for automatic GC-based cleanup
         sc.cleaner.foreach(_.registerRDDForCleanup(this))

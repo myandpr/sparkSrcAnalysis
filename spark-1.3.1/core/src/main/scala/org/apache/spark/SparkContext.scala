@@ -1588,6 +1588,12 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     /**
       * Register an RDD to be persisted in memory and/or disk storage
       */
+    /*
+    *
+    * 这就是所谓的持久化，调用sc，将（rdd.id,rdd）存在了内存中
+    * private[spark] val persistentRdds = new TimeStampedWeakValueHashMap[Int, RDD[_]]
+    *
+    * */
     private[spark] def persistRDD(rdd: RDD[_]) {
         persistentRdds(rdd.id) = rdd
     }

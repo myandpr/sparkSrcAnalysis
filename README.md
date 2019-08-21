@@ -102,8 +102,7 @@ private[spark] class CoarseGrainedExecutorBackend
                 case RegisteredExecutor =>
                 case RegisterExecutorFailed(message) =>
                 case LaunchTask(data) =>
-                executor.launchTask(this, taskId = taskDesc.taskId, attemptNumber = taskDesc.attemptNumber,
-                    taskDesc.name, taskDesc.serializedTask)
+                executor.launchTask(this, taskId = taskDesc.taskId, attemptNumber = taskDesc.attemptNumber,taskDesc.name, taskDesc.serializedTask)
                 case KillTask(taskId, _, interruptThread) =>
                 case StopExecutor =>
 
@@ -120,5 +119,29 @@ Executor class{
 ```
 ### 跟一条线，从DAGScheduler.submitMissingTasks提交开始
 ```
-
+1、DAGScheduler.submitMissingTasks(stage: Stage, jobId: Int)
+private def submitMissingTasks(stage: Stage, jobId: Int) {
+    val tasks: Seq[Task[_]] = if (stage.isShuffleMap) {
+        new ShuffleMapTask(stage.id, taskBinary, part, locs)
+    } else{
+        new ResultTask(stage.id, taskBinary, part, locs, id)
+    }
+    taskScheduler.submitTasks(new TaskSet(tasks.toArray, stage.id, stage.newAttemptId(), stage.jobId, properties))
+}
+2、TaskSchedulerImpl.submitTask(taskSet: TaskSet)
+override def submitTasks(taskSet: TaskSet) {
+    val manager = createTaskSetManager(taskSet, maxTaskFailures)
+    schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
+    backend.reviveOffers()
+}
+```
+接下来就是上一条线了。
+### AppClient这条线梳理
+### 一些零散知识点
+#### defaultParallelism调用
+```
+SparkContext.parallelize(defaultParallelism) -> TaskSchedulerImpl.defaultParallelism -> CoarseGrainedSchedulerBackend.defaultParallelism()
+    override def defaultParallelism(): Int = {
+        conf.getInt("spark.default.parallelism", math.max(totalCoreCount.get(), 2))
+    }
 ```

@@ -187,6 +187,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
 
         // Launch tasks returned by a set of resource offers
         def launchTasks(tasks: Seq[Seq[TaskDescription]]) {
+            /*
+            *
+            * 对每个task，调用一次LaunchTask发送给executorActor
+            * */
             for (task <- tasks.flatten) {
                 val ser = SparkEnv.get.closureSerializer.newInstance()
                 val serializedTask = ser.serialize(task)
@@ -240,6 +244,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
     /*
     *
     * CoarseGrainedSchedulerBackend的start方法就是启动DriverActor进行通信，该DriverActor就在该class类中定义
+    * 该start()是在SparkContext初始化过程中TaskSchedulerImpl.start()启动时，调用backend.start()启动该Actor的，SparkContext.scala的561行
     * */
     override def start() {
         val properties = new ArrayBuffer[(String, String)]
