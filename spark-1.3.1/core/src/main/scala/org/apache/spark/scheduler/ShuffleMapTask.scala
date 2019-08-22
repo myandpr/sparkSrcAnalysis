@@ -56,6 +56,13 @@ private[spark] class ShuffleMapTask(
         if (locs == null) Nil else locs.toSet.toSeq
     }
 
+    /*
+    * runTask核心功能就是安分区写入file
+    * val manager = SparkEnv.get.shuffleManager
+    * writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)
+    * writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
+    *
+    * */
     override def runTask(context: TaskContext): MapStatus = {
         // Deserialize the RDD using the broadcast variable.
         val ser = SparkEnv.get.closureSerializer.newInstance()
