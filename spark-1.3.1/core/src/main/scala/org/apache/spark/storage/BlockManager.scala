@@ -51,6 +51,20 @@ private[spark] case class IteratorValues(iterator: Iterator[Any]) extends BlockV
 private[spark] case class ArrayValues(buffer: Array[Any]) extends BlockValues
 
 /* Class for returning a fetched block and associated metrics. */
+
+/*
+*
+*
+* private[spark] class BlockManager(){
+*       val diskBlockManager = new DiskBlockManager(this, conf)
+*       val blockInfo =new timeStampedHashMap[BlockId, BlockInfo]
+*       private[spark] val memoryStore = new MemoryStore(this, maxMemory)
+*       private[spark] val diskStore = new DiskStore(this, diskBlockManager)
+* }
+*
+*
+*
+* */
 private[spark] class BlockResult(
                                         val data: Iterator[Any],
                                         readMethod: DataReadMethod.Value,
@@ -81,10 +95,21 @@ private[spark] class BlockManager(
 
     val diskBlockManager = new DiskBlockManager(this, conf)
 
+    /*
+    *
+    *
+    *
+    * blockInfo非常重要，保存了所有block的信息！！！！！！！！
+    *
+    * */
     private val blockInfo = new TimeStampedHashMap[BlockId, BlockInfo]
 
     // Actual storage of where blocks are kept
     private var tachyonInitialized = false
+    /*
+    * MemoryStore、DiskStore提供了数据读写的方法，数据真正存储的地方。
+    * 提供了putBytes、getBytes、getSize等方法
+    * */
     private[spark] val memoryStore = new MemoryStore(this, maxMemory)
     private[spark] val diskStore = new DiskStore(this, diskBlockManager)
     private[spark] lazy val tachyonStore: TachyonStore = {
@@ -99,6 +124,9 @@ private[spark] class BlockManager(
     }
 
     private[spark]
+        /*
+        * 应该是动态调度功能
+        * */
     val externalShuffleServiceEnabled = conf.getBoolean("spark.shuffle.service.enabled", false)
 
     // Port used by the external shuffle service. In Yarn mode, this may be already be
@@ -107,6 +135,9 @@ private[spark] class BlockManager(
     Utils.getSparkOrYarnConfig(conf, "spark.shuffle.service.port", "7337").toInt
 
     // Check that we're not using external shuffle service with consolidated shuffle files.
+    /*
+    * 如果使用consolidate模式的hash shuffle，则不能使用改参数,
+    * */
     if (externalShuffleServiceEnabled
             && conf.getBoolean("spark.shuffle.consolidateFiles", false)
             && shuffleManager.isInstanceOf[HashShuffleManager]) {
@@ -123,6 +154,10 @@ private[spark] class BlockManager(
 
     // Client to read other executors' shuffle files. This is either an external service, or just the
     // standard BlockTransferService to directly connect to other Executors.
+    /*
+    *
+    * 连接其他executor的shuffle file的客户端
+    * */
     private[spark] val shuffleClient = if (externalShuffleServiceEnabled) {
         val transConf = SparkTransportConf.fromSparkConf(conf, numUsableCores)
         new ExternalShuffleClient(transConf, securityManager, securityManager.isAuthenticationEnabled())
@@ -131,14 +166,29 @@ private[spark] class BlockManager(
     }
 
     // Whether to compress broadcast variables that are stored
+    /*
+    * 广播变量是否要压缩存储
+    * */
     private val compressBroadcast = conf.getBoolean("spark.broadcast.compress", true)
     // Whether to compress shuffle output that are stored
+    /*
+    * shuffle output是否要压缩
+    * */
     private val compressShuffle = conf.getBoolean("spark.shuffle.compress", true)
     // Whether to compress RDD partitions that are stored serialized
+    /*
+    * 是否要压缩被序列化存储的RDD partition
+    * */
     private val compressRdds = conf.getBoolean("spark.rdd.compress", false)
     // Whether to compress shuffle output temporarily spilled to disk
+    /*
+    * 临时溢写到磁盘的shuffle output是否要压缩
+    * */
     private val compressShuffleSpill = conf.getBoolean("spark.shuffle.spill.compress", true)
 
+    /*
+    * 启动BlockManagerSlaveActor通信
+    * */
     private val slaveActor = actorSystem.actorOf(
         Props(new BlockManagerSlaveActor(this, mapOutputTracker)),
         name = "BlockManagerActor" + BlockManager.ID_GENERATOR.next)
@@ -148,6 +198,9 @@ private[spark] class BlockManager(
     private var asyncReregisterTask: Future[Unit] = null
     private val asyncReregisterLock = new Object
 
+    /*
+    * 这两个cleaner都是清除broadcast相关的
+    * */
     private val metadataCleaner = new MetadataCleaner(
         MetadataCleanerType.BLOCK_MANAGER, this.dropOldNonBroadcastBlocks, conf)
     private val broadcastCleaner = new MetadataCleaner(
@@ -163,6 +216,9 @@ private[spark] class BlockManager(
      * program could be using a user-defined codec in a third party jar, which is loaded in
      * Executor.updateDependencies. When the BlockManager is initialized, user level jars hasn't been
      * loaded yet. */
+    /*
+    * 这是一个编解码器，用来压缩的
+    * */
     private lazy val compressionCodec: CompressionCodec = CompressionCodec.createCodec(conf)
 
     /**
@@ -192,6 +248,10 @@ private[spark] class BlockManager(
       * BlockManagerMaster, starts the BlockManagerWorker actor, and registers with a local shuffle
       * service if configured.
       */
+    /*
+    *
+    * 初始化blockTransferService、shuffleClient、把自己的slaveActor（BlockManagerSlaveActor）注册给BlockManagerMaster
+    * */
     def initialize(appId: String): Unit = {
         blockTransferService.init(this)
         shuffleClient.init(appId)
@@ -238,6 +298,10 @@ private[spark] class BlockManager(
         }
     }
 
+    /*
+    *
+    *下面几个函数都是跟注册相关的
+    * */
     /**
       * Report all blocks to the BlockManager again. This may be necessary if we are dropped
       * by the BlockManager and come back or if we become capable of recovering blocks on disk after
@@ -248,8 +312,17 @@ private[spark] class BlockManager(
       * heart beat attempt or new block registration and another try to re-register all blocks
       * will be made then.
       */
+    /*
+    *
+    * 报告该executor的所有block信息给BlockManager，当我们被BlockManager删除或者恢复时使用
+    * */
     private def reportAllBlocks(): Unit = {
         logInfo(s"Reporting ${blockInfo.size} blocks to the master.")
+        /*
+        *
+        * blockInfo保存着该Blockmanager所有block的信息（blockId, info)
+        * 为什么要一个个block汇报，而不统一汇报
+        * */
         for ((blockId, info) <- blockInfo) {
             val status = getCurrentBlockStatus(blockId, info)
             if (!tryToReportBlockStatus(blockId, info, status)) {
@@ -265,6 +338,10 @@ private[spark] class BlockManager(
       *
       * Note that this method must be called without any BlockInfo locks held.
       */
+    /*
+    *
+    *
+    * */
     def reregister(): Unit = {
         // TODO: We might need to rate limit re-registering.
         logInfo("BlockManager re-registering with master")
@@ -302,10 +379,27 @@ private[spark] class BlockManager(
       * Interface to get local block data. Throws an exception if the block cannot be found or
       * cannot be read successfully.
       */
+    /*
+    *
+    * 获取本地数据块数据：local block data
+    * 返回的数据都是以ManagerBuffer的形式返回的
+    * */
     override def getBlockData(blockId: BlockId): ManagedBuffer = {
+        /*
+        * 如果该block被shuffle了，则从shuffleBlockManager读取
+        * ShuffleManager分为HashShuffleManager和SortShuffleManager
+        * */
         if (blockId.isShuffle) {
+            /*
+            *
+            * 先通过shuffleManager获取shuffleBlockManager，然后从shuffleBlockManager调用getBlockData获得真正的数据
+            * */
             shuffleManager.shuffleBlockManager.getBlockData(blockId.asInstanceOf[ShuffleBlockId])
         } else {
+            /*
+            *
+            * 根据存储level，从memoryStore或diskStore获取数据
+            * */
             val blockBytesOpt = doGetLocal(blockId, asBlockResult = false)
                     .asInstanceOf[Option[ByteBuffer]]
             if (blockBytesOpt.isDefined) {
@@ -320,6 +414,9 @@ private[spark] class BlockManager(
     /**
       * Put the block locally, using the given storage level.
       */
+    /*
+    * 根据存储level，写入
+    * */
     override def putBlockData(blockId: BlockId, data: ManagedBuffer, level: StorageLevel): Unit = {
         putBytes(blockId, data.nioByteBuffer(), level)
     }
@@ -328,6 +425,11 @@ private[spark] class BlockManager(
       * Get the BlockStatus for the block identified by the given ID, if it exists.
       * NOTE: This is mainly for testing, and it doesn't fetch information from Tachyon.
       */
+    /*
+    *
+    * 返回了该blockId对应block的存储级别、内存大小、磁盘大小，并不是返回了成功、失败的状态
+    * spark中有些变量起的名字真让人难受呀！！！！
+    * */
     def getStatus(blockId: BlockId): Option[BlockStatus] = {
         blockInfo.get(blockId).map { info =>
             val memSize = if (memoryStore.contains(blockId)) memoryStore.getSize(blockId) else 0L
@@ -342,6 +444,9 @@ private[spark] class BlockManager(
       * query the blocks stored in the disk block manager (that the block manager
       * may not know of).
       */
+    /*
+    * 过滤块
+    * */
     def getMatchingBlockIds(filter: BlockId => Boolean): Seq[BlockId] = {
         (blockInfo.keys ++ diskBlockManager.getAllBlocks()).filter(filter).toSeq
     }
@@ -374,6 +479,10 @@ private[spark] class BlockManager(
       * which will be true if the block was successfully recorded and false if
       * the slave needs to re-register.
       */
+    /*
+    *
+    * updateBlockInfo是发送block信息的事实函数
+    * */
     private def tryToReportBlockStatus(
                                               blockId: BlockId,
                                               info: BlockInfo,
@@ -419,8 +528,23 @@ private[spark] class BlockManager(
     /**
       * Get locations of an array of blocks.
       */
+    /*
+    *
+    * master参数里面会有调用者传来的DriverActor，所以master.getLocations(blockIds)可以向DriverActor请求block位置
+    * master本身不是BlockManager，而是BlockManagerMaster
+    * */
     private def getLocationBlockIds(blockIds: Array[BlockId]): Array[Seq[BlockManagerId]] = {
         val startTimeMs = System.currentTimeMillis
+        /*
+        *
+        * 返回Seq[Seq[BlockManagerId]]，之所以是二维数组，是因为每个block可能存在多个exec上？？？？
+        * 而BlockManagerId保存着block锁在executorId、host、port，所以说这就是获取位置！！
+        * class BlockManagerId private(
+                                    private var executorId_ : String,
+                                    private var host_ : String,
+                                    private var port_ : Int)
+        *
+        * */
         val locations = master.getLocations(blockIds).toArray
         logDebug("Got multiple block location in %s".format(Utils.getUsedTimeMs(startTimeMs)))
         locations
@@ -455,6 +579,15 @@ private[spark] class BlockManager(
         }
     }
 
+    /*
+    *
+    * 以下几个函数是从跟本地、远程获取block的函数
+    *
+    * */
+    /*
+    *
+    * 正常缓存的block，判断存在disk还是memory，从diskStore和diskStore拿数据
+    * */
     private def doGetLocal(blockId: BlockId, asBlockResult: Boolean): Option[Any] = {
         val info = blockInfo.get(blockId).orNull
         if (info != null) {
@@ -576,6 +709,10 @@ private[spark] class BlockManager(
     /**
       * Get block from remote block managers.
       */
+    /*
+    *
+    * 获取远程blockManager的block
+    * */
     def getRemote(blockId: BlockId): Option[BlockResult] = {
         logDebug(s"Getting remote block $blockId")
         doGetRemote(blockId, asBlockResult = true).asInstanceOf[Option[BlockResult]]
@@ -584,6 +721,10 @@ private[spark] class BlockManager(
     /**
       * Get block from remote block managers as serialized bytes.
       */
+    /*
+    *
+    * 远程序列化block
+    * */
     def getRemoteBytes(blockId: BlockId): Option[ByteBuffer] = {
         logDebug(s"Getting remote block $blockId as bytes")
         doGetRemote(blockId, asBlockResult = false).asInstanceOf[Option[ByteBuffer]]
@@ -591,9 +732,16 @@ private[spark] class BlockManager(
 
     private def doGetRemote(blockId: BlockId, asBlockResult: Boolean): Option[Any] = {
         require(blockId != null, "BlockId is null")
+        /*
+        * 首先向BlockManagerMaster询问blockId的位置
+        * */
         val locations = Random.shuffle(master.getLocations(blockId))
         for (loc <- locations) {
             logDebug(s"Getting remote block $blockId from $loc")
+            /*
+            *
+            * 用blockTransferService.fetchBlockSync从远程位置loc拉取block数据
+            * */
             val data = blockTransferService.fetchBlockSync(
                 loc.host, loc.port, loc.executorId, blockId.toString).nioByteBuffer()
 
@@ -616,6 +764,11 @@ private[spark] class BlockManager(
     /**
       * Get a block from the block manager (either local or remote).
       */
+    /*
+    *
+    * 获取block的二次封装
+    * 分别判断是在本地还是在远程
+    * */
     def get(blockId: BlockId): Option[BlockResult] = {
         val local = getLocal(blockId)
         if (local.isDefined) {
@@ -629,7 +782,22 @@ private[spark] class BlockManager(
         }
         None
     }
+    /*
+    *
+    * 1、本地的话，从blockInfo、memoryStore/diskStore读就行；
+    * 2、远程的话，需要master.getLocations(blockId)从BlockManagerMaster查询
+    *
+    * */
 
+
+
+
+
+
+
+    /*
+    * 通过迭代器写入
+    * */
     def putIterator(
                            blockId: BlockId,
                            values: Iterator[Any],
