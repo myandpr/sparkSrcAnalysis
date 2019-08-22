@@ -322,6 +322,7 @@ private[spark] class TaskSchedulerImpl(
                     /*
                     *
                     * 这是TaskSet的resourceOffer，不是CoarseGrainedSchedulerBackend的resourceOffers
+                    * 在当前的executor上分配task
                     * */
                     for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
                         tasks(i) += task

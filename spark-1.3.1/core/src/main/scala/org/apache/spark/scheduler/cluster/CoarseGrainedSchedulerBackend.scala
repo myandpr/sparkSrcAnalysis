@@ -172,6 +172,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         }
 
         // Make fake resource offers on all executors
+        /*
+        *
+        * executorDataMap：代码中的executorDataMap，在客户端向Master注册Application的时候，Master已经为Application分配并启动好Executor，然后注册给CoarseGrainedSchedulerBackend，注册信息就是存储在executorDataMap数据结构中。
+        * TaskSchedulerImpl.resourceOffers基于这些计算资源executorDataMap为task粉喷Executor
+        * */
         def makeOffers() {
             launchTasks(scheduler.resourceOffers(executorDataMap.map { case (id, executorData) =>
                 new WorkerOffer(id, executorData.executorHost, executorData.freeCores)

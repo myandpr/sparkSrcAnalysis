@@ -50,7 +50,14 @@ private[spark] class HashShuffleWriter[K, V](
 
     /** Write a bunch of records to this task's output */
     override def write(records: Iterator[_ <: Product2[K, V]]): Unit = {
+        /*
+        *
+        * 返回的应该是分区迭代器，遍历每个分区
+        * */
         val iter = if (dep.aggregator.isDefined) {
+            /*
+            * 如果map端要求聚合dep.aggregator.isDefined
+            * */
             if (dep.mapSideCombine) {
                 dep.aggregator.get.combineValuesByKey(records, context)
             } else {
@@ -61,6 +68,11 @@ private[spark] class HashShuffleWriter[K, V](
             records
         }
 
+        /*
+        *
+        *
+        * 每个分区写入一个bucketId
+        * */
         for (elem <- iter) {
             val bucketId = dep.partitioner.getPartition(elem._1)
             shuffle.writers(bucketId).write(elem)

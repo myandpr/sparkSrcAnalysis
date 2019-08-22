@@ -805,8 +805,15 @@ class DAGScheduler(
         stage.pendingTasks.clear()
 
         // First figure out the indexes of partition ids to compute.
+        /*
+        * 获取stage中没有计算的partition
+        * */
         val partitionsToCompute: Seq[Int] = {
             if (stage.isShuffleMap) {
+                /*
+                *
+                * 如果是shuffleMap的话，判断每个分区输出位置是否为空，如果是空，说明该分区没计算过，返回分区号的集合
+                * */
                 (0 until stage.numPartitions).filter(id => stage.outputLocs(id) == Nil)
             } else {
                 val job = stage.resultOfJob.get
@@ -840,12 +847,20 @@ class DAGScheduler(
         try {
             // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep).
             // For ResultTask, serialize and broadcast (rdd, func).
+            /*
+            *
+            * 序列化的是一个stage的所有task，不是一个task
+            * */
             val taskBinaryBytes: Array[Byte] =
                 if (stage.isShuffleMap) {
                     closureSerializer.serialize((stage.rdd, stage.shuffleDep.get): AnyRef).array()
                 } else {
                     closureSerializer.serialize((stage.rdd, stage.resultOfJob.get.func): AnyRef).array()
                 }
+            /*
+            *
+            * 序列化后的stage的tasks广播到executor
+            * */
             taskBinary = sc.broadcast(taskBinaryBytes)
         } catch {
             // In the case of a failure during serialization, abort the stage.
@@ -859,10 +874,25 @@ class DAGScheduler(
                 return
         }
 
+        /*
+        *
+        * 根据stage类型，创建不同类型的task
+        * 返回的是(task, task, task, task.............)
+        * 这些task都是需要计算的task，不一定是stage里所有的task
+        * */
         val tasks: Seq[Task[_]] = if (stage.isShuffleMap) {
+            /*
+            * id是没计算的partition号
+            * */
             partitionsToCompute.map { id =>
+                    /*
+                    * 获取task的最佳计算位置
+                    * */
                 val locs = getPreferredLocs(stage.rdd, id)
                 val part = stage.rdd.partitions(id)
+                /*
+                * 把该id对应的partition的task封装成一个ShuffleMapTask
+                * */
                 new ShuffleMapTask(stage.id, taskBinary, part, locs)
             }
         } else {
