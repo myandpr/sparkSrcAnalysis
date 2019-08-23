@@ -4,9 +4,7 @@
     <output url="file://$MODULE_DIR$/yarn/target/scala-${scala.binary.version}/classes" />
     <output-test url="file://$MODULE_DIR$/yarn/target/scala-${scala.binary.version}/test-classes" />
     <content url="file://$MODULE_DIR$/yarn">
-      <sourceFolder url="file://$MODULE_DIR$/yarn/src/main/scala" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/yarn/src/test/resources" type="java-test-resource" />
-      <sourceFolder url="file://$MODULE_DIR$/yarn/src/test/scala" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/yarn/target" />
     </content>
     <orderEntry type="inheritedJdk" />

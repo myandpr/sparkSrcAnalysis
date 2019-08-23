@@ -33,6 +33,11 @@ import org.apache.spark.util.Utils
   * of ID objects. Also, constructor parameters are private to ensure that parameters cannot be
   * modified from outside this class.
   */
+/*
+*
+* BlockManagerId参数包括executorId、host、port，可以完全表示一个block的具体位置
+*
+* */
 @DeveloperApi
 class BlockManagerId private(
                                     private var executorId_ : String,
