@@ -199,6 +199,8 @@ CoarseGrainedSchedulerBackend withSchedulerBackend{
 ```
 接下来就是上一条线了。
 ### AppClient这条线梳理
+### BlockManager梳理
+### broadcast梳理
 ### 一些零散知识点
 #### defaultParallelism调用
 ```
