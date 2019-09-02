@@ -36,10 +36,20 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
         extends BlockStore(blockManager) {
 
     private val conf = blockManager.conf
+    /*
+    *
+    * 所谓的保存到内存，就是保存到LinkedHashMap这个数据结构中，也就是entries变量
+    * MemoryEntry是真正需要保存的值
+    * */
     private val entries = new LinkedHashMap[BlockId, MemoryEntry](32, 0.75f, true)
 
     @volatile private var currentMemory = 0L
 
+    /*
+    *
+    * 下面几个有关unroll回滚的变量，不清楚含义
+    *
+    * */
     // Ensure only one thread is putting, and if necessary, dropping blocks at any given time
     private val accountingLock = new Object
 
@@ -72,6 +82,10 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
     def freeMemory: Long = maxMemory - currentMemory
 
     override def getSize(blockId: BlockId): Long = {
+        /*
+        * 所有block都保存在entries中
+        * 同步加锁获取，防止其他操作添加entries
+        * */
         entries.synchronized {
             entries.get(blockId).size
         }
@@ -79,6 +93,9 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 
     override def putBytes(blockId: BlockId, _bytes: ByteBuffer, level: StorageLevel): PutResult = {
         // Work on a duplicate - since the original input might be used elsewhere.
+        /*
+        * 创建一个完全一样的新缓冲区，因为原始缓冲区可能会被其他地方频繁使用
+        * */
         val bytes = _bytes.duplicate()
         bytes.rewind()
         if (level.deserialized) {
@@ -96,10 +113,24 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
                                  level: StorageLevel,
                                  returnValues: Boolean): PutResult = {
         if (level.deserialized) {
+            /*
+            * 估计是估计了一个大小
+            * */
             val sizeEstimate = SizeEstimator.estimate(values.asInstanceOf[AnyRef])
+            /*
+            * tryToPut是事实上的写入方法
+            * */
             val putAttempt = tryToPut(blockId, values, sizeEstimate, deserialized = true)
+            /*
+            *
+            * 最终返回了PutResult
+            * values.iterator可以转换成Iterator类型，则是Iterator；如果不可以，那就是values本身
+            * */
             PutResult(sizeEstimate, Left(values.iterator), putAttempt.droppedBlocks)
         } else {
+            /*
+            * 如果没有反序列化，那么序列化它
+            * */
             val bytes = blockManager.dataSerialize(blockId, values.iterator)
             val putAttempt = tryToPut(blockId, bytes, bytes.limit, deserialized = false)
             PutResult(bytes.limit(), Right(bytes.duplicate()), putAttempt.droppedBlocks)
@@ -116,7 +147,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 
     /**
       * Attempt to put the given block in memory store.
-      *
+      * 企图把被给的block写到内存
       * There may not be enough space to fully unroll the iterator in memory, in which case we
       * optionally drop the values to disk if
       * (1) the block's storage level specifies useDisk, and
@@ -132,18 +163,31 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
                                             level: StorageLevel,
                                             returnValues: Boolean,
                                             allowPersistToDisk: Boolean): PutResult = {
+        /*
+        *
+        * 如果没有足够的空间，那么需要删除一些block
+        * */
         val droppedBlocks = new ArrayBuffer[(BlockId, BlockStatus)]
         val unrolledValues = unrollSafely(blockId, values, droppedBlocks)
         unrolledValues match {
             case Left(arrayValues) =>
+                /*
+                * 如果values没超过内存限制，把他们以array存入
+                * */
                 // Values are fully unrolled in memory, so store them as an array
                 val res = putArray(blockId, arrayValues, level, returnValues)
                 droppedBlocks ++= res.droppedBlocks
                 PutResult(res.size, res.data, droppedBlocks)
             case Right(iteratorValues) =>
+                /*
+                * 如果没有足够的内存，则将该block删除，通过diskStore.putIterator保存到disk中
+                * */
                 // Not enough space to unroll this block; drop to disk if applicable
                 if (level.useDisk && allowPersistToDisk) {
                     logWarning(s"Persisting block $blockId to disk instead.")
+                    /*
+                    * 持久化到文件中，该文件是以blockId为名的
+                    * */
                     val res = blockManager.diskStore.putIterator(blockId, iteratorValues, level, returnValues)
                     PutResult(res.size, res.data, droppedBlocks)
                 } else {
@@ -179,6 +223,9 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
         }
     }
 
+    /*
+    * 移除blockId，为什么不通知master？
+    * */
     override def remove(blockId: BlockId): Boolean = {
         entries.synchronized {
             val entry = entries.remove(blockId)
@@ -194,6 +241,10 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 
     override def clear() {
         entries.synchronized {
+            /*
+            * 清空保存blockId的内存entries
+            * 一般计算完，就会清空
+            * */
             entries.clear()
             currentMemory = 0
         }
@@ -202,7 +253,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 
     /**
       * Unroll the given block in memory safely.
-      *
+      * 安全回滚
       * The safety of this operation refers to avoiding potential OOM exceptions caused by
       * unrolling the entirety of the block in memory at once. This is achieved by periodically
       * checking whether the memory restrictions for unrolling blocks are still satisfied,
@@ -212,6 +263,10 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
       * This method returns either an array with the contents of the entire block or an iterator
       * containing the values of the block (if the array would have exceeded available memory).
       */
+    /*
+    *
+    * 可以研究一下BlockStore的回滚机制
+    * */
     def unrollSafely(
                             blockId: BlockId,
                             values: Iterator[Any],
@@ -296,6 +351,9 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
     /**
       * Return the RDD ID that a given block ID is from, or None if it is not an RDD block.
       */
+    /*
+    * 给一个blockId，返回它属于的RDDid
+    * */
     private def getRddId(blockId: BlockId): Option[Int] = {
         blockId.asRDDId.map(_.rddId)
     }
@@ -432,6 +490,10 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
         ResultWithDroppedBlocks(success = true, droppedBlocks)
     }
 
+    /*
+    *
+    * 判断当前是否保存有该BlockId的block
+    * */
     override def contains(blockId: BlockId): Boolean = {
         entries.synchronized {
             entries.containsKey(blockId)

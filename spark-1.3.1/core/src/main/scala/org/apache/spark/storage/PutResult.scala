@@ -26,6 +26,10 @@ import java.nio.ByteBuffer
   * replication), and
   * (3) A list of blocks dropped as a result of this put. This is always empty for DiskStore.
   */
+/*
+*
+* Either/Left/Right的使用
+* */
 private[spark] case class PutResult(
                                            size: Long,
                                            data: Either[Iterator[_], ByteBuffer],

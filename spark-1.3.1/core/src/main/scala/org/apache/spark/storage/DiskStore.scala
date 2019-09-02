@@ -72,6 +72,10 @@ private[spark] class DiskStore(blockManager: BlockManager, diskManager: DiskBloc
 
         logDebug(s"Attempting to write values for block $blockId")
         val startTime = System.currentTimeMillis
+        /*
+        *
+        * 打开以blockId命名的文件，写入
+        * */
         val file = diskManager.getFile(blockId)
         val outputStream = new FileOutputStream(file)
         try {

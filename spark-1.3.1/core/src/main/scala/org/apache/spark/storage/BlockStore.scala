@@ -26,6 +26,12 @@ import org.apache.spark.Logging
 /**
   * Abstract class to store blocks.
   */
+/*
+*
+* 抽象类，不是trait
+* 对具体blockId进行操作，两种操作：1、put类；2、get类
+* 对两种数据结构进行操作：1、ByteBuffer、Array；2、Iterator
+* */
 private[spark] abstract class BlockStore(val blockManager: BlockManager) extends Logging {
 
     def putBytes(blockId: BlockId, bytes: ByteBuffer, level: StorageLevel): PutResult

@@ -29,6 +29,10 @@ import org.apache.spark.annotation.DeveloperApi
   *
   * If your BlockId should be serializable, be sure to add it to the BlockId.apply() method.
   */
+/*
+*
+* 定义blockId时候，都要定义对应属于的RDD等信息。。。。
+* */
 @DeveloperApi
 sealed abstract class BlockId {
     /** A globally unique identifier for this Block. Can be used for ser/de. */
