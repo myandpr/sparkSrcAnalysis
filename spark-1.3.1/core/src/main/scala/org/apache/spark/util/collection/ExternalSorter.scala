@@ -87,6 +87,9 @@ private[spark] class ExternalSorter[K, V, C](
                                                     serializer: Option[Serializer] = None)
         extends Logging with Spillable[SizeTrackingPairCollection[(Int, K), C]] {
 
+    /*
+    * 很显然是reduce端的partitionNum
+    * */
     private val numPartitions = partitioner.map(_.numPartitions).getOrElse(1)
     private val shouldPartition = numPartitions > 1
 
@@ -132,6 +135,9 @@ private[spark] class ExternalSorter[K, V, C](
     // files open at a time and thus more memory allocated to buffers.
     private val bypassMergeThreshold = conf.getInt("spark.shuffle.sort.bypassMergeThreshold", 200)
     private val bypassMergeSort =
+        /*
+        * 三个条件：小于、不聚合、不排序
+        * */
         (numPartitions <= bypassMergeThreshold && aggregator.isEmpty && ordering.isEmpty)
 
     // Array of file writers for each partition, used if bypassMergeSort is true and we've spilled
@@ -712,6 +718,10 @@ private[spark] class ExternalSorter[K, V, C](
       * @param context a TaskContext for a running Spark task, for us to update shuffle metrics.
       * @return array of lengths, in bytes, of each partition of the file (used by map output tracker)
       */
+    /*
+    *
+    * if else分别实现了两种sort
+    * */
     def writePartitionedFile(
                                     blockId: BlockId,
                                     context: TaskContext,
