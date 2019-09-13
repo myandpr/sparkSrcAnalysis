@@ -1,5 +1,9 @@
 .idea
-
+.idea/workspace.xml
 *.iml
-
 target
+.DS_store
+.settings
+.classpath
+.project
+logs

@@ -1,0 +1,16 @@
+----------------------------------------------------------------
+Fri Sep 13 00:30:08 CST 2019:
+Booting Derby version The Apache Software Foundation - Apache Derby - 10.10.1.1 - (1458268): instance a816c00e-016d-264f-81e8-00001ff20850 
+on database directory E:\doc\Project\sparkSrcAnalysis\spark-1.3.1\core\target\JavaJdbcRDDSuiteDb with class loader sun.misc.Launcher$AppClassLoader@232204a1 
+Loaded from file:/C:/Users/yanmin/.m2/repository/org/apache/derby/derby/10.10.1.1/derby-10.10.1.1.jar
+java.vendor=Oracle Corporation
+java.runtime.version=1.8.0_162-b12
+user.dir=E:\doc\Project\sparkSrcAnalysis\spark-1.3.1\core
+os.name=Windows 10
+os.arch=amd64
+os.version=10.0
+derby.system.home=null
+Database Class Loader started - derby.database.classpath=''
+----------------------------------------------------------------
+Fri Sep 13 00:30:11 CST 2019:
+Shutting down instance a816c00e-016d-264f-81e8-00001ff20850 on database directory E:\doc\Project\sparkSrcAnalysis\spark-1.3.1\core\target\JavaJdbcRDDSuiteDb with class loader sun.misc.Launcher$AppClassLoader@232204a1 
