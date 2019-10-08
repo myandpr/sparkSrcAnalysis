@@ -36,6 +36,10 @@ object GroupByTest {
         var numReducers = if (args.length > 3) args(3).toInt else numMappers
 
         val sc = new SparkContext(sparkConf)
+        val value = sc.parallelize(List(1,2,4))
+        var context: SparkContext = value.context
+        if(context == sc) true else false
+
 
 
         SparkFiles

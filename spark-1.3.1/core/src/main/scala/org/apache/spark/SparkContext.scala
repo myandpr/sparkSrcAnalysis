@@ -91,7 +91,18 @@ import org.apache.spark.util._
 class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationClient {
 
     // The call site where this SparkContext was constructed.
+    /*
+    *
+    * example:GroupByTest.scala执行会返回：
+    * SparkContext at GroupByTest.scala:38
+    ************
+    org.apache.spark.SparkContext.<init>(SparkContext.scala:94)
+    org.apache.spark.examples.GroupByTest$.main(GroupByTest.scala:38)
+    org.apache.spark.examples.GroupByTest.main(GroupByTest.scala)
+    分别是case class CallSite(shortForm: String, longForm: String)的shortForm和longForm
+    * */
     private val creationSite: CallSite = Utils.getCallSite()
+    println(creationSite)
 
     // If true, log warnings instead of throwing exceptions when multiple SparkContexts are active
     /*
@@ -1812,6 +1823,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
         /*
         *
         * 为什么要持久化？？？
+        * 不是持久化，而是判断是否需要持久化，执行实际的持久化操作！
         * */
         rdd.doCheckpoint()
     }
