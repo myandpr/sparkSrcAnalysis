@@ -31,6 +31,7 @@ import org.apache.spark.util.Utils
 /*
 *
 * MapStatus保存每个shuffleId的所有output信息
+* sealed关键字提供了一种约束：不能在类定义的文件之外定义任何新的子类。
 * */
 private[spark] sealed trait MapStatus {
     /** Location where this task was run. */
@@ -52,6 +53,10 @@ private[spark] sealed trait MapStatus {
 private[spark] object MapStatus {
 
     def apply(loc: BlockManagerId, uncompressedSizes: Array[Long]): MapStatus = {
+        /*
+        * 如果reduce数量大于2000，就采用HighlgCompressedMapStatus高度压缩，否则就是普通压缩
+        * 由于MapStatue保存信息太多。。。
+        * */
         if (uncompressedSizes.length > 2000) {
             HighlyCompressedMapStatus(loc, uncompressedSizes)
         } else {
