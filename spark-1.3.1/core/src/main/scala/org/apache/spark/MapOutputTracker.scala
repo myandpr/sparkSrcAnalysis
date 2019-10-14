@@ -160,6 +160,18 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     /*
     *
     * shuffleId和reduceId到底是什么？？？？？？
+    * shuffleId是指时间维度上，当前这个shuffle操作，比如一个action中会多次使用reduceByKey，多次shuffle，
+    * 这个shuffleId指的就是第几个reduceByKey
+    *
+    *
+    * reduceId就是bucketId，限制每个MapStatus中获取当前ResultTask需要的每个ShuffleMapTask输出的文件信息（参考HashShuffle）
+    *
+    *
+    * 方法getServerStatuses（）传入了shuffleId和reduceId，shuffleId代表了当前这个stage的上一个stage，
+    * 我们知道shuffle是分为两个stage的，shuffle write是发生在上一个stage中，shuffle read是发生在当前的stage中的，
+    * 也就是通过shuffleId可用限制到上一个stage的所有shuffleMapTask的输出的MapStatus，
+    * 接着通过reduceid，也就是bucketId，来限制从每个MapStatus中，获取当前这个ResultTask需要获取的每个ShuffleMapTask的输出文件的信息，
+    * 这个getServerStatuses（）方法一定是走远程网络通信的，因为要联系Driver上的DAGScheduler的MapOutputTrackerMaster
     * */
     def getServerStatuses(shuffleId: Int, reduceId: Int): Array[(BlockManagerId, Long)] = {
         val statuses = mapStatuses.get(shuffleId).orNull
