@@ -249,6 +249,10 @@ object SparkEnv extends Logging {
         *不熟悉java的Class.forName方法用法。
         * */
         def instantiateClass[T](className: String): T = {
+            /*
+            * 反射机制的使用
+            * 这里就是ClassLoader类加载器的使用原理
+            * */
             val cls = Class.forName(className, true, Utils.getContextOrSparkClassLoader)
             // Look for a constructor taking a SparkConf and a boolean isDriver, then one taking just
             // SparkConf, then one taking no arguments
@@ -275,7 +279,7 @@ object SparkEnv extends Logging {
 
         /*
         *
-        * 创建序列化对象？？？
+        * 貌似是根据propertyName: String来创建对应的类，初始化序列化对象？？？
         * */
         val serializer = instantiateClassFromConf[Serializer](
             "spark.serializer", "org.apache.spark.serializer.JavaSerializer")
@@ -294,10 +298,14 @@ object SparkEnv extends Logging {
             if (isDriver) {
                 logInfo("Registering " + name)
                 /*
-                * 注册并返回actor
+                * 注册并返回actor引用
                 * */
                 actorSystem.actorOf(Props(newActor), name = name)
             } else {
+                /*
+                *
+                * 如果是executor启动actor，则需要建立driver端的actor，用来给driver发消息
+                * */
                 AkkaUtils.makeDriverRef(name, conf, actorSystem)
             }
         }

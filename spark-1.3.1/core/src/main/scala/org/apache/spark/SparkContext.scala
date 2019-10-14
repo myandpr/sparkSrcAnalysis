@@ -155,6 +155,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
       * :: DeveloperApi ::
       * Alternative constructor for setting preferred locations where Spark will create executors.
       * 可选构造器，设置container最近的Node节点
+      * 在Yarn模式下，可以选择启动contariners的nodes
       *
       * @param preferredNodeLocationData used in YARN mode to select nodes to launch containers on.
       *                                  Can be generated using [[org.apache.spark.scheduler.InputFormatInfo.computePreferredLocations]]
@@ -264,13 +265,15 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
       */
     /*
     *
-    * 可以在运行过程中，修改SparkConf并生效
+    * 不可以在运行过程中，修改SparkConf并生效
+    * 防止先getConf，再setConf修改原始conf
     * */
     def getConf: SparkConf = conf.clone()
 
     /*
     *
     * 以下几个if都是异常判断
+    * 一个application最起码设置master，appName，host，port
     * */
     if (!conf.contains("spark.master")) {
         throw new SparkException("A master URL must be set in your configuration")
@@ -2232,6 +2235,9 @@ object SparkContext extends Logging {
     private[spark] def markPartiallyConstructed(
                                                        sc: SparkContext,
                                                        allowMultipleContexts: Boolean): Unit = {
+        /*
+        * 用同步锁防止全局变量被修改，确保一个jvm里只有一个SparkContext运行
+        * */
         SPARK_CONTEXT_CONSTRUCTOR_LOCK.synchronized {
             assertNoOtherContextIsRunning(sc, allowMultipleContexts)
             contextBeingConstructed = Some(sc)

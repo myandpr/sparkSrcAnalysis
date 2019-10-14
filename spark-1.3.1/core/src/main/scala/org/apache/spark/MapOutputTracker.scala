@@ -76,14 +76,22 @@ private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster
   * a stage. This is abstract because different versions of MapOutputTracker
   * (driver and executor) use different HashMap to store its metadata.
   */
+/*
+* 这个类保存所有的stage中map阶段的输出位置，之所以是抽象class，
+* 是因为不同的MapOutputTracker（driver，executor）使用不同的HashMap存储metadata
+* 下面两个class分别是MapOutputTrackerMaster和MapOutputTrackerWorker
+* */
 private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging {
+    /*
+    * akka的请求操作时间
+    * */
     private val timeout = AkkaUtils.askTimeout(conf)
     private val retryAttempts = AkkaUtils.numRetries(conf)
     private val retryIntervalMs = AkkaUtils.retryWaitMs(conf)
 
     /** Set to the MapOutputTrackerActor living on the driver. */
     /*
-    *
+    * 设置运行在driver端的MapOutputTrackerActor
     *
     * 看不到该trackerActor是如何设置的？？为什么只有使用，没有设置？？？
     *
@@ -94,6 +102,9 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
 
     /**
       * This HashMap has different behavior for the driver and the executors.
+      * 这个HashMap对driver和executors有不同的行为
+      * 在driver上，这个HashMap作为ShuffleMapTasks的输出结果
+      * 在executors上，这个HashMap简单的作为cache缓存服务，在这个缓存中，未命中的从driver的相应的HashMap中获取
       *
       * On the driver, it serves as the source of map outputs recorded from ShuffleMapTasks.
       * On the executors, it simply serves as a cache, in which a miss triggers a fetch from the
@@ -112,11 +123,15 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     protected val epochLock = new AnyRef
 
     /** Remembers which map output locations are currently being fetched on an executor. */
+        /*
+        * 保存哪个map output输出位置是当前正在从executor拉取的
+        * */
     private val fetching = new HashSet[Int]
 
     /**
       * Send a message to the trackerActor and get its result within a default timeout, or
       * throw a SparkException if this fails.
+      * 向trackerActor发送消息获得result，下面两个函数，第二个调用第一个
       */
     protected def askTracker(message: Any): Any = {
         try {
@@ -140,12 +155,20 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     /**
       * Called from executors to get the server URIs and output sizes of the map outputs of
       * a given shuffle.
+      * 被从executors调用去获取server URLS 和shuffle的输出大小
       */
+    /*
+    *
+    * shuffleId和reduceId到底是什么？？？？？？
+    * */
     def getServerStatuses(shuffleId: Int, reduceId: Int): Array[(BlockManagerId, Long)] = {
         val statuses = mapStatuses.get(shuffleId).orNull
         if (statuses == null) {
             logInfo("Don't have map outputs for shuffle " + shuffleId + ", fetching them")
             var fetchedStatuses: Array[MapStatus] = null
+            /*
+            * 同步锁，保持数据一致性，fetching是当前正在拉取的输出位置map output
+            * */
             fetching.synchronized {
                 // Someone else is fetching it; wait for them to be done
                 while (fetching.contains(shuffleId)) {
@@ -210,6 +233,10 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
       * because of a fetch failure. Each executor task calls this with the latest epoch
       * number on the driver at the time it was created.
       */
+    /*
+    *
+    * 被从executors调用去更新epoch次数，然后清除matStatuses缓存
+    * */
     def updateEpoch(newEpoch: Long) {
         epochLock.synchronized {
             if (newEpoch > epoch) {
@@ -232,6 +259,11 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
 /**
   * MapOutputTracker for the driver. This uses TimeStampedHashMap to keep track of map
   * output information, which allows old output information based on a TTL.
+  *
+  *
+  * 对于driver的MapOutputTracker，
+  * 使用了TimeStampedHashMap去保存shuffle的输出信息
+  * 允许保存咋TTL范围内的旧的输出信息
   */
 private[spark] class MapOutputTrackerMaster(conf: SparkConf)
         extends MapOutputTracker(conf) {
@@ -243,6 +275,8 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
       * Timestamp based HashMap for storing mapStatuses and cached serialized statuses in the driver,
       * so that statuses are dropped only by explicit de-registering or by TTL-based cleaning (if set).
       * Other than these two scenarios, nothing should be dropped from this HashMap.
+      *
+      * 旧的mapstatus只有超过TTL才会被删除
       */
     protected val mapStatuses = new TimeStampedHashMap[Int, Array[MapStatus]]()
     private val cachedSerializedStatuses = new TimeStampedHashMap[Int, Array[Byte]]()
@@ -352,17 +386,34 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
 /**
   * MapOutputTracker for the executors, which fetches map output information from the driver's
   * MapOutputTrackerMaster.
+  *
+  * executors端的MapOutputTracker，从driver的MapOutputTrackerMaster拉取map的output信息
   */
+/*
+*
+* 总结就是，
+* 1、MapOutputTrackerMaster保存map的output信息（not output内容），
+* 2、MapOutputTrackerWorker是从MapOutputTrackerMaster拉取信息
+* */
 private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTracker(conf) {
     protected val mapStatuses: Map[Int, Array[MapStatus]] =
         new ConcurrentHashMap[Int, Array[MapStatus]]
 }
 
+/*
+*
+* MapOutputTracker类的伴生对象
+* */
 private[spark] object MapOutputTracker extends Logging {
 
     // Serialize an array of map output locations into an efficient byte format so that we can send
     // it to reduce tasks. We do this by compressing the serialized bytes using GZIP. They will
     // generally be pretty compressible because many map outputs will be on the same hostname.
+    /*
+    *
+    * 把map的output locations序列化成bytes格式，GZIP压缩并发送给reduce tasks，
+    * 由于map output很多都在同一个hostname上，所以压缩率很可观
+    * */
     def serializeMapStatuses(statuses: Array[MapStatus]): Array[Byte] = {
         val out = new ByteArrayOutputStream
         val objOut = new ObjectOutputStream(new GZIPOutputStream(out))
@@ -383,6 +434,10 @@ private[spark] object MapOutputTracker extends Logging {
     // Convert an array of MapStatuses to locations and sizes for a given reduce ID. If
     // any of the statuses is null (indicating a missing location due to a failed mapper),
     // throw a FetchFailedException.
+    /*
+    *
+    * 把MapStatuses数组转换成给定reduceId的位置和大小
+    * */
     private def convertMapStatuses(
                                           shuffleId: Int,
                                           reduceId: Int,

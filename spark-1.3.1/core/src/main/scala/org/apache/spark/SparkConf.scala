@@ -32,6 +32,7 @@ import org.apache.spark.util.Utils
   * Most of the time, you would create a SparkConf object with `new SparkConf()`, which will load
   * values from any `spark.*` Java system properties set in your application as well. In this case,
   * parameters you set directly on the `SparkConf` object take priority over system properties.
+  * 在SparkConf中设置的属性优先级高于系统属性优先级
   *
   * For unit tests, you can also call `new SparkConf(false)` to skip loading external settings and
   * get the same configuration no matter what the system properties are.
@@ -41,6 +42,7 @@ import org.apache.spark.util.Utils
   *
   * Note that once a SparkConf object is passed to Spark, it is cloned and can no longer be modified
   * by the user. Spark does not support modifying the configuration at runtime.
+  * 一旦SparkConf对象被设置，在application运行过程中就不能被修改了
   *
   * @param loadDefaults whether to also load values from Java system properties
   */
@@ -51,8 +53,14 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging {
     /** Create a SparkConf that loads defaults from system properties and the classpath */
     def this() = this(true)
 
+    /*
+    * ConcurrentHashMap保存所有key-value配置
+    * */
     private val settings = new ConcurrentHashMap[String, String]()
 
+    /*
+    * loadDefaults为true则加载系统变量中spark开头的配置
+    * */
     if (loadDefaults) {
         // Load any spark.* system properties
         //加载系统变量
@@ -86,6 +94,10 @@ class SparkConf(loadDefaults: Boolean) extends Cloneable with Logging {
         set("spark.app.name", name)
     }
 
+    /*
+    *
+    * 分发到集群的Jar文件
+    * */
     /** Set JAR files to distribute to the cluster. */
     def setJars(jars: Seq[String]): SparkConf = {
         for (jar <- jars if (jar == null)) logWarning("null jar passed to SparkContext constructor")
