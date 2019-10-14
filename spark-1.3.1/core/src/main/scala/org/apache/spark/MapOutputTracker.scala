@@ -174,7 +174,13 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     * 这个getServerStatuses（）方法一定是走远程网络通信的，因为要联系Driver上的DAGScheduler的MapOutputTrackerMaster
     * */
     def getServerStatuses(shuffleId: Int, reduceId: Int): Array[(BlockManagerId, Long)] = {
+        /*
+        * 试图从缓存mapstatused中获取结果
+        * */
         val statuses = mapStatuses.get(shuffleId).orNull
+        /*
+        * 如果MapStatuses没有shuffleId的数据，则会像driver请求
+        * */
         if (statuses == null) {
             logInfo("Don't have map outputs for shuffle " + shuffleId + ", fetching them")
             var fetchedStatuses: Array[MapStatus] = null
@@ -209,6 +215,10 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
                         askTracker(GetMapOutputStatuses(shuffleId)).asInstanceOf[Array[Byte]]
                     fetchedStatuses = MapOutputTracker.deserializeMapStatuses(fetchedBytes)
                     logInfo("Got the output locations")
+                    /*
+                    *
+                    * 将远程拉取的结果，添加到mapStatuses
+                    * */
                     mapStatuses.put(shuffleId, fetchedStatuses)
                 } finally {
                     fetching.synchronized {
