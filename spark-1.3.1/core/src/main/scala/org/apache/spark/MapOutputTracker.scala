@@ -103,6 +103,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     *
     *
     * 该变量是public，意味着可以在外部的类中，对其设置。。。。。。。。。
+    * 具体是在SparkEnv.scala中create函数实现中第一次赋值
     * */
     var trackerActor: ActorRef = _
 

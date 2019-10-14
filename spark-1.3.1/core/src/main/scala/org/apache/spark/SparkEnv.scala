@@ -293,6 +293,7 @@ object SparkEnv extends Logging {
         *
         * newActor:=>Actor语法不清楚！！！！
         * 该函数无非就是在ActorSystem中开始Actor处理消息，返回actor
+        * 开始执行actor监听处理
         * */
         def registerOrLookup(name: String, newActor: => Actor): ActorRef = {
             if (isDriver) {
@@ -326,6 +327,8 @@ object SparkEnv extends Logging {
         /*
         *
         * registerOrLookup函数返回了actor，是driver的actor，not executor的actor
+        *
+        * 这个地方才是给trackerActor第一次赋值，赋值的是driver端的actor
         * */
         mapOutputTracker.trackerActor = registerOrLookup(
             "MapOutputTracker",
@@ -346,14 +349,18 @@ object SparkEnv extends Logging {
             "sort" -> "org.apache.spark.shuffle.sort.SortShuffleManager")
         /*
         * spark-1.3.1版本默认shuffle是SortShuffle
+        * 获取spark集群配置的默认shuffle方法
         * */
         val shuffleMgrName = conf.get("spark.shuffle.manager", "sort")
         val shuffleMgrClass = shortShuffleMgrNames.getOrElse(shuffleMgrName.toLowerCase, shuffleMgrName)
+        /*
+        * 反射的应用
+        * */
         val shuffleManager = instantiateClass[ShuffleManager](shuffleMgrClass)
 
         /*
         * 创建ShuffleMemoryManager
-        * blockTransferService默认为NettyBlockTransferService ,它使用Netty法人一步时间驱动的网络应用框架，提供web服务及客户端，获取远程节点上的Block集合。
+        * blockTransferService默认为NettyBlockTransferService ,它使用Netty法人一步时间驱动 的网络应用框架，提供web服务及客户端，获取远程节点上的Block集合。
         * */
         val shuffleMemoryManager = new ShuffleMemoryManager(conf)
 
@@ -387,7 +394,7 @@ object SparkEnv extends Logging {
 
 
         /*
-        * 创建broadcastManager广播变量管理器
+        * 创建broadcastManager广播变量管理器，是建立在securityManager上的
         * */
         val broadcastManager = new BroadcastManager(isDriver, conf, securityManager)
 
@@ -399,6 +406,7 @@ object SparkEnv extends Logging {
 
         /*
         * 创建http服务器，用于远程下载资源什么的。。。。。。。
+        * 运行在driver端
         * */
         val httpFileServer =
             if (isDriver) {
@@ -435,8 +443,10 @@ object SparkEnv extends Logging {
         // this is a temporary directory; in distributed mode, this is the executor's current working
         // directory.
         /*
-        * 临时目录，本地模式是一个临时目录；分布式是executor的当前工作目录
+        * 本地模式是一个临时目录；分布式模式是executor的当前工作目录
         * SparkContext.addFile()下载的file，都存在以这个为根目录的路径下
+        *
+        * 设置sparkFiles目录，用来下载依赖。
         * */
         val sparkFilesDir: String = if (isDriver) {
             Utils.createTempDir(Utils.getLocalDir(conf), "userFiles").getAbsolutePath
@@ -464,7 +474,7 @@ object SparkEnv extends Logging {
 
         /*
         *
-        * 这种用法很奇怪，在SparkEnv class里new SparkEnv
+        * 这种用法很奇怪，在SparkEnv class里new SparkEnv，返回SparkEnv对象
         * 不奇怪，因为这是在SparkEnv的伴生对象里创建的SparkEnv对象！！
         * */
         new SparkEnv(
