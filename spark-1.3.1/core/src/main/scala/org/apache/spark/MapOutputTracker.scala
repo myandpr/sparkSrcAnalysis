@@ -49,6 +49,9 @@ private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster
         case GetMapOutputStatuses(shuffleId: Int) =>
             val hostPort = sender.path.address.hostPort
             logInfo("Asked to send map output locations for shuffle " + shuffleId + " to " + hostPort)
+            /*
+            * 最终是调用了MapOutputTrackerMaster的MapStatus变量保存的数据
+            * */
             val mapOutputStatuses = tracker.getSerializedMapOutputStatuses(shuffleId)
             val serializedSize = mapOutputStatuses.size
             if (serializedSize > maxAkkaFrameSize) {
@@ -62,6 +65,9 @@ private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster
                 logError(msg, exception)
                 throw exception
             }
+            /*
+            * 返回给发送方actor
+            * */
             sender ! mapOutputStatuses
 
         case StopMapOutputTracker =>
