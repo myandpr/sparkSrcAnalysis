@@ -405,8 +405,9 @@ object SparkEnv extends Logging {
         val cacheManager = new CacheManager(blockManager)
 
         /*
-        * 创建http服务器，用于远程下载资源什么的。。。。。。。
-        * 运行在driver端
+        * 创建http服务器并初始化，在初始化中启动服务httpServer.start()
+        * 只运行在driver端
+        * 用来在spark-submit提交application时的-jar和-file参数分发到各个worker的过程
         * */
         val httpFileServer =
             if (isDriver) {

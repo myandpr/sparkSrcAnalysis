@@ -35,6 +35,9 @@ private[spark] class HttpFileServer(
     var httpServer: HttpServer = null
     var serverUri: String = null
 
+    /*
+    * HTTPFileServer初始化中进行启动
+    * */
     def initialize() {
         baseDir = Utils.createTempDir(Utils.getLocalDir(conf), "httpd")
         fileDir = new File(baseDir, "files")

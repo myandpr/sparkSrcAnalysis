@@ -391,6 +391,9 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     SparkEnv.set(env)
 
     // Used to store a URL for each static file/jar together with the file's local timestamp
+    /*
+    * 存着是带着时间戳的file/jar地址url
+    * */
     private[spark] val addedFiles = HashMap[String, Long]()
     private[spark] val addedJars = HashMap[String, Long]()
 
@@ -444,7 +447,8 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
 
     // Bind the UI before starting the task scheduler to communicate
     // the bound port to the cluster manager properly
-    //绑定UI端口，使其在task scheduler与CM通信之前可以访问
+    //
+    // 在启动task scheduler之前绑定UI，以便绑定端口正确的与CM通信
     ui.foreach(_.bind())
 
     /**
@@ -455,6 +459,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
       */
     /*
     * Hadoop配置
+    * 尽量不要修改，因为之后所有的Hadoop RDDs都会重复使用它
     * */
     val hadoopConfiguration = SparkHadoopUtil.get.newConfiguration(conf)
 
