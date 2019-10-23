@@ -31,10 +31,12 @@ private[spark] trait Schedulable {
     var parent: Pool
 
     // child queues
+    //由于Schedulable只有Pool和TaskSetManager两个实现类，所以SchedulableQueue是一个可以嵌套的层次结构
+    //从这里我们看出，所谓的TaskSetManager和Pool本质是一个东西，平行的
     def schedulableQueue: ConcurrentLinkedQueue[Schedulable]
 
     def schedulingMode: SchedulingMode
-
+    //用于公平调度算法的权重
     def weight: Int
 
     def minShare: Int

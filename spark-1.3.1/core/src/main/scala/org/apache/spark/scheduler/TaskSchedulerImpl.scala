@@ -38,9 +38,11 @@ import org.apache.spark.storage.BlockManagerId
 
 /**
   * Schedules tasks for multiple types of clusters by acting through a SchedulerBackend.
+  * 通过一个SchedulerBackend为多种类型的CM调度tasks
   * It can also work with a local setup by using a LocalBackend and setting isLocal to true.
   * It handles common logic, like determining a scheduling order across jobs, waking up to launch
   * speculative tasks, etc.
+  * schedule掌握通用的逻辑，比如决定jobs的调度顺序、唤醒去启动推测任务
   * 启动推测任务
   *
   * Clients should first call initialize() and start(), then submit task sets through the
@@ -132,6 +134,12 @@ private[spark] class TaskSchedulerImpl(
     // This is a var so that we can reset it for testing purposes.
     private[spark] var taskResultGetter = new TaskResultGetter(sc.env, this)
 
+    /*
+    *
+    * 设置dagScheduler
+    * 在DAGScheduler类里调用了该函数，DAGScheduler把自己赋值给了TaskSchedulerImpl里的dagScheduler变量
+    * taskScheduler.setDAGScheduler(this)
+    * */
     override def setDAGScheduler(dagScheduler: DAGScheduler) {
         this.dagScheduler = dagScheduler
     }
@@ -143,8 +151,10 @@ private[spark] class TaskSchedulerImpl(
         this.backend = backend
         // temporarily set rootPool name to empty
         /*
+        *TaskSchedulerImpl对Task的调度依赖于调度池Pool，所有需要被调度的TaskSet都被置于调度池中。调度池Pool通过调度算法对每个TaskSet进行调度，并将调度的TaskSet交给TaskSchedulerImpl进行资源调度。
         *
         * Pool是调度池，rootPool是顶层的调度池，也就是根调度池，调度算法都是基于调度池的
+        *
         * https://blog.csdn.net/LINBE_blazers/article/details/92008509
         * 所谓的调度池pool是一个队列，def schedulableQueue: ConcurrentLinkedQueue[Schedulable]
         * 组织关系：（此处用图片表示更好，链接中有图片）

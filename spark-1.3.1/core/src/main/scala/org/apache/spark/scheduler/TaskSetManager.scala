@@ -47,6 +47,14 @@ import org.apache.spark.util.{Clock, SystemClock, Utils}
   * @param maxTaskFailures if any particular task fails more than this number of times, the entire
   *                        task set will be aborted
   */
+/*
+*
+* 初始化TaskSetManager需要TaskSchedulerImpl、TaskSet
+*
+* TaskSetManager一定是任务调度树里的叶子, 而Pool一定是中间节点. 作为叶子就有一些好玩的特性.
+* 理解一点就是TaskSet之间的调度其实是在Pool这个结构里玩的, 而TaskSetManager负责的是针对仅仅一个TaskSet的调度
+* */
+
 private[spark] class TaskSetManager(
                                            sched: TaskSchedulerImpl,
                                            val taskSet: TaskSet,
@@ -765,6 +773,7 @@ private[spark] class TaskSetManager(
     }
 
     /** Called by TaskScheduler when an executor is lost so we can re-enqueue our tasks */
+    //  被TaskScheduler调用，当一个executor挂掉后，可以重新提交这些失败executor上运行的tasks
     override def executorLost(execId: String, host: String) {
         logInfo("Re-queueing tasks for " + execId + " from TaskSet " + taskSet.id)
 

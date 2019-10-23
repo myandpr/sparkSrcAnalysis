@@ -469,7 +469,8 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     * */
     if (jars != null) {
         /*
-        * 通过env的http服务下载对应目录的jar包
+        *
+        * 其实这里并没有下载，只是把这些文件的路径添加到了HttpServer服务中，好像是供worker还是executor下载（还没研究呢）
         * env.httpFileServer.addJar(new File(path))
         * */
         jars.foreach(addJar)
@@ -499,6 +500,11 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
             .getOrElse(512)
 
     // Environment variables to pass to our executors.
+    /*
+    *
+    * executor加载环境变量
+    * 在SparkDeploySchedulerBackend中使用
+    * */
     private[spark] val executorEnvs = HashMap[String, String]()
 
     // Convert java options to env vars as a work around
@@ -507,10 +513,17 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
          value <- Option(System.getenv(envKey)).orElse(Option(System.getProperty(propKey)))} {
         executorEnvs(envKey) = value
     }
+    /*
+    *
+    * 系统环境变量
+    * */
     Option(System.getenv("SPARK_PREPEND_CLASSES")).foreach { v =>
         executorEnvs("SPARK_PREPEND_CLASSES") = v
     }
     // The Mesos scheduler backend relies on this environment variable to set executor memory.
+    /*
+    * 环境变量设置executor内存
+    * */
     // TODO: Set this only in the Mesos scheduler.
     executorEnvs("SPARK_EXECUTOR_MEMORY") = executorMemory + "m"
     executorEnvs ++= conf.getExecutorEnv
@@ -1638,6 +1651,8 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     /*
     *
     * 下载依赖的jar，这是具体是实现过程，根据path格式区别下载
+    * 分发到所有worker上
+    * addJar和spark-submit的--jars是一样的，区别在于一个是通过代码分发，一个是通过spark-submit脚本分发
     *
     * */
     def addJar(path: String) {
@@ -1647,6 +1662,9 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
             var key = ""
             if (path.contains("\\")) {
                 // For local paths with backslashes on Windows, URI throws an exception
+                /*
+                * 在SparkEnv创建时候，就已经初始化并启动HttpFileServer了
+                * */
                 key = env.httpFileServer.addJar(new File(path))
             } else {
                 val uri = new URI(path)
@@ -2505,6 +2523,8 @@ object SparkContext extends Logging {
     *
     * 返回的是两个：SchedulerBackend, TaskScheduler
     * 为什么没有yarn模式？？？
+    * yarn模式不需要正则匹配，是固定的，如下
+    * case "yarn-standalone" | "yarn-cluster" =>
     *
     * */
     private def createTaskScheduler(
@@ -2517,9 +2537,11 @@ object SparkContext extends Logging {
         val LOCAL_N_FAILURES_REGEX =
             """local\[([0-9]+|\*)\s*,\s*([0-9]+)\]""".r
         // Regular expression for simulating a Spark cluster of [N, cores, memory] locally
+        //伪集群模式
         val LOCAL_CLUSTER_REGEX =
             """local-cluster\[\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*]""".r
         // Regular expression for connecting to Spark deploy clusters
+        //standalone模式，也就是deploy cluster模式
         val SPARK_REGEX =
             """spark://(.*)""".r
         // Regular expression for connection to Mesos cluster by mesos:// or zk:// url
@@ -2584,6 +2606,9 @@ object SparkContext extends Logging {
                 scheduler.initialize(backend)
                 (backend, scheduler)
 
+                /*
+                * standalone模式
+                * */
             case SPARK_REGEX(sparkUrl) =>
                 val scheduler = new TaskSchedulerImpl(sc)
                 val masterUrls = sparkUrl.split(",").map("spark://" + _)
