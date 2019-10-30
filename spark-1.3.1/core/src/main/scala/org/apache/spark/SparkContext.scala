@@ -424,6 +424,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     /*
     * 控制台进度条
     * ConsoleProgressBar负责将SparkStatusTracker提供的数据打印到控制台上。
+    * 使用了statusTracker的数据
     * 属于UI部分
     * */
     private[spark] val progressBar: Option[ConsoleProgressBar] =

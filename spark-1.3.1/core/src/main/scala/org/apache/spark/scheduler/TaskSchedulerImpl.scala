@@ -215,6 +215,15 @@ private[spark] class TaskSchedulerImpl(
     * TaskSet里面有val tasks: Array[Task[_]],
     * 根据TaskSet创建TaskSetManager，将TaskSetManager添加到schedulableBuilder
     * */
+
+    /*
+    *
+    * 我们知道一个stage过程其实是对所有的parition执行transform过程, 直到遇到了一个shuffle, 本地的partition数据不足以支撑计算, 要进行节点间通信.
+    * stage中的task数量和parition的数量是1:1的, 但是由于整个集群资源有限, 所以stage里的所有task并不是同时跑的, 而是按照资源和配置尽可能的同时跑. 上文我们也看到, 只有申请到了足够内存的task可以跑, 否则要等待其它的先跑完.
+    * TaskSet有一定的有限顺序, 被TaskSetManager管理, 这个执行顺序实际上就是FIFO的.
+    * TaskSet中包含的是需要被执行的task. 像动态规划的思想一样, 可能上次执行的某些操作导致某些partition已经被执行了对应的task, 而且结果还存活着, 就不会进入这个待执行集合.
+    *
+    * */
     override def submitTasks(taskSet: TaskSet) {
         val tasks = taskSet.tasks
         logInfo("Adding task set " + taskSet.id + " with " + tasks.length + " tasks")

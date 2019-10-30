@@ -294,18 +294,21 @@ object SparkEnv extends Logging {
         * newActor:=>Actor语法不清楚！！！！
         * 该函数无非就是在ActorSystem中开始Actor处理消息，返回actor
         * 开始执行actor监听处理
+        * 如果是driver端，就注册启动driver的actor
+        * 如果是executor端，就发现driver的actor
+        * 字面意思理解：registerOrLookup就是注册或寻找
         * */
         def registerOrLookup(name: String, newActor: => Actor): ActorRef = {
             if (isDriver) {
                 logInfo("Registering " + name)
                 /*
-                * 注册并返回actor引用
+                * 注册启动newActor并返回actor引用
                 * */
                 actorSystem.actorOf(Props(newActor), name = name)
             } else {
                 /*
                 *
-                * 如果是executor启动actor，则需要建立driver端的actor，用来给driver发消息
+                * 如果是executor启动actor，则需要查找driver端的actor，用来给driver发消息
                 * */
                 AkkaUtils.makeDriverRef(name, conf, actorSystem)
             }
@@ -379,6 +382,7 @@ object SparkEnv extends Logging {
 
         /*
         * 创建BlockManagerMaster这个actor
+        * BlockManagerMaster是一个master节点上的actor，用来跟踪所有slave节点的block manager状态
         * */
         val blockManagerMaster = new BlockManagerMaster(registerOrLookup(
             "BlockManagerMaster",

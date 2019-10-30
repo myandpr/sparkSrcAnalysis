@@ -37,6 +37,9 @@ private[spark] class HttpFileServer(
 
     /*
     * HTTPFileServer初始化中进行启动
+    * HttpFileServer在driver的sparkContext中初始化并启动，所以fileDir、jarDir都是在本地创建的存储jar包、file文件的目录，
+    * 后面函数addFileToDir的Files.copy（src, dest）都是将src这些jar包、file文件copy到driver节点的基于base的fileDir和jarDir目录中
+    * 下面这句话需要验证：可能在executor或者worker中会直接下载该目录的jar包和file文件
     * */
     def initialize() {
         baseDir = Utils.createTempDir(Utils.getLocalDir(conf), "httpd")

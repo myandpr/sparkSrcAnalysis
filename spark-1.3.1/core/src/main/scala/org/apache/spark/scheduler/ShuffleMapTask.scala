@@ -63,6 +63,11 @@ private[spark] class ShuffleMapTask(
     * writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
     *
     * */
+    /*
+    *
+    * ShuffleMapTask主要关注中间结果，主要是把partition操作等待shuffle到别的机器上的数据管理起来。
+    *
+    * */
     override def runTask(context: TaskContext): MapStatus = {
         // Deserialize the RDD using the broadcast variable.
         val ser = SparkEnv.get.closureSerializer.newInstance()

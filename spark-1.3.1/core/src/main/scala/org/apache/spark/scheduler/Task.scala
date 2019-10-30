@@ -122,6 +122,11 @@ private[spark] object Task {
     /**
       * Serialize a task and the current app dependencies (files and JARs added to the SparkContext)
       */
+    /*
+    *
+    * 每个task被发到executor执行的时候, 由网络传输时都是byte流, 也就是说需要序列化后传输, 然后在执行端反序列化.序列化的过程中会把执行这个task用到的各种上下文的环境变量都打包进去.
+    * 在传输时, task被切成4k一个的字节流分块传输
+    * */
     def serializeWithDependencies(
                                          task: Task[_],
                                          currentFiles: HashMap[String, Long],
@@ -160,6 +165,7 @@ private[spark] object Task {
       *
       * @return (taskFiles, taskJars, taskBytes)
       */
+
     def deserializeWithDependencies(serializedTask: ByteBuffer)
     : (HashMap[String, Long], HashMap[String, Long], ByteBuffer) = {
 

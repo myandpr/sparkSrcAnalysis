@@ -53,6 +53,10 @@ import org.apache.spark.util.{Clock, SystemClock, Utils}
 *
 * TaskSetManager一定是任务调度树里的叶子, 而Pool一定是中间节点. 作为叶子就有一些好玩的特性.
 * 理解一点就是TaskSet之间的调度其实是在Pool这个结构里玩的, 而TaskSetManager负责的是针对仅仅一个TaskSet的调度
+*
+*
+* TaskSetManager关注一个TaskSet内部的Task的运行状态和顺序, Pool关注的是TaskSet之间的向后运行顺序.
+* 一个TaskSet对应一个TaskSetManager
 * */
 
 private[spark] class TaskSetManager(

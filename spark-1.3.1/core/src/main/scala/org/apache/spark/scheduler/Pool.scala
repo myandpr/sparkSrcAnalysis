@@ -32,6 +32,7 @@ import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 *
 * TaskSetManager一定是任务调度树里的叶子, 而Pool一定是中间节点. 作为叶子就有一些好玩的特性.
 * 理解一点就是TaskSet之间的调度其实是在Pool这个结构里玩的, 而TaskSetManager负责的是针对仅仅一个TaskSet的调度
+* 多叉树的非叶子节点
 *
 * */
 private[spark] class Pool(
@@ -45,6 +46,8 @@ private[spark] class Pool(
     //由于Schedulable只有Pool和TaskSetManager两个实现类，所以SchedulableQueue是一个可以嵌套的层次结构
     //从这里我们看出，所谓的TaskSetManager和Pool本质是一个东西，平行的
     //Schedulable包含schedulableQueue，类似于多叉树的结构，schedulableQueue套着schedulableQueue
+    // 这个两个结构联合起来管理这个Pool里所有的child node
+    // 可以是pool或者tasksetmanager
     val schedulableQueue = new ConcurrentLinkedQueue[Schedulable]
     //  调度名称与Schedulable的对应关系
     val schedulableNameToSchedulable = new ConcurrentHashMap[String, Schedulable]
@@ -52,6 +55,8 @@ private[spark] class Pool(
     var weight = initWeight
     var minShare = initMinShare
     //  当前正在运行的任务数量
+    /* 前面我们看到过, 当这个Pool下面的叶子节点里有task在运行这里就会+1, 它反映的是这个Pool管理的所有的TaskSet共有多少个task在运行
+    * */
     var runningTasks = 0
     //  进行调度的优先级
     var priority = 0
@@ -63,6 +68,9 @@ private[spark] class Pool(
     //  当前Pool的父Pool
     var parent: Pool = null
 
+    //  比较叶子节点TaskSetManager的调度顺序算法，不是比的中间节点Pool的调度顺序。
+    //  FIFO是先比较priority，再比较stageId
+    //  FAIR就比较复杂，是根据minShare runningTasks weight来决定哪个TaskSet先运行.
     var taskSetSchedulingAlgorithm: SchedulingAlgorithm = {
         schedulingMode match {
             case SchedulingMode.FAIR =>
@@ -117,8 +125,9 @@ private[spark] class Pool(
         shouldRevive
     }
 
-    //  对当前Pool中的所有TaskSetManager按照调度算法taskSetSchedulingAlgorithm进行排序，并返回有序的TaskSetManager。
+    //  对当前Pool中的所有TaskSetManager按照调度算法taskSetSchedulingAlgorithm进行排序，并返回叶子节点有序的TaskSetManager。
     //  getSortedTaskSetQueue实际是通过迭代调用schedulableQueue中的各个Schedulable的getSortedTaskSetQueue方法实现。
+    //  这个方法实现了对TaskSet的排序, 决定了哪个TaskSet先运行, 哪个后运行
     override def getSortedTaskSetQueue: ArrayBuffer[TaskSetManager] = {
         var sortedTaskSetQueue = new ArrayBuffer[TaskSetManager]
         //  第一层排序：当前schedulableQueue中所有Schedulable排序
