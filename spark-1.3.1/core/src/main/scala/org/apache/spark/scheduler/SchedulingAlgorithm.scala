@@ -28,6 +28,7 @@ private[spark] trait SchedulingAlgorithm {
 
 private[spark] class FIFOSchedulingAlgorithm extends SchedulingAlgorithm {
     override def comparator(s1: Schedulable, s2: Schedulable): Boolean = {
+        //  priority是JobID
         val priority1 = s1.priority
         val priority2 = s2.priority
         var res = math.signum(priority1 - priority2)

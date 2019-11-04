@@ -24,6 +24,8 @@ import org.apache.spark.util.SerializableBuffer
 /**
   * Description of a task that gets passed onto executors to be executed, usually created by
   * [[TaskSetManager.resourceOffer]].
+  *
+  * 传送到executor去执行的task的描述，一般由TaskSetManager.resourceOffer创建
   */
 private[spark] class TaskDescription(
                                             val taskId: Long,

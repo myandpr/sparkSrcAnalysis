@@ -329,20 +329,23 @@ private[spark] class TaskSchedulerImpl(
     private def resourceOfferSingleTaskSet(
                                                   taskSet: TaskSetManager,
                                                   maxLocality: TaskLocality,
-                                                  shuffledOffers: Seq[WorkerOffer],
+                                                  shuffledOffers: Seq[WorkerOffer],  //打乱的所有可用executor资源
                                                   availableCpus: Array[Int],
                                                   tasks: Seq[ArrayBuffer[TaskDescription]]): Boolean = {
         var launchedTask = false
         /*
-        * 对每一个executor进行处理
+        * 对每一个executor（即WorkerOffer结构）进行处理
         * */
         for (i <- 0 until shuffledOffers.size) {
             val execId = shuffledOffers(i).executorId
             val host = shuffledOffers(i).host
+            //  在spark里，我们可以设置task所使用的CPU的数量，默认是1个，一个task任务在executor中是启动一个线程来执行的，如果多个的话，一个task可以多个core执行
+            //  如果该executor有充足资源，可用core数量大于一个task需要的core数量
             if (availableCpus(i) >= CPUS_PER_TASK) {
                 try {
                     /*
                     * taskSet.resourceOffer(execId, host, maxLocality)返回的是Option[TaskDescription]，也就是每个该TaskSet的每个task映射的executor号
+                    * 通过计算每个executor的剩余资源，决定是否需要从TaskSetManager中分配出task
                     * */
                     /*
                     *
@@ -384,6 +387,7 @@ private[spark] class TaskSchedulerImpl(
     * TaskDescription代表某个task被分配到哪个executor上执行
     *
     * resourceOffers最终返回每个task分配的executor信息的Seq集合
+    * 换句话，scheduler.resourceOffers来进行task的资源分配到executor中
     *
     *
     * 对当前所有TaskSet处理
@@ -399,6 +403,7 @@ private[spark] class TaskSchedulerImpl(
         for (o <- offers) {
             executorIdToHost(o.executorId) = o.host
             activeExecutorIds += o.executorId
+            //  如果该executor是新的host节点上的，则更新executorByHost
             if (!executorsByHost.contains(o.host)) {
                 executorsByHost(o.host) = new HashSet[String]()
                 // 将新增加的host通过DAGScheduler发送到eventLoop中处理
@@ -413,7 +418,8 @@ private[spark] class TaskSchedulerImpl(
 
         // Randomly shuffle offers to avoid always placing tasks on the same set of workers.
         /*
-        * 打乱顺序，使得Task均匀分配到各个worker节点上
+        * 随机化executor列表，打乱顺序，使得Task均匀分配到各个worker节点上
+        * shuffleOffers是乱序后的executor（即WorkerOffer）列表
         * */
         /*
         * 这一步是将executor乱序了
@@ -429,6 +435,25 @@ private[spark] class TaskSchedulerImpl(
         * availableCpus = Seq(o.cores, o.cores, o.cores, o.cores.......)
         * tasks和avaibaleCpus是一一对应的
         * */
+        /*
+        *
+        * tasks是一个一个的cores数量的TaskDescription的Array列表
+        * ---------------------------------------------------------------
+        * | executor-1 | ArrayBuffer[TaskDescription](WorkerOffer-1.cores) |
+        * | executor-2 | ArrayBuffer[TaskDescription](WorkerOffer-2.cores) |
+        * | executor-3 | ArrayBuffer[TaskDescription](WorkerOffer-3.cores) |
+        * | executor-4 | ArrayBuffer[TaskDescription](WorkerOffer-4.cores) |
+        * | executor-5 | ArrayBuffer[TaskDescription](WorkerOffer-5.cores) |
+        * ---------------------------------------------------------------
+        * availableCpus是一个个的cores数量的Array
+        * ------------------------------------
+        * | executor-1 |  WorkerOffer1.cores |
+        * | executor-2 |  WorkerOffer2.cores |
+        * | executor-3 |  WorkerOffer3.cores |
+        * | executor-4 |  WorkerOffer4.cores |
+        * | executor-5 |  WorkerOffer5.cores |
+        * ------------------------------------
+        * */
         val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores))
         val availableCpus = shuffledOffers.map(o => o.cores).toArray
         /*
@@ -436,7 +461,7 @@ private[spark] class TaskSchedulerImpl(
         * 返回调度池中排序的TaskSetManager
         * 根据调度策略获取ArrayBuffer[TaskSetManager]
         * 返回override def getSortedTaskSetQueue: ArrayBuffer[TaskSetManager] = {}
-        * 其中rootPool在初始化就赋值了
+        * 其中rootPool在初始化TaskScheduler.initialize就赋值了
         * */
         /*
         *
@@ -469,6 +494,8 @@ private[spark] class TaskSchedulerImpl(
                 /*
                 * 该函数执行完后，更新了参数tasks: Seq[ArrayBuffer[TaskDescription]]，返回一个bool，应该表示启动了的task
                 * 最后一个参数tasks被更新了，在line 396行定义的
+                *
+                * 针对某个TaskSet进行调度
                 * */
                 launchedTask = resourceOfferSingleTaskSet(
                     taskSet, maxLocality, shuffledOffers, availableCpus, tasks)
