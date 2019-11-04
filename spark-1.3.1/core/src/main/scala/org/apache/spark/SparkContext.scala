@@ -473,6 +473,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
         *
         * 其实这里并没有下载，只是把这些文件的路径添加到了HttpServer服务中，好像是供worker还是executor下载（还没研究呢）
         * env.httpFileServer.addJar(new File(path))
+        * 修正：env.httpFileServer.addJar(new File(path))调用了Files.copy(src, dest)，复制jar、file到指定指定目录了，其实应该算是下载了
         * */
         jars.foreach(addJar)
     }
@@ -2612,12 +2613,15 @@ object SparkContext extends Logging {
                 * */
             case SPARK_REGEX(sparkUrl) =>
                 val scheduler = new TaskSchedulerImpl(sc)
+                //  多个master url，HA模式
                 val masterUrls = sparkUrl.split(",").map("spark://" + _)
                 /*
                 *
                 * SparkDeploySchedulerBackend继承自CoarseGrainedSchedulerBackend
                 * */
                 val backend = new SparkDeploySchedulerBackend(scheduler, sc, masterUrls)
+                //  用backend初始化了scheduler内部的自身schedulerBackend
+                //  然后当之后的TaskScheduler.start()的时候，才能start内部的backend-----backend.start()
                 scheduler.initialize(backend)
                 (backend, scheduler)
 

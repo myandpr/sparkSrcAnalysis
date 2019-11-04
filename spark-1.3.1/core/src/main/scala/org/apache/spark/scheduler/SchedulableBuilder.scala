@@ -33,6 +33,7 @@ import org.apache.spark.util.Utils
 /*
 *
 * 调度器三大函数，
+* 这种调度器构建器就是专门调度叶子节点TaskSetManager的
 * */
 private[spark] trait SchedulableBuilder {
     def rootPool: Pool

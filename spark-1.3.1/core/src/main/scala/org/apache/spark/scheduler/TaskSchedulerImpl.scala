@@ -100,6 +100,7 @@ private[spark] class TaskSchedulerImpl(
 
     // The set of executors we have on each host; this is used to compute hostsAlive, which
     // in turn is used to decide when we can attain data locality on a given host
+    //  key是host，value是该host上的所有executor
     protected val executorsByHost = new HashMap[String, HashSet[String]]
 
     protected val hostsByRack = new HashMap[String, HashSet[String]]
@@ -151,7 +152,8 @@ private[spark] class TaskSchedulerImpl(
         this.backend = backend
         // temporarily set rootPool name to empty
         /*
-        *TaskSchedulerImpl对Task的调度依赖于调度池Pool，所有需要被调度的TaskSet都被置于调度池中。调度池Pool通过调度算法对每个TaskSet进行调度，并将调度的TaskSet交给TaskSchedulerImpl进行资源调度。
+        * TaskSchedulerImpl对Task的调度依赖于调度池Pool，所有需要被调度的TaskSet都被置于调度池中。
+        * 调度池Pool通过调度算法对每个TaskSet进行调度，并将调度的TaskSet交给TaskSchedulerImpl进行资源调度。
         *
         * Pool是调度池，rootPool是顶层的调度池，也就是根调度池，调度算法都是基于调度池的
         *
@@ -232,12 +234,13 @@ private[spark] class TaskSchedulerImpl(
             *
             * 按照这个TaskSet创建一个TaskSetManager，一对一的
             * 还定义了task失败重试最大次数
+            * 创建TaskSetManager，TaskSetManager将会管理一个TaskSet内所有Task的生命周期
             * */
             val manager = createTaskSetManager(taskSet, maxTaskFailures)
             activeTaskSets(taskSet.id) = manager
             /*
             *
-            * 将TaskSetManager添加到schedulableBuilder中
+            * 将叶子节点TaskSetManager添加到schedulableBuilder的rootPool中，最终是通过rootPool.addTaskSetManager添加的
             * */
             schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
@@ -258,7 +261,8 @@ private[spark] class TaskSchedulerImpl(
         }
         /*
         *
-        *executor.launchTask->tr = TaskRunner(taskid)->threadPool.execute(tr)
+        * 调用SchedulerBackend的riviveOffers方法对Task进行调度，决定task具体运行在哪个Executor中。
+        * executor.launchTask->tr = TaskRunner(taskid)->threadPool.execute(tr)
         *
         * */
         backend.reviveOffers()
@@ -319,6 +323,8 @@ private[spark] class TaskSchedulerImpl(
     /*
     *
     * 该函数执行完后，更新了参数tasks: Seq[ArrayBuffer[TaskDescription]]，返回一个bool，应该表示启动了的task
+    *
+    * 对单独的一个TaskSet进行操作
     * */
     private def resourceOfferSingleTaskSet(
                                                   taskSet: TaskSetManager,
@@ -340,7 +346,7 @@ private[spark] class TaskSchedulerImpl(
                     * */
                     /*
                     *
-                    * 这是TaskSet的resourceOffer，不是CoarseGrainedSchedulerBackend的resourceOffers
+                    * 这是TaskSet的resourceOffer，不是TaskSchedulerImpl的resourceOffers
                     * 在当前的executor上分配task
                     * */
                     for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
@@ -372,14 +378,16 @@ private[spark] class TaskSchedulerImpl(
       */
     /*
     *
+    * 注：offer是“提供、供给”的意思，resources是“资源”的意思
     * CM调用去给slaves上用round-robin方式分配task，使得tasks均匀的分布在各个node节点上
-    * WorkerOffer代表某个executor上空闲的资源
+    * WorkerOffer代表某个executor上空闲的资源，WorkerOffer：Executor = 1:1
     * TaskDescription代表某个task被分配到哪个executor上执行
     *
     * resourceOffers最终返回每个task分配的executor信息的Seq集合
     *
     *
     * 对当前所有TaskSet处理
+    * WorkerOffer包含一个executor的信息，代表集群里可用的资源
     * */
     def resourceOffers(offers: Seq[WorkerOffer]): Seq[Seq[TaskDescription]] = synchronized {
         // Mark each slave as alive and remember its hostname
@@ -393,6 +401,8 @@ private[spark] class TaskSchedulerImpl(
             activeExecutorIds += o.executorId
             if (!executorsByHost.contains(o.host)) {
                 executorsByHost(o.host) = new HashSet[String]()
+                // 将新增加的host通过DAGScheduler发送到eventLoop中处理
+                //  ***************具体处理方式，这里不清楚，需要仔细跟一下这一块的源码***************
                 executorAdded(o.executorId, o.host)
                 newExecAvail = true
             }
@@ -691,7 +701,7 @@ private[spark] class TaskSchedulerImpl(
 
 }
 
-
+//////////////////////////////////////分割线：下面是object/////////////////////////////////////////////////////
 private[spark] object TaskSchedulerImpl {
     /**
       * Used to balance containers across hosts.

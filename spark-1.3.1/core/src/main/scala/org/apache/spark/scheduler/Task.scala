@@ -126,6 +126,7 @@ private[spark] object Task {
     *
     * 每个task被发到executor执行的时候, 由网络传输时都是byte流, 也就是说需要序列化后传输, 然后在执行端反序列化.序列化的过程中会把执行这个task用到的各种上下文的环境变量都打包进去.
     * 在传输时, task被切成4k一个的字节流分块传输
+    * 猜测：序列化的只是currentFiles、currentJars的变量，而不是真正的jar包、file文件，只有在反序列化后，executor才会通过网络把这些依赖下载下来
     * */
     def serializeWithDependencies(
                                          task: Task[_],
@@ -133,7 +134,7 @@ private[spark] object Task {
                                          currentJars: HashMap[String, Long],
                                          serializer: SerializerInstance)
     : ByteBuffer = {
-
+        //  4096不是端口号，是字节大小size
         val out = new ByteArrayOutputStream(4096)
         val dataOut = new DataOutputStream(out)
 
@@ -165,7 +166,7 @@ private[spark] object Task {
       *
       * @return (taskFiles, taskJars, taskBytes)
       */
-
+    //  反序列化之后，Exectuor将会通过网络把这些依赖的文件和Jar包下载下来，最终启动Task。
     def deserializeWithDependencies(serializedTask: ByteBuffer)
     : (HashMap[String, Long], HashMap[String, Long], ByteBuffer) = {
 

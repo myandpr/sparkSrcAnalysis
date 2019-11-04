@@ -42,7 +42,7 @@ import org.apache.spark.util.{ActorLogReceive, SerializableBuffer, AkkaUtils, Ut
   */
 /*
 *
-*CoarseGrainedSchedulerBackend是属于Driver端的backend，在该class中包含着一个DriverActor，用来通信，接受executor发来的信号，同时接受来自DAGScheduler端的信号
+*CoarseGrainedSchedulerBackend是属于Driver端的backend，在该class中包含着一个DriverActor，用来通信，定义了DriverActor的实现；接受executor发来的信号，同时接受来自DAGScheduler端的信号
 *
 * */
 private[spark]
@@ -75,6 +75,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
     // Executors we have requested the cluster manager to kill that have not died yet
     private val executorsPendingToRemove = new HashSet[String]
 
+    //  Actor主要是两个函数：preStart，receiveWithLogging
     class DriverActor(sparkProperties: Seq[(String, String)]) extends Actor with ActorLogReceive {
         override protected def log = CoarseGrainedSchedulerBackend.this.log
 
@@ -87,6 +88,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
             // Periodically revive offers to allow delay scheduling to work
             val reviveInterval = conf.getLong("spark.scheduler.revive.interval", 1000)
             import context.dispatcher
+            //  向自己this，即DriverActor周期性的发送消息ReviveOffers，0秒后，每隔reviveIterval.millis发送一次消息
             context.system.scheduler.schedule(0.millis, reviveInterval.millis, self, ReviveOffers)
         }
 
@@ -173,11 +175,14 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
 
         // Make fake resource offers on all executors
         /*
-        *
         * executorDataMap：代码中的executorDataMap，在客户端向Master注册Application的时候，Master已经为Application分配并启动好Executor，然后注册给CoarseGrainedSchedulerBackend，注册信息就是存储在executorDataMap数据结构中。
-        * TaskSchedulerImpl.resourceOffers基于这些计算资源executorDataMap为task粉喷Executor
+        * TaskSchedulerImpl.resourceOffers基于这些计算资源executorDataMap为task分配Executor
+        *
+        * executorData和WorkerOffer是一一对应的
         * */
+        //  makeOffers进行资源的调度，同时在CoarseGrainedSchedulerBackend里维护这executor的状态map:executorDataMap
         def makeOffers() {
+            //  resourceOffers对所有的executor信息WorkerOffer进行操作，该函数来进行task的资源分配到executor中
             launchTasks(scheduler.resourceOffers(executorDataMap.map { case (id, executorData) =>
                 new WorkerOffer(id, executorData.executorHost, executorData.freeCores)
             }.toSeq))
@@ -243,6 +248,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         }
     }
 
+    /////////////////////////////////////////分割线：上面的DriverActor模块结束/////////////////////////////////////////////////////
     var driverActor: ActorRef = null
     val taskIdsOnSlave = new HashMap[String, HashSet[String]]
 
@@ -263,6 +269,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
             Props(new DriverActor(properties)), name = CoarseGrainedSchedulerBackend.ACTOR_NAME)
     }
 
+    //  关闭executor
     def stopExecutors() {
         try {
             if (driverActor != null) {
@@ -277,9 +284,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
     }
 
     override def stop() {
+        //  向自身的driverActor发送关闭所有executor的消息
         stopExecutors()
         try {
             if (driverActor != null) {
+                //  向自身的driverActor发送关闭driver的消息
                 val future = driverActor.ask(StopDriver)(timeout)
                 Await.ready(future, timeout)
             }
@@ -295,6 +304,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         * 在TaskSchedulerImpl中的submitTasks由backend.reviveOffers()调用
         * ReviveOffers是本CoarseGrainedSchedulerBackend发送给本CoarseGrainedSchedulerBackend的
         * */
+        //  消息都是大驼峰命名，函数都是小驼峰命名
         driverActor ! ReviveOffers
     }
 
@@ -333,6 +343,15 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         false
     }
 
+
+
+
+
+    /////////////////////////////////////以下这些函数，都是对Executor的操作（申请添加、删除、stop等）///////////////////////////////////////////////////
+
+
+
+
     /**
       * Return the number of executors currently registered with this backend.
       */
@@ -340,7 +359,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
 
     /**
       * Request an additional number of executors from the cluster manager.
-      *
+      * 向集群CM请求额外数量的executor
       * @return whether the request is acknowledged.
       */
     final override def requestExecutors(numAdditionalExecutors: Int): Boolean = synchronized {
@@ -391,6 +410,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
     /**
       * Request that the cluster manager kill the specified executors.
       * Return whether the kill request is acknowledged.
+      * 请求CM杀死某些executor
       */
     final override def killExecutors(executorIds: Seq[String]): Boolean = synchronized {
         logInfo(s"Requesting to kill executor(s) ${executorIds.mkString(", ")}")
