@@ -325,6 +325,9 @@ private[spark] class TaskSchedulerImpl(
     * 该函数执行完后，更新了参数tasks: Seq[ArrayBuffer[TaskDescription]]，返回一个bool，应该表示启动了的task
     *
     * 对单独的一个TaskSet进行操作
+    * 传入的参数tasks是空的，该函数最后会给tasks赋值
+    *
+    * 该函数是一个对某个TaskSet的tasks的调度，所谓调度，就是获得一个tasks: Seq[ArrayBuffer[TaskDescription]]，得知每个task对应要分配到的executor的ArrayBuffer
     * */
     private def resourceOfferSingleTaskSet(
                                                   taskSet: TaskSetManager,
@@ -335,12 +338,14 @@ private[spark] class TaskSchedulerImpl(
         var launchedTask = false
         /*
         * 对每一个executor（即WorkerOffer结构）进行处理
+        *
+        * 这是个双重循环
         * */
         for (i <- 0 until shuffledOffers.size) {
             val execId = shuffledOffers(i).executorId
             val host = shuffledOffers(i).host
             //  在spark里，我们可以设置task所使用的CPU的数量，默认是1个，一个task任务在executor中是启动一个线程来执行的，如果多个的话，一个task可以多个core执行
-            //  如果该executor有充足资源，可用core数量大于一个task需要的core数量
+            //  如果该executor有充足资源，可用的core数量大于一个task需要的core数量
             if (availableCpus(i) >= CPUS_PER_TASK) {
                 try {
                     /*
@@ -351,16 +356,32 @@ private[spark] class TaskSchedulerImpl(
                     *
                     * 这是TaskSet的resourceOffer，不是TaskSchedulerImpl的resourceOffers
                     * 在当前的executor上分配task
+                    *
+                    * 分配完生成TaskDescription，里面记录着taskId, execId, task在数组的位置，和task的整个序列化的内容
+                    *
+                    * taskSet.resourceOffer回应单独executor的一个offer，对于一个task，分配一些资源并返回TaskDescription
+                    *
+                    * 对每个executor都扫描一遍TaskSet的所有task
+                    *
+                    * 很重要：调用TaskSetManager的resourceOffer方法去找到在这个Executor上，用这种本地化级别，
+                    * 该TaskSet里有哪些task可以启动！！！！！
                     * */
                     for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
+                        //  ArrayBuffer[TaskDescription](cores)，在cores长度的ArrayBuffer里，从零添加一个个元素TaskDescription
+                        //  放入tasks这个二维数组，给指定的Executor上加上要启动的task
                         tasks(i) += task
                         val tid = task.taskId
                         taskIdToTaskSetId(tid) = taskSet.taskSet.id
                         taskIdToExecutorId(tid) = execId
                         executorsByHost(host) += execId
+                        //  该executor分配了一个符合条件的该TaskSet的task（占了CPUS_PRE_TASK个core）
                         availableCpus(i) -= CPUS_PER_TASK
+                        //  判断该executor的资源core是否用完
                         assert(availableCpus(i) >= 0)
+                        //  表示task已经给分配好资源了（即获得了task：executor之间的对应关系，tasks: Seq[ArrayBuffer[TaskDescription]]），并不是该task已经启动了
                         launchedTask = true
+                        //  到这里，task分配算法基本实现
+                        //  然后将task分配给对应的executor
                     }
                 } catch {
                     case e: TaskNotSerializableException =>
@@ -371,6 +392,7 @@ private[spark] class TaskSchedulerImpl(
                 }
             }
         }
+        //  只有该TaskSet的最后一个task也分配成功了，才会返回true
         return launchedTask
     }
 
