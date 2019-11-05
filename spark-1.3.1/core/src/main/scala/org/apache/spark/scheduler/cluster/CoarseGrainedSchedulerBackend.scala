@@ -65,6 +65,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
     conf.getInt("spark.scheduler.maxRegisteredResourcesWaitingTime", 30000)
     val createTime = System.currentTimeMillis()
 
+    /*
+    *
+    * 该数据结构及其重要，保存着所有的executor的信息，注册信息都在里面
+    * ExecutorData保存着executor的ip、executoractor、core
+    * */
     private val executorDataMap = new HashMap[String, ExecutorData]
 
     // Number of executors requested from the cluster manager that have not registered yet
@@ -81,6 +86,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
 
         private val addressToExecutorId = new HashMap[Address, String]
 
+        //  //根据akka的特性，我们知道preStart方法会在actor的构造函数执行完毕后，执行
         override def preStart() {
             // Listen for remote client disconnection events, since they don't go through Akka's watch()
             context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
@@ -89,6 +95,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
             val reviveInterval = conf.getLong("spark.scheduler.revive.interval", 1000)
             import context.dispatcher
             //  向自己this，即DriverActor周期性的发送消息ReviveOffers，0秒后，每隔reviveIterval.millis发送一次消息
+            //  周期性的执行启动所有task的任务
+            //  还有一个执行ReviveOffers的地方，是TaskSchedulerImpl.submitTasks(taskSet: TaskSet)中调用backend.reviveOffers()
             context.system.scheduler.schedule(0.millis, reviveInterval.millis, self, ReviveOffers)
         }
 
@@ -97,21 +105,33 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         * DriverActor主要接收几种message：executor相关的Register stop remove Executor、task相关的ReviveOffers、killtask等
         * */
         def receiveWithLogging = {
+            //  收到CoarseGrainedExecutorBackend的注册消息，将该新executor的信息保存在executorDataMap中
             case RegisterExecutor(executorId, hostPort, cores, logUrls) =>
                 Utils.checkHostPort(hostPort, "Host port expected " + hostPort)
+                //  不能重复注册，其中sender是发送消息方
                 if (executorDataMap.contains(executorId)) {
                     sender ! RegisterExecutorFailed("Duplicate executor ID: " + executorId)
                 } else {
+                    //  如果是新的executor
                     logInfo("Registered executor: " + sender + " with ID " + executorId)
+                    /*
+                    *
+                    * BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*
+                    * BUG* 感觉这里是个bug，如果addressToExecutorId(sender.path.address) = executorId没有成功的话，但是已经向CoarseGrainedExecutorBackend发送了“注册成功”的消息
+                    * BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*BUG*
+                    * */
                     sender ! RegisteredExecutor
 
                     addressToExecutorId(sender.path.address) = executorId
                     totalCoreCount.addAndGet(cores)
                     totalRegisteredExecutors.addAndGet(1)
                     val (host, _) = Utils.parseHostPort(hostPort)
+                    //  这是第一次ExecutorData实例化，发生在CoarseGrainedExecutorBackend向CoarseGrainedSchedulerBackend的DriverActor注册时候
                     val data = new ExecutorData(sender, sender.path.address, host, cores, cores, logUrls)
                     // This must be synchronized because variables mutated
                     // in this block are read when requesting executors
+
+                    //  ************** 在这里之所以用同步锁synchronized，是因为有很多CoarseGrainedExecutorBackend注册，可能会出现同时读写的问题
                     CoarseGrainedSchedulerBackend.this.synchronized {
                         executorDataMap.put(executorId, data)
                         if (numPendingExecutors > 0) {
@@ -119,8 +139,12 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
                             logDebug(s"Decremented number of pending executors ($numPendingExecutors left)")
                         }
                     }
+                    //  向总线添加监听器，这一块不是很清楚。。。。。。。总线源码需要认真研读一下
                     listenerBus.post(
                         SparkListenerExecutorAdded(System.currentTimeMillis(), executorId, data))
+
+                    //  这里也调用了makeOffers，启动当前对应的TaskSchedulerImpl的所有的task
+                    //  为什么要这样做呢？因为现在刚刚注册一个新的executor，我们需要将tasks重新分配给所有可用executor中，task的资源分配情况发生了变化
                     makeOffers()
                 }
 
@@ -182,7 +206,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         * */
         //  makeOffers进行资源的调度，同时在CoarseGrainedSchedulerBackend里维护这executor的状态map:executorDataMap
         def makeOffers() {
-            //  resourceOffers对所有的executor信息WorkerOffer进行操作，该函数来进行task的资源分配到executor中
+            //  resourceOffers对所有的可用的executor资源WorkerOffer进行操作，该函数来进行task的资源分配到executor中
+            //  也就是返回一个Seq[Seq[TaskDescription]]变量，保存着每个executor上task和executor的对应关系
+            //  该CoarseGrainedSchedulerBackend从自己对应的TaskSchedulerImpl中拿到TaskSchedulerImpl的当前schedulableBuilder的rootPool的所有TaskSet
             launchTasks(scheduler.resourceOffers(executorDataMap.map { case (id, executorData) =>
                 new WorkerOffer(id, executorData.executorHost, executorData.freeCores)
             }.toSeq))
@@ -202,6 +228,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
             * launchTasks对每个task，调用一次LaunchTask发送给executorActor
             * */
             for (task <- tasks.flatten) {
+                //  task序列化
                 val ser = SparkEnv.get.closureSerializer.newInstance()
                 val serializedTask = ser.serialize(task)
                 if (serializedTask.limit >= akkaFrameSize - AkkaUtils.reservedSizeBytes) {
@@ -221,7 +248,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
                 }
                 else {
                     val executorData = executorDataMap(task.executorId)
+                    //  对该task运行，需要占用CUPS_PER_TASK个core，对应executor的executorData的资源数量需要减去
                     executorData.freeCores -= scheduler.CPUS_PER_TASK
+                    //  向executor的actor（这里说的executor就是CoarseGrainedExecutorBackend，该CoarseGrainedExecutorBackend本身就继承自Actor）发送启动序列化的task的消息
                     executorData.executorActor ! LaunchTask(new SerializableBuffer(serializedTask))
                 }
             }

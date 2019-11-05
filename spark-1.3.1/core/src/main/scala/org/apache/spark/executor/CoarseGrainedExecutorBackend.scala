@@ -49,6 +49,7 @@ private[spark] class CoarseGrainedExecutorBackend(
     var executor: Executor = null
     var driver: ActorSelection = null
 
+    //  CoarseGrainedExecutorBackend只要一启动就寻找driverurl，向driverActor注册，将自己的信息（executorId，hostPort，cores等）发送给DriverActor，
     override def preStart() {
         logInfo("Connecting to driver: " + driverUrl)
         driver = context.actorSelection(driverUrl)
@@ -63,6 +64,7 @@ private[spark] class CoarseGrainedExecutorBackend(
     }
 
     override def receiveWithLogging = {
+        //  只有收到CoarseGrainedSchedulerBackend的DriverActor返回的注册成功的消息，才会创建Executor实例
         case RegisteredExecutor =>
             logInfo("Successfully registered with driver")
             val (hostname, _) = Utils.parseHostPort(hostPort)

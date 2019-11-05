@@ -471,6 +471,7 @@ private[spark] class TaskSetManager(
                     }
                     // Serialize and return the task
                     val startTime = clock.getTimeMillis()
+                    //  依赖文件和jar包都添加进去了
                     val serializedTask: ByteBuffer = try {
                         Task.serializeWithDependencies(task, sched.sc.addedFiles, sched.sc.addedJars, ser)
                     } catch {

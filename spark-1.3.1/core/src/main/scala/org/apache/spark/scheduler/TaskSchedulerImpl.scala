@@ -242,6 +242,13 @@ private[spark] class TaskSchedulerImpl(
             *
             * 将叶子节点TaskSetManager添加到schedulableBuilder的rootPool中，最终是通过rootPool.addTaskSetManager添加的
             * */
+
+            /*
+            *
+            * *******************************************************************************************************
+            * 很重要：只有每当submitTasks一次的时候，就会添加一个TaskSet的TaskSetManager到调度构建器schedulableBuilder  *
+            * *******************************************************************************************************
+            * */
             schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
             if (!isLocal && !hasReceivedTask) {
@@ -433,6 +440,7 @@ private[spark] class TaskSchedulerImpl(
                 executorAdded(o.executorId, o.host)
                 newExecAvail = true
             }
+            //  这里的rack应该是机架的意思。。。。。。
             for (rack <- getRackForHost(o.host)) {
                 hostsByRack.getOrElseUpdate(rack, new HashSet[String]()) += o.host
             }
@@ -476,6 +484,7 @@ private[spark] class TaskSchedulerImpl(
         * | executor-5 |  WorkerOffer5.cores |
         * ------------------------------------
         * */
+        //  tasks保存所有的TaskSet的所有task的资源分配情况
         val tasks = shuffledOffers.map(o => new ArrayBuffer[TaskDescription](o.cores))
         val availableCpus = shuffledOffers.map(o => o.cores).toArray
         /*
@@ -510,6 +519,9 @@ private[spark] class TaskSchedulerImpl(
         var launchedTask = false
         /*
         * 其中taskSet是TaskSetManager
+        *
+        * Question1：为什么要排序？一次性拿出所有TaskSet直接一次性调度不行？？？？
+        * Question2：搞清楚这个tasks和TaskSet、job的关系，tasks是保存哪一个范围层次的调task调度？？??????搞清楚什么时候调用submitTasks
         * */
         for (taskSet <- sortedTaskSets; maxLocality <- taskSet.myLocalityLevels) {
             do {
