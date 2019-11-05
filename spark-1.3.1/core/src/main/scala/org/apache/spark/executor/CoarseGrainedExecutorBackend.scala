@@ -52,6 +52,7 @@ private[spark] class CoarseGrainedExecutorBackend(
     //  CoarseGrainedExecutorBackend只要一启动就寻找driverurl，向driverActor注册，将自己的信息（executorId，hostPort，cores等）发送给DriverActor，
     override def preStart() {
         logInfo("Connecting to driver: " + driverUrl)
+        //  context是actor自身的所有上下文环境，所有变量
         driver = context.actorSelection(driverUrl)
         driver ! RegisterExecutor(executorId, hostPort, cores, extractLogUrls)
         context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
@@ -68,20 +69,32 @@ private[spark] class CoarseGrainedExecutorBackend(
         case RegisteredExecutor =>
             logInfo("Successfully registered with driver")
             val (hostname, _) = Utils.parseHostPort(hostPort)
+            //  为什么说CoarseGrainedExecutorBackend就是executor呢？？？？？
+            //  因为CoarseGrainedExecutorBackend内有executor实例变量，在向DriverActor注册时候就实例化了，之后启动task的时候（如下面的LaunchTask消息）就会调用自身的executor实例运行task
+            //  注意：创建实例时，就已经启动了线程池，val threadPool = Utils.newDaemonCachedThreadPool("Executor task launch worker")
             executor = new Executor(executorId, hostname, env, userClassPath, isLocal = false)
+
+            // 此处不应该给CoarseGrainedSchedulerBackend的DriverActor回复“executor启动成功”的消息么？就像TCP三次握手那样？？？？？？？？？？？？
+            //  否则，executor没有启动成功，但是CoarseGrainedSchedulerBackend里的ExecutorDataMap中的executor数据就不同步了
 
         case RegisterExecutorFailed(message) =>
             logError("Slave registration failed: " + message)
             System.exit(1)
 
+            /*
+            * 之所以该executor收到LaunchTask消息，是因为CoarseGrainedSchedulerBackend已经知道了该task该发送到哪个该executor上，所以才发送过来了
+            * */
         case LaunchTask(data) =>
+            //  什么时候才会发生executor == null的情况呢？
+            //  当CoarseGrainedSchedulerBackend的DriverActor回复RegisteredExecutor注册成功消息后，74行的executor = new Executor(executorId, hostname, env, userClassPath, isLocal = false)由于各种原因，比如内存不足等，失败了
             if (executor == null) {
                 logError("Received LaunchTask command but executor was null")
                 System.exit(1)
             } else {
                 val ser = env.closureSerializer.newInstance()
+                //  反序列化task，拿到了TaskDescription类型的task，获得了taskid和executorid的关系
                 val taskDesc = ser.deserialize[TaskDescription](data.value)
-                logInfo("Got assigned task " + taskDesc.taskId)
+                logInfo("Got assigned（分配的） task " + taskDesc.taskId)
                 executor.launchTask(this, taskId = taskDesc.taskId, attemptNumber = taskDesc.attemptNumber,
                     taskDesc.name, taskDesc.serializedTask)
             }
