@@ -707,6 +707,9 @@ private[spark] class TaskSchedulerImpl(
     }
 
     /** Remove an executor from all our data structures and mark it as lost */
+    /*
+    * 就是把跟该executorId相关的数据结构都清空，不涉及到具体实质的清除
+    * */
     private def removeExecutor(executorId: String) {
         activeExecutorIds -= executorId
         val host = executorIdToHost(executorId)

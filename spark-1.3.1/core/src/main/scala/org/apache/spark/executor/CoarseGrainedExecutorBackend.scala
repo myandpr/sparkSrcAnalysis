@@ -46,6 +46,10 @@ private[spark] class CoarseGrainedExecutorBackend(
 
     Utils.checkHostPort(hostPort, "Expected hostport")
 
+    /*
+    *
+    * 需要记住：CoarseGrainedExecutorBackend和executor是一一对应的，1:1，所以CSDN一些博客通常都讲CoarseGrainedExecutorBackend就是executor，是一回事
+    * */
     var executor: Executor = null
     var driver: ActorSelection = null
 
@@ -84,6 +88,8 @@ private[spark] class CoarseGrainedExecutorBackend(
 
             /*
             * 之所以该executor收到LaunchTask消息，是因为CoarseGrainedSchedulerBackend已经知道了该task该发送到哪个该executor上，所以才发送过来了
+            *
+            * 对于executor来说，只有LaunchTask，并没有LaunchTasks，因为只能一个一个的执行task，不能批量执行，批量的话，在CoarseGrainedSchedulerBackend中有，然后一个个的发送给CoarseGrainedExecutorBackend
             * */
         case LaunchTask(data) =>
             //  什么时候才会发生executor == null的情况呢？
@@ -105,10 +111,12 @@ private[spark] class CoarseGrainedExecutorBackend(
             }
 
         case KillTask(taskId, _, interruptThread) =>
+            //  如果需要kill的task所在的CoarseGrainedExecutorBackend的executor实例已经停止服务stop了，就直接退出不用执行什么操作
             if (executor == null) {
                 logError("Received KillTask command but executor was null")
                 System.exit(1)
             } else {
+                //在executor级别kill该task
                 executor.killTask(taskId, interruptThread)
             }
 
@@ -122,7 +130,9 @@ private[spark] class CoarseGrainedExecutorBackend(
 
         case StopExecutor =>
             logInfo("Driver commanded a shutdown")
+            //  关闭executor的actor、线程pool
             executor.stop()
+            //  关闭Actor系统
             context.stop(self)
             context.system.shutdown()
     }

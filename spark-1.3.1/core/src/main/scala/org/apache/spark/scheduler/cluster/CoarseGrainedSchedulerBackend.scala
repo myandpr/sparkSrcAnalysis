@@ -155,6 +155,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
                     executorDataMap.get(executorId) match {
                         case Some(executorInfo) =>
                             executorInfo.freeCores += scheduler.CPUS_PER_TASK
+                            //  只有这个executorId，所以需要重新分配一下task在该executor上，并且LaunchTask
                             makeOffers(executorId)
                         case None =>
                             // Ignoring the update since we don't know about the executor.
@@ -166,6 +167,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
             case ReviveOffers =>
                 makeOffers()
 
+                //  如果需要kill的task所在executor存在，就向executorActor发送KillTask消息
             case KillTask(taskId, executorId, interruptThread) =>
                 executorDataMap.get(executorId) match {
                     case Some(executorInfo) =>
@@ -176,9 +178,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
                 }
 
             case StopDriver =>
+                //  关闭CoarseGrainedSchedulerBackend的DriverActor
                 sender ! true
                 context.stop(self)
 
+                //  stop就是把服务停了
             case StopExecutors =>
                 logInfo("Asking each executor to shut down")
                 for ((_, executorData) <- executorDataMap) {
@@ -186,6 +190,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
                 }
                 sender ! true
 
+                //  删除TaskSchedulerImpl、CoarseGrainedSchedulerBackend相关executor结构体变量
             case RemoveExecutor(executorId, reason) =>
                 removeExecutor(executorId, reason)
                 sender ! true
@@ -216,6 +221,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         }
 
         // Make fake resource offers on just one executor
+        //  把当前TaskSchedulerImpl的rootPool的所有TaskSetManager的TaskSet的符合的=要求的task都重新分配在该Executor（即WorkerOffer）上，然后LaunchTask它们
         def makeOffers(executorId: String) {
             val executorData = executorDataMap(executorId)
             launchTasks(scheduler.resourceOffers(
@@ -223,6 +229,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         }
 
         // Launch tasks returned by a set of resource offers
+        //  launchTasks函数就是需要把这些TaskDescription给序列化了，再发送出去，直接发送给TaskDescription里能拿到的task对应的executor的actor
+        //  批量发送tasks，然后一个个将其发送到executorActor里
         def launchTasks(tasks: Seq[Seq[TaskDescription]]) {
             /*
             *
@@ -266,19 +274,34 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         }
 
         // Remove a disconnected slave from the cluster
+        //  带remove的，都是更新相关注册信息数据结构体，所有的，包括CoarseGrainedSchedulerBackend、TaskSchedulerImpl，甚至如果SparkContext涉及到，也会更新SparkContext
         def removeExecutor(executorId: String, reason: String): Unit = {
             executorDataMap.get(executorId) match {
+                    //  如果存在该移除的executor的话
                 case Some(executorInfo) =>
                     // This must be synchronized because variables mutated
                     // in this block are read when requesting executors
+                    //  必须synchronized同步，因为可能多个同时删，也可能你在删，别人在请求添加
                     CoarseGrainedSchedulerBackend.this.synchronized {
+                        //  为什么要删除address这个key
                         addressToExecutorId -= executorInfo.executorAddress
+                        //  根据key减的key-value的HashMap元素
                         executorDataMap -= executorId
                         executorsPendingToRemove -= executorId
                     }
+                    //  释放集群一个executor资源
                     totalCoreCount.addAndGet(-executorInfo.totalCores)
+                    //  总注册executor数量减少一个
                     totalRegisteredExecutors.addAndGet(-1)
+                    /*
+                    *
+                    * 看不动了，有点累。。。。。。。。。。。。。
+                    * 接着看：
+                    * 这一块主要是调用TaskSchedulerImpl的executorLost调用removeExecutor(executorId: String)把TaskSchedulerImpl里有关该executorId的所有变量都删除更新一下，不涉及具体的清除
+                    * 也就是更新一下TaskSchedulerImpl中的executor的注册信息
+                    * */
                     scheduler.executorLost(executorId, SlaveLost(reason))
+                    //  不太了解总线这一块儿！！！！
                     listenerBus.post(
                         SparkListenerExecutorRemoved(System.currentTimeMillis(), executorId, reason))
                 case None => logError(s"Asked to remove non-existent executor $executorId")
@@ -303,6 +326,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
             }
         }
         // TODO (prashant) send conf instead of properties
+        //  创建实例化自己的DriverActor，开启akka通信
         driverActor = actorSystem.actorOf(
             Props(new DriverActor(properties)), name = CoarseGrainedSchedulerBackend.ACTOR_NAME)
     }
@@ -321,6 +345,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         }
     }
 
+    //  这个函数是在SparkContext.stop()中调用DAGScheduler.stop()中调用TaskSchedulerImpl.stop()中调用SparkDeploySchedulerBackend.stop()中调用CoarseGrainedSchedulerBackend.stop()
+    //  这个操作是SparkContext层层调用的
+    //  总结：1、先向自身DriverActor发送关闭所有executors的消息；2、然后向自身DriverActor发送关闭自身Driver的消息
     override def stop() {
         //  向自身的driverActor发送关闭所有executor的消息
         stopExecutors()
@@ -354,6 +381,18 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         conf.getInt("spark.default.parallelism", math.max(totalCoreCount.get(), 2))
     }
 
+
+
+
+
+
+    /////////////////////////////////////以下这些函数，都是对Executor的操作（申请添加、删除、stop等）///////////////////////////////////////////////////
+
+
+
+
+
+
     // Called by subclasses when notified of a lost worker
     def removeExecutor(executorId: String, reason: String) {
         try {
@@ -380,15 +419,6 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
         }
         false
     }
-
-
-
-
-
-    /////////////////////////////////////以下这些函数，都是对Executor的操作（申请添加、删除、stop等）///////////////////////////////////////////////////
-
-
-
 
     /**
       * Return the number of executors currently registered with this backend.

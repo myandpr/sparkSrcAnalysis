@@ -145,6 +145,7 @@ private[spark] class Executor(
         threadPool.execute(tr)
     }
 
+    //  kill该task，底层线程级别的kill
     def killTask(taskId: Long, interruptThread: Boolean) {
         val tr = runningTasks.get(taskId)
         if (tr != null) {
@@ -153,9 +154,11 @@ private[spark] class Executor(
     }
 
     def stop() {
+        //  关闭executorActor，都是通过SparkEnv的actorSystem关闭的
         env.metricsSystem.report()
         env.actorSystem.stop(executorActor)
         isStopped = true
+        //  关闭executor的线程池，释放资源
         threadPool.shutdown()
         if (!isLocal) {
             env.stop()
@@ -201,16 +204,19 @@ private[spark] class Executor(
             try {
                 /*
                 *
-                * 这里分为两步：1、先反序列化得到可读的jar、file网络路径；2、然后下载依赖jar、file
+                * 这里分为两步：1、先反序列化得到可读的jar、file网络路径；2、然后下载依赖jar、file，然后反序列化Task
                 * */
-                //  反序列化依赖的jar、file，获得了他们的网络地址
+                //  反序列化依赖的jar、file，获得了他们的网络地址，并没有反序列化Task，依然是taskBytes这种序列化形式
                 val (taskFiles, taskJars, taskBytes) = Task.deserializeWithDependencies(serializedTask)
                 //  下载taskFiles、taskJars
                 updateDependencies(taskFiles, taskJars)
+                //  反序列化Task
                 task = ser.deserialize[Task[Any]](taskBytes, Thread.currentThread.getContextClassLoader)
+                ///////////////////////////////////反序列化结束////////////////////////////////////////////////////////
 
                 // If this task has been killed before we deserialized it, let's quit now. Otherwise,
                 // continue executing the task.
+                //  什么情况下，killed才会是true？？？？
                 if (killed) {
                     // Throw an exception rather than returning, because returning within a try{} block
                     // causes a NonLocalReturnControl exception to be thrown. The NonLocalReturnControl
@@ -333,6 +339,7 @@ private[spark] class Executor(
         }
     }
 
+    //  两个类加载器，具体不知道加载什么的，之后具体看一下
     /**
       * Create a ClassLoader for use in tasks, adding any JARs specified by the user or any classes
       * created by the interpreter to the search path

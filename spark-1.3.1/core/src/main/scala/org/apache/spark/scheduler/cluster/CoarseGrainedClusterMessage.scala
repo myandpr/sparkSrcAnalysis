@@ -68,6 +68,7 @@ private[spark] object CoarseGrainedClusterMessages {
 
     case object StopDriver extends CoarseGrainedClusterMessage
 
+    //  事实上，该StopExecutor消息是CoarseGrainedSchedulerBackend发送给所有Executor的actor的
     case object StopExecutor extends CoarseGrainedClusterMessage
 
     case object StopExecutors extends CoarseGrainedClusterMessage
