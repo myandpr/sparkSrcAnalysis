@@ -432,6 +432,7 @@ private[spark] class TaskSetManager(
       * @param host        the host Id of the offered resource
       * @param maxLocality the maximum locality we want to schedule the tasks at
       */
+    //  用当前的数据本地性，在指定executor上分配task
     @throws[TaskNotSerializableException]
     def resourceOffer(
                              execId: String,
@@ -454,6 +455,7 @@ private[spark] class TaskSetManager(
             dequeueTask(execId, host, allowedLocality) match {
                 case Some((index, taskLocality, speculative)) => {
                     // Found a task; do some bookkeeping and return a task description
+                    //  tasks是该TaskSetManager保存的TaskSet里的所有task，task是里面的其中一个task
                     val task = tasks(index)
                     val taskId = sched.newTaskId()
                     // Do various bookkeeping
@@ -471,8 +473,13 @@ private[spark] class TaskSetManager(
                     }
                     // Serialize and return the task
                     val startTime = clock.getTimeMillis()
-                    //  依赖文件和jar包都添加进去了
+                    //  依赖文件和jar包都添加进去了，但是只是获得了有jar、file网络名字的序列化的task，并没有下载jar的过程，序列化的是jar、file变量名字，并不是jar、file的内容
+                    //  这一点一定要明确
+                    //  其中task是从该TaskSetManager的TaskSet获得的
+                    //  serializedTask是序列化jar、file、task后的task
+                    //  这个序列化的jar、file是SparkContext时候addFiles添加的，也就是spark-submit添加的参数--jars --files
                     val serializedTask: ByteBuffer = try {
+                        //  对参数task和jar、file序列化，返回序列化的结果
                         Task.serializeWithDependencies(task, sched.sc.addedFiles, sched.sc.addedJars, ser)
                     } catch {
                         // If the task cannot be serialized, then there's no point to re-attempt the task,
@@ -500,6 +507,7 @@ private[spark] class TaskSetManager(
                         taskName, taskId, host, taskLocality, serializedTask.limit))
 
                     sched.dagScheduler.taskStarted(task, info)
+                    //  TaskDescription是包括序列化task（jar、file）和task分布位置的结构体，最后一个字段是打包jar、file序列化后的task
                     return Some(new TaskDescription(taskId = taskId, attemptNumber = attemptNum, execId,
                         taskName, index, serializedTask))
                 }

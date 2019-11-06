@@ -155,6 +155,7 @@ private[spark] object Task {
         // Write the task itself and finish
         dataOut.flush()
         val taskBytes = serializer.serialize(task).array()
+        //  这两行是写入序列化后的task和jar、file
         out.write(taskBytes)
         ByteBuffer.wrap(out.toByteArray)
     }
@@ -167,6 +168,7 @@ private[spark] object Task {
       * @return (taskFiles, taskJars, taskBytes)
       */
     //  反序列化之后，Exectuor将会通过网络把这些依赖的文件和Jar包下载下来，最终启动Task。
+    //  但是这个函数里好像没有下载依赖jar、file的过程，只是把他们的名字（网络路径）反序列化解析出来了而已
     def deserializeWithDependencies(serializedTask: ByteBuffer)
     : (HashMap[String, Long], HashMap[String, Long], ByteBuffer) = {
 

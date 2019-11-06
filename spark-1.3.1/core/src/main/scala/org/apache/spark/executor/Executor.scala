@@ -43,6 +43,8 @@ import org.apache.spark.util.{
   * Spark executor used with Mesos, YARN, and the standalone scheduler.
   * In coarse-grained mode, an existing actor system is provided.
   */
+
+//  这是一篇很好的文章：https://www.cnblogs.com/itboys/p/9212878.html！！！！！！！！！！！！
 private[spark] class Executor(
                                      executorId: String,
                                      executorHostname: String,
@@ -94,6 +96,8 @@ private[spark] class Executor(
     }
 
     // Create an actor for receiving RPCs from the driver
+    //  创建一个接收Driver消息的actor
+    //  该actor好像没有用到
     private val executorActor = env.actorSystem.actorOf(
         Props(new ExecutorActor(executorId)), "ExecutorActor")
 
@@ -103,6 +107,7 @@ private[spark] class Executor(
             conf.getBoolean("spark.files.userClassPathFirst", false))
     }
 
+    //  下面这些是创建类加载器的
     // Create our ClassLoader
     // do this after SparkEnv creation so can access the SecurityManager
     private val urlClassLoader = createClassLoader()
@@ -113,6 +118,7 @@ private[spark] class Executor(
 
     // Akka's message frame size. If task result is bigger than this, we use the block manager
     // to send the result back.
+    //  akka的message frame size。如果task result大小大于这个，我们就使用BlockManager块管理器，把结果发送给它
     private val akkaFrameSize = AkkaUtils.maxFrameSizeBytes(conf)
 
     // Limit of bytes for total size of results (default is 1GB)
@@ -179,17 +185,27 @@ private[spark] class Executor(
             }
         }
 
+        //  调用run()，对序列化的task数据进行反序列化，然后通过通络通信，将需要的文件，资源，jar文件拷贝过来，
+        //  这里的拷贝是远程拷贝么？？？？？？？
         override def run() {
             val deserializeStartTime = System.currentTimeMillis()
             Thread.currentThread.setContextClassLoader(replClassLoader)
             val ser = env.closureSerializer.newInstance()
             logInfo(s"Running $taskName (TID $taskId)")
+            //  从CoarseGrainedExecutorBackend这个actor发送StatusUpdate消息（task的计算结果）给CoarseGrainedSchedulerBackend的DriverActor
+            //  Question：这个StatusUpdate好像不是task的计算结果，就是个简单的task状态信息
             execBackend.statusUpdate(taskId, TaskState.RUNNING, EMPTY_BYTE_BUFFER)
             var taskStart: Long = 0
             startGCTime = gcTime
 
             try {
+                /*
+                *
+                * 这里分为两步：1、先反序列化得到可读的jar、file网络路径；2、然后下载依赖jar、file
+                * */
+                //  反序列化依赖的jar、file，获得了他们的网络地址
                 val (taskFiles, taskJars, taskBytes) = Task.deserializeWithDependencies(serializedTask)
+                //  下载taskFiles、taskJars
                 updateDependencies(taskFiles, taskJars)
                 task = ser.deserialize[Task[Any]](taskBytes, Thread.currentThread.getContextClassLoader)
 
@@ -371,6 +387,11 @@ private[spark] class Executor(
     /**
       * Download any missing dependencies if we receive a new set of files and JARs from the
       * SparkContext. Also adds any new JARs we fetched to the class loader.
+      *
+      * 下载所有需要的SparkContext里定义的依赖jar、file，如果有新的依赖，也下载
+      *
+      * 很重要：updateDependencies从Driver端的“文件服务器”下载缺失的jar包，并将jar包添加到URLClassLoader中！！！是从Driver端下载的！！！也就是SparkContext的位置远程拷贝过来的
+      * Driver建立了一个文件服务器，专门用来存储jar、file依赖，研究一下addFiles函数
       */
     private def updateDependencies(newFiles: HashMap[String, Long], newJars: HashMap[String, Long]) {
         lazy val hadoopConf = SparkHadoopUtil.get.newConfiguration(conf)

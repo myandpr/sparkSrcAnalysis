@@ -373,6 +373,7 @@ private[spark] class TaskSchedulerImpl(
                     * 很重要：调用TaskSetManager的resourceOffer方法去找到在这个Executor上，用这种本地化级别，
                     * 该TaskSet里有哪些task可以启动！！！！！
                     * */
+                    //  把TaskSet的合适的task，加上jar、file，序列化，再组装成TaskDescription，成为其最后一个参数_serializedTask
                     for (task <- taskSet.resourceOffer(execId, host, maxLocality)) {
                         //  ArrayBuffer[TaskDescription](cores)，在cores长度的ArrayBuffer里，从零添加一个个元素TaskDescription
                         //  放入tasks这个二维数组，给指定的Executor上加上要启动的task

@@ -53,6 +53,7 @@ private[spark] class CoarseGrainedExecutorBackend(
     override def preStart() {
         logInfo("Connecting to driver: " + driverUrl)
         //  context是actor自身的所有上下文环境，所有变量
+        //  重要：该driver就是CoarseGrainedSchedulerBackend的DriverActor！！！！！！！！！！
         driver = context.actorSelection(driverUrl)
         driver ! RegisterExecutor(executorId, hostPort, cores, extractLogUrls)
         context.system.eventStream.subscribe(self, classOf[RemotingLifecycleEvent])
@@ -95,6 +96,10 @@ private[spark] class CoarseGrainedExecutorBackend(
                 //  反序列化task，拿到了TaskDescription类型的task，获得了taskid和executorid的关系
                 val taskDesc = ser.deserialize[TaskDescription](data.value)
                 logInfo("Got assigned（分配的） task " + taskDesc.taskId)
+                //  其中的taskDesc.serializedTask是序列化的Task，包含了JarName（jarName: 这里的JarName是网络文件名：spark://192.168.121.101:37684/jars/spark-examples_2.11-2.1.0.jar）
+                //  timestamp等等，如果timestamp是新的，则需要重新fetch
+                //  Driver所运行的class等包括依赖的Jar文件在Executor上并不存在，Executor首先要fetch所依赖的jars，也就是TaskDescription中serializedTask中的jar部分
+                //  在LaunchTask里的消息中并不携带Jar的内容，用到的时候，才会根据jar的网络路径去下载
                 executor.launchTask(this, taskId = taskDesc.taskId, attemptNumber = taskDesc.attemptNumber,
                     taskDesc.name, taskDesc.serializedTask)
             }

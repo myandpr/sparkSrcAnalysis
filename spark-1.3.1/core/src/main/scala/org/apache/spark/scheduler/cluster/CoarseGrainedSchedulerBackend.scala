@@ -150,6 +150,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
 
             case StatusUpdate(executorId, taskId, state, data) =>
                 scheduler.statusUpdate(taskId, state, data.value)
+                //  如果收到task的计算结果TaskState，发现状态state为已完成，则将ExecutorDataMap中对应executor的信息修改，运行完task后，释放了该task占用的core，可用executor资源ExecutorDataMap要增加
                 if (TaskState.isFinished(state)) {
                     executorDataMap.get(executorId) match {
                         case Some(executorInfo) =>
@@ -230,6 +231,14 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val actorSyste
             for (task <- tasks.flatten) {
                 //  task序列化
                 val ser = SparkEnv.get.closureSerializer.newInstance()
+                /////////////////////////////////////////////////////////////////////////***************很重要****************//////////////////////////////////////////////////////////////////////////////
+                ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                //  这个serializedTask是序列化后的一个task的TaskDescription，而不是序列化后的的Task，而TaskDescription中的最后一个序列化task是在TaskSet.resourceOffer过程中，就把jar、file、task序列化了 ///
+                //  总结：TaskSet.resourceOffer----Task、jar、file序列化_serializedTask，封装成TaskDescription-------在此序列化TaskDescription成serializedTask                                           ///
+                //  所以CoarseGrainedExecutorBackend收到LaunchTask(new SerializableBuffer(serializedTask))后-----反序列化获得TaskDescription类型的taskDesc                                               ///
+                //  ----把taskDesc的最后一个参数，即序列化后的Task交到executor上，executor.launchTask(taskId, taskDesc.serializedTask)                                                                   ///
+                //  --------executor收到序列化后的Task即_serializedTask----------先反序列化获得Task、jar、file---------run函数下载jar、file，然后运行该Task                                              ///
+                ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                 val serializedTask = ser.serialize(task)
                 if (serializedTask.limit >= akkaFrameSize - AkkaUtils.reservedSizeBytes) {
                     val taskSetId = scheduler.taskIdToTaskSetId(task.taskId)
