@@ -1054,6 +1054,7 @@ private[spark] class Master(
 }
 
 private[spark] object Master extends Logging {
+    //  很显然Master有自己的actorSystem，Worker也有自己的actorSystem
     val systemName = "sparkMaster"
     private val actorName = "Master"
 

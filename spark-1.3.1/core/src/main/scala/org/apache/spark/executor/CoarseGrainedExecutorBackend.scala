@@ -162,12 +162,16 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
             // Bootstrap to fetch the driver's Spark properties.
             val executorConf = new SparkConf
             val port = executorConf.getInt("spark.executor.port", 0)
+
+            //  创建actorSystem
             val (fetcher, _) = AkkaUtils.createActorSystem(
                 "driverPropsFetcher",
                 hostname,
                 port,
                 executorConf,
                 new SecurityManager(executorConf))
+
+            //  这里不是创建driver端的Actor，而是查找！！！！！！根据driverUrl查找到对应的actor
             val driver = fetcher.actorSelection(driverUrl)
             val timeout = AkkaUtils.askTimeout(executorConf)
             val fut = Patterns.ask(driver, RetrieveSparkProps, timeout)
@@ -185,6 +189,8 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
                     driverConf.set(key, value)
                 }
             }
+
+            //  创建executor端的env，SparkEnv.createExecutorEnv
             val env = SparkEnv.createExecutorEnv(
                 driverConf, executorId, hostname, port, cores, isLocal = false)
 
@@ -193,6 +199,7 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
             assert(boundPort != 0)
 
             // Start the CoarseGrainedExecutorBackend actor.
+            //  这一步才是启动CoarseGrainedExecutorBackend actor.，之前class CoarseGrainedExecutorBackend都是定义
             val sparkHostPort = hostname + ":" + boundPort
             env.actorSystem.actorOf(
                 Props(classOf[CoarseGrainedExecutorBackend],
@@ -205,6 +212,13 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
         }
     }
 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 特别重要(CoarseGrainedExecutorBackend和executor之间关系)：https://www.jianshu.com/p/9a224669097c   ///
+    //  应该是一一对应的，想一想在spark集群里的不同worker节点中，jps一下，就能看到
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    //  有main方法。通过main启动CoarseGrainedExecutorBackend
+    //  这里有个疑问，启动几个executor，则需要启动几个CoarseGrainedExecutorBackend？？？？还是只需要启动一个CoarseGrainedExecutorBackend，它负责所有的executor的启动？？？？？
     def main(args: Array[String]) {
         var driverUrl: String = null
         var executorId: String = null

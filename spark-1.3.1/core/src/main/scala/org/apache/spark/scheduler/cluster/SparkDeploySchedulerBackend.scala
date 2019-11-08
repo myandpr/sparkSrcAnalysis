@@ -39,13 +39,15 @@ private[spark] class SparkDeploySchedulerBackend(
                                                         scheduler: TaskSchedulerImpl,
                                                         sc: SparkContext,
                                                         masters: Array[String])
-        extends CoarseGrainedSchedulerBackend(scheduler, sc.env.actorSystem)
+        extends CoarseGrainedSchedulerBackend(scheduler, sc.env.actorSystem)    //  用的actorSystem是SparkContext中的，也就是driver端的actorSystem，不用创建，直接使用。
+                                                                                // 有个问题很重要，需要总结一下：spark系统有几个actorSystem？？？？schedulerBackend、CoarseGrainedExecutorBackend、AppClient、master、worker 各有各的actorSystem？？？？
                 with AppClientListener
                 with Logging {
-
+    //  这里包括了AppClient，需要梳理一下
     var client: AppClient = null
     var stopping = false
     var shutdownCallback: (SparkDeploySchedulerBackend) => Unit = _
+    //  applicationId在这里确定
     @volatile var appId: String = _
 
     val registrationLock = new Object()
@@ -58,11 +60,13 @@ private[spark] class SparkDeploySchedulerBackend(
         /*
         * 创建并启动driverActor，用于通信
         * driverActor = actorSystem.actorOf(Props(new DriverActor(properties)), name = CoarseGrainedSchedulerBackend.ACTOR_NAME)
+        * 然后就启动了preStart，周期启动所有tasks
         * */
         super.start()
 
         // The endpoint for executors to talk to us
         val driverUrl = AkkaUtils.address(
+            //  这里的actorSystem变量是super类CoarseGrainedSchedulerBackend中的变量，可以直接使用
             AkkaUtils.protocol(actorSystem),
             SparkEnv.driverActorSystemName,
             conf.get("spark.driver.host"),
@@ -75,6 +79,7 @@ private[spark] class SparkDeploySchedulerBackend(
             "--cores", "{{CORES}}",
             "--app-id", "{{APP_ID}}",
             "--worker-url", "{{WORKER_URL}}")
+        //  拆分多个第三方javaOpt，例如：'a "b c" d'拆分成'a', 'b c' and 'd'三个参数
         val extraJavaOpts = sc.conf.getOption("spark.executor.extraJavaOptions")
                 .map(Utils.splitCommandString).getOrElse(Seq.empty)
         val classPathEntries = sc.conf.getOption("spark.executor.extraClassPath")
@@ -118,6 +123,7 @@ private[spark] class SparkDeploySchedulerBackend(
         /*
         * 启动AppClient，本质就是如下的启动一个ClientActor的Actor
         * actor = actorSystem.actorOf(Props(new ClientActor))
+        * 之后，立刻首先执行preStart()函数
         *
         * */
         client.start()

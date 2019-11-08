@@ -57,9 +57,12 @@ import org.apache.spark.storage.BlockManagerId
 
 /*
 *
-* TaskSchedulerImpl内部，基本没有任何自动运行的代码，都是一些函数定义，意味着，该TaskScheduler的所有工作，都是通过调用backend实现的
+* TaskSchedulerImpl内部，没有任何自动运行的静态代码，都是一些函数定义，意味着，该TaskScheduler的所有工作，都是通过调用backend实现的
 * new一个新的TaskScheduler时，不会产生任何实质性的动作，只有定义函数。。。。
 * */
+//  很重要的一点：这个backend是在该TaskSchedulerImpl中的，是它的一个元素！！！！！！！！！！！！！！！！！
+//  initialize后才给backend赋值
+//  start后才启动backend
 private[spark] class TaskSchedulerImpl(
                                               val sc: SparkContext,
                                               val maxTaskFailures: Int,
@@ -324,9 +327,7 @@ private[spark] class TaskSchedulerImpl(
                 .format(manager.taskSet.id, manager.parent.name))
     }
 
-    /*
-    *
-    * */
+
     /*
     *
     * 该函数执行完后，更新了参数tasks: Seq[ArrayBuffer[TaskDescription]]，返回一个bool，应该表示启动了的task
@@ -592,6 +593,10 @@ private[spark] class TaskSchedulerImpl(
       * alive. Return true if the driver knows about the given block manager. Otherwise, return false,
       * indicating that the block manager should re-register.
       */
+    /*
+    *
+    * 通知driver BlockManager活着
+    * */
     override def executorHeartbeatReceived(
                                                   execId: String,
                                                   taskMetrics: Array[(Long, TaskMetrics)], // taskId -> TaskMetrics
@@ -682,6 +687,7 @@ private[spark] class TaskSchedulerImpl(
         }
     }
 
+    //////////////////////////////////////以下都是调用DAGScheduler的函数///////////////////////////////////////////
     def executorLost(executorId: String, reason: ExecutorLossReason) {
         var failedExecutor: Option[String] = None
 
@@ -689,6 +695,7 @@ private[spark] class TaskSchedulerImpl(
             if (activeExecutorIds.contains(executorId)) {
                 val hostPort = executorIdToHost(executorId)
                 logError("Lost executor %s on %s: %s".format(executorId, hostPort, reason))
+                //  先发现executor丢失lost了，然后remove删除该executor，清除更新相关变量
                 removeExecutor(executorId)
                 failedExecutor = Some(executorId)
             } else {
@@ -778,6 +785,11 @@ private[spark] object TaskSchedulerImpl {
       *
       * For example, given <h1, [o1, o2, o3]>, <h2, [o4]>, <h1, [o5, o6]>, returns
       * [o1, o5, o4, 02, o6, o3]
+      *
+      * hosts到该host上的resources的一一对应，打散他们
+      *
+      * 但是这个函数好像源码中没有被用过。。。。。。
+      *
       */
     def prioritizeContainers[K, T](map: HashMap[K, ArrayBuffer[T]]): List[T] = {
         val _keyList = new ArrayBuffer[K](map.size)

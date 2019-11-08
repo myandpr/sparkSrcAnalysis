@@ -393,6 +393,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     // Used to store a URL for each static file/jar together with the file's local timestamp
     /*
     * 存着是带着时间戳的file/jar地址url
+    * 这样fetch的时候，就可以根据时间戳timestamp下载最新的jar和file
     * */
     private[spark] val addedFiles = HashMap[String, Long]()
     private[spark] val addedJars = HashMap[String, Long]()
@@ -473,7 +474,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
         *
         * 其实这里并没有下载，只是把这些文件的路径添加到了HttpServer服务中，好像是供worker还是executor下载（还没研究呢）
         * env.httpFileServer.addJar(new File(path))
-        * 修正：env.httpFileServer.addJar(new File(path))调用了Files.copy(src, dest)，复制jar、file到指定指定目录了，其实应该算是下载了
+        * 修正：env.httpFileServer.addJar(new File(path))调用了Files.copy(src, dest)，复制jar、file到指定指定目录了，其实应该算是下载了，只不过是下载到了driver端httpserver服务目录位置
         * */
         jars.foreach(addJar)
     }
@@ -586,7 +587,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     *
     * TaskScheduler.start()->
     * backend.start() + 开启推测任务执行->
-    * 启动backend的actor，SparkEnv.get.actorSystem.actorOf->
+    * 启动backend的actor，SparkEnv.get.actorSystem.actorOf + AppClient.start()->
     * 接受ReviveOffers信息调用reviveOffers函数->
     * executor.launchTask()->
     * tr = TaskRunner(taskid)->
@@ -598,6 +599,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     *
     * NOTE： DAGScheduler为什么没有start()方法？因为DAGScheduler只有runJob方法，只有调用方法，不需要启动，
     * 他只需要在提交Action时，调用DAGScheduler.runJob，进而调用TaskScheduler等的操作即可；
+    * Question：需要确认一下，DAGScheduler是否和TaskSchedulerImpl一样，没有自动运行的操作，只有调用函数，通过TaskSchedulerImpl去操作？？？？？？？？？？？？？？
     * 在SparkContext初始化阶段，只需要创建对象，启动TaskScheduler和backend的start即可。
     *
     *
@@ -2620,7 +2622,7 @@ object SparkContext extends Logging {
                 * SparkDeploySchedulerBackend继承自CoarseGrainedSchedulerBackend
                 * */
                 val backend = new SparkDeploySchedulerBackend(scheduler, sc, masterUrls)
-                //  用backend初始化了scheduler内部的自身schedulerBackend
+                //  1、用backend初始化了scheduler内部的自身schedulerBackend，就是赋值；2、schedulableBuilder构建rootPool调度池
                 //  然后当之后的TaskScheduler.start()的时候，才能start内部的backend-----backend.start()
                 scheduler.initialize(backend)
                 (backend, scheduler)

@@ -614,6 +614,8 @@ private[spark] object Worker extends Logging {
         val conf = new SparkConf
         val args = new WorkerArguments(argStrings, conf)
         //启动actor，createActorSystem()->doCreateActorSystem()->ActorSystem()
+        ////////////////////////////////////////////////////////////////////////////////////
+        //  很显然，Worker也创建了自己的actorSystem，对比Master的这一块
         val (actorSystem, _) = startSystemAndActor(args.host, args.port, args.webUiPort, args.cores,
             args.memory, args.masters, args.workDir)
         actorSystem.awaitTermination()

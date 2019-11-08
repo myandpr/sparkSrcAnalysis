@@ -230,6 +230,7 @@ object SparkEnv extends Logging {
         /*
         *
         * 如果是isDriver，则创建driverActorSystemName，否则创建executorActorSystemName
+        * 要明白：不管是SparkContext这儿的driver端，还是executor端，都会创建自己的SparkEnv的actorSystem。
         * */
         val (actorSystem, boundPort) = {
             val actorSystemName = if (isDriver) driverActorSystemName else executorActorSystemName
@@ -409,7 +410,7 @@ object SparkEnv extends Logging {
         val cacheManager = new CacheManager(blockManager)
 
         /*
-        * 创建http服务器并初始化，在初始化中启动服务httpServer.start()
+        * 创建http服务器并初始化，在初始化中设置好jar、file等在driver端的目录，然后启动服务httpServer.start()
         * 只运行在driver端
         * 用来在spark-submit提交application时的-jar和-file参数分发到各个worker的过程
         * */

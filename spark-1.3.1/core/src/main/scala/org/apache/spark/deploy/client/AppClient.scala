@@ -68,6 +68,7 @@ private[spark] class AppClient(
         var alreadyDead = false // To avoid calling listener.dead() multiple times
         var registrationRetryTimer: Option[Cancellable] = None
 
+        //////////////////////////////////////////以下三个函数就是向masteractor注册application//////////////////////////////////////////////////
         /*
         *
         * 前期准备工作就是向CM注册
@@ -86,19 +87,31 @@ private[spark] class AppClient(
 
         /*
         *
-        * 像所有master注册，和Master.scala文件中的函数类似
+        * 向所有master注册AppDescription，和Master.scala文件中的函数类似
         * */
         def tryRegisterAllMasters() {
+            //  master可能又多个url，HA模式的话，会有多个URL，所以要分别注册连接application
             for (masterAkkaUrl <- masterAkkaUrls) {
                 logInfo("Connecting to master " + masterAkkaUrl + "...")
-                //引用master actor发送注册application信息
+                //引用master actor发送注册application信息，不是driver，是actor
+                //  master是CM，集群管理器，可别和什么driver混淆了
+                //  先通过actorSelection找到mater的actor
+                /*
+                *
+                * actorselection（）方法会返回Actorselection选择路径，而不会返回ActorRef引用。使用Actorselection对象可以向该路径指向的Actor对象发送消息。
+                * 然而，请注意，与使用ActorRef引用的方式相比，通过这种方式发送消息的速度较慢并且会占用更多资源。
+                * 但是，actorselection（）方法仍旧是一个优秀的工具，因为它可以执行查询由通配符代表的多个Actor对象的操作，从而使你能够向Actorselection选择路径指向的任意个Actor对象广播消息。
+                * */
+                //  根据masterUrl查找现有的master的actor，不会创建新的actor
+                //  Question：通过哪个actorSystem找的actor？？？？？？？AppClient还是Master的？？？？？？？或者根本不在乎哪个actorSystem，只要是通过url查找就好了
+                //  但不管怎么说，从事实上看，RegisterApplication消息接收方是Master这个actor
                 val actor = context.actorSelection(masterAkkaUrl)
                 actor ! RegisterApplication(appDescription)
             }
         }
 
         /*
-        * 向CM注册
+        * 向CM注册application
         * */
         def registerWithMaster() {
             tryRegisterAllMasters()
@@ -122,6 +135,7 @@ private[spark] class AppClient(
                 }
             }
         }
+        /////////////////////////////////////////以上三个函数是注册application///////////////////////////////////////////////////
 
         def changeMaster(url: String) {
             // activeMasterUrl is a valid Spark url since we receive it from master.

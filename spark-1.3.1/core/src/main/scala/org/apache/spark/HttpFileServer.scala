@@ -68,6 +68,7 @@ private[spark] class HttpFileServer(
         serverUri + "/jars/" + file.getName
     }
 
+    //  把参数里的file位置的file，copy到对应的driver端目录里
     def addFileToDir(file: File, dir: File): String = {
         // Check whether the file is a directory. If it is, throw a more meaningful exception.
         // If we don't catch this, Guava throws a very confusing error message:
