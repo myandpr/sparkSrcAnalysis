@@ -91,6 +91,7 @@ private[spark] class AppClient(
         * */
         def tryRegisterAllMasters() {
             //  master可能又多个url，HA模式的话，会有多个URL，所以要分别注册连接application
+            //  但是同时只有一个master是alive状态，所有也只能收到一个master的注册成功消息
             for (masterAkkaUrl <- masterAkkaUrls) {
                 logInfo("Connecting to master " + masterAkkaUrl + "...")
                 //引用master actor发送注册application信息，不是driver，是actor
@@ -139,6 +140,7 @@ private[spark] class AppClient(
 
         def changeMaster(url: String) {
             // activeMasterUrl is a valid Spark url since we receive it from master.
+            //  activeMasterUrl是可用spark url，因为我们是从Master的注册成功返回消息得到的masterUrl
             activeMasterUrl = url
             master = context.actorSelection(
                 Master.toAkkaUrl(activeMasterUrl, AkkaUtils.protocol(actorSystem)))
@@ -151,6 +153,7 @@ private[spark] class AppClient(
 
         override def receiveWithLogging = {
             case RegisteredApplication(appId_, masterUrl) =>
+                //  在Master中给该application生成id后，返回注册成功消息，该ClientActor才得知自己提交的application的id号是多少！！！！！！！！！
                 appId = appId_
                 registered = true
                 changeMaster(masterUrl)
@@ -188,6 +191,7 @@ private[spark] class AppClient(
             case AssociationErrorEvent(cause, _, address, _, _) if isPossibleMaster(address) =>
                 logWarning(s"Could not connect to $address: $cause")
 
+                //  关闭ClientActor
             case StopAppClient =>
                 markDead("Application has been stopped.")
                 sender ! true

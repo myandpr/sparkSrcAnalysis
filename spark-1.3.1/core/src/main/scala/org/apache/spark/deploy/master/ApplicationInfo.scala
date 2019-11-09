@@ -38,6 +38,7 @@ private[spark] class ApplicationInfo(
         extends Serializable {
 
     @transient var state: ApplicationState.Value = _
+    //  保存了该application分配的所有的executor信息
     @transient var executors: mutable.HashMap[Int, ExecutorDesc] = _
     @transient var removedExecutors: ArrayBuffer[ExecutorDesc] = _
     @transient var coresGranted: Int = _

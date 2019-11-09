@@ -38,6 +38,7 @@ private[spark] class WorkerInfo(
     Utils.checkHost(host, "Expected hostname")
     assert(port > 0)
 
+    //  包含着该worker所有的executor
     @transient var executors: mutable.HashMap[String, ExecutorDesc] = _ // executorId => info
     @transient var drivers: mutable.HashMap[String, DriverInfo] = _ // driverId => info
     @transient var state: WorkerState.Value = _

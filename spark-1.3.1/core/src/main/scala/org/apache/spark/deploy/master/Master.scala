@@ -80,6 +80,7 @@ private[spark] class Master(
 
     //两个数据结构：WorkerInfo和ApplicationInfo
     //主要三类：worker、app、driver
+    //  WorkerInfo表示一个worker节点基本信息，ip、port、core、memory、actor等等
     val workers = new HashSet[WorkerInfo]
     val idToWorker = new HashMap[String, WorkerInfo]
     val addressToWorker = new HashMap[Address, WorkerInfo]
@@ -118,6 +119,7 @@ private[spark] class Master(
     val masterUrl = "spark://" + host + ":" + port
     var masterWebUiUrl: String = _
 
+    //  当前Master的状态，默认是standby状态
     var state = RecoveryState.STANDBY
 
     //不知道持久化的引擎是什么东西？？？？
@@ -411,10 +413,18 @@ private[spark] class Master(
                 // ignore, don't send response
             } else {
                 logInfo("Registering app " + description.name)
+                //  此处sender应该是ClientActor，这个sender没发消息，就是保存在数据结构中，一共之后使用
+                //  这个函数中，确定了appId号，根据时间命名的，就是newApplicationId，也就是说：是Master给这个注册的application生成ID号的
+                //  返回了ApplicationInfo(now, newApplicationId(date), desc, date, driver, defaultCores)类型
+                //  重要：：：此处就是给application编了个号
                 val app = createApplication(description, sender)
+                //  在Master中注册application，就是在Master的application相关变量，更新一样，保持最新状态
                 registerApplication(app)
                 logInfo("Registered app " + description.name + " with ID " + app.id)
                 persistenceEngine.addApplication(app)
+                //  1、将注册application成功的消息返回给ClientActor，
+                //  2、该Worker上注册成功application，所以要将自己的masterUrl返回，ClientActor只能收到一个注册成功消息，因为同时只能有一个master活着，
+                // 这是standalone模式的HA
                 sender ! RegisteredApplication(app.id, masterUrl)
                 /*
                 *
@@ -658,12 +668,15 @@ private[spark] class Master(
     // 给app分配worker和executor,启动对应的Executor，launchExecutor(usableWorkers(pos), exec)
     /** ******************这个函数非常重要 *********************************/
     private def schedule() {
+        //  如果该Master当前状态不是alive的，那么直接退出；只有在该master节点提供服务的情况下，才能执行。
+        // 一个standalone集群里，有很多master，但是只有一个master是alive
         if (state != RecoveryState.ALIVE) {
             return
         }
 
         // First schedule drivers, they take strict precedence over applications
         // Randomization helps balance drivers
+        //  把worker打散，过滤掉worker死掉的节点，即“活着的worker节点”
         val shuffledAliveWorkers = Random.shuffle(workers.toSeq.filter(_.state == WorkerState.ALIVE))
         val numWorkersAlive = shuffledAliveWorkers.size
         var curPos = 0
@@ -681,15 +694,19 @@ private[spark] class Master(
             while (numWorkersVisited < numWorkersAlive && !launched) {
                 val worker = shuffledAliveWorkers(curPos)
                 numWorkersVisited += 1
+                //  判断该worker资源（内存、CPU核数）情况是否能防在一个application
                 if (worker.memoryFree >= driver.desc.mem && worker.coresFree >= driver.desc.cores) {
                     /*
                     * 启动driver线程，
                     * 向work的actor发送LaunchDriver信号
+                    * 在该满足条件的worker上启动driver，然后launched = true，循环结束，不在继续判断剩下的worker是否满足启动application的条件了
                     * */
                     launchDriver(worker, driver)
                     waitingDrivers -= driver
+                    //  launched = true
                     launched = true
                 }
+                //  循环着遍历一个个的worker
                 curPos = (curPos + 1) % numWorkersAlive
             }
         }
@@ -698,31 +715,41 @@ private[spark] class Master(
         // in the queue, then the second app, etc.
         /*
         *
-        * 下面开始给app分executor、cores费喷资源，调度app过程
-        * 对app进行FIFO原则，也就是分摊到尽可能多的节点上
+        * 下面开始给app分executor、cores分配资源，调度app过程
+        * 对app进行FIFO原则，也就是分摊到尽可能多的节点上，round_robin模式
         * */
         if (spreadOutApps) {
             // Try to spread out each app among all the nodes, until it has all its cores
             for (app <- waitingApps if app.coresLeft > 0) {
                 //从保存的数据结构workers中，找到资源从多少的worker排序
                 //其实所有的操作，都是在维护这些数据结构！！！各种信息，也都可以从数据结构里获得
+                //  worker能放下application，并且按core数量，升序排列后降序？？？？？？？？
                 val usableWorkers = workers.toArray.filter(_.state == WorkerState.ALIVE)
                         .filter(canUse(app, _)).sortBy(_.coresFree).reverse
+                //  可用的worker数量
                 val numUsable = usableWorkers.length
+                //  给每个worker分配的core的数量，而且每次针对一个新application时，都要归零
                 val assigned = new Array[Int](numUsable) // Number of cores to give on each node
                 var toAssign = math.min(app.coresLeft, usableWorkers.map(_.coresFree).sum)
                 var pos = 0
+                //  该while结束后，就可以知道每个worker都分配了几个core了，也就是assigned保存的内容
+                //  assigned是针对一个application保存着每个worker应该给该application分配的core数
+                //  toAssign是该application需要分配的core数，不确定，应该是吧。。。。。
                 while (toAssign > 0) {
                     if (usableWorkers(pos).coresFree - assigned(pos) > 0) {
                         toAssign -= 1
                         assigned(pos) += 1
                     }
+                    //  把application需要的core数量，每个worker分配一个，轮训一边还没分配完，则轮第二遍，所以下面要取模
                     pos = (pos + 1) % numUsable
                 }
                 // Now that we've decided how many cores to give on each node, let's actually give them
                 for (pos <- 0 until numUsable) {
+                    //  之所以判断是否大于零，是因为某些worker上可能没分配core就够了
                     if (assigned(pos) > 0) {
+                        //  这个函数好好研究一下，好像对于一个application，每个worker上只启动了一个executor，每个executor核数还不一样？？？？？？？？？
                         val exec = app.addExecutor(usableWorkers(pos), assigned(pos))
+                        //  标识了executor和启动的worker位置
                         launchExecutor(usableWorkers(pos), exec)
                         app.state = ApplicationState.RUNNING
                     }
