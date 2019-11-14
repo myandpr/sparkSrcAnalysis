@@ -36,7 +36,7 @@ import org.apache.spark.util.Utils
 /*
 *
 * BlockManagerId参数包括executorId、host、port，可以完全表示一个block的具体位置
-*
+* BlockManager和executor是一一对应的
 * */
 @DeveloperApi
 class BlockManagerId private(

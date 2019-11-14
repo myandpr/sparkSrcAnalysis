@@ -842,7 +842,7 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     * textFile和wholeTextFiles的区别：
     * 都可以读取目录下的所有文件，但是
     * 1、textFile形成的RDD是文件的每一行；
-    * 2、wholeTextFiles形成的RDD是每个文件，格式为key-valu(key:文件路径；value:文件整体内容)
+    * 2、wholeTextFiles形成的RDD是每个文件，格式为key-value(key:文件路径；value:文件整体内容)
     *
     * */
     def textFile(path: String, minPartitions: Int = defaultMinPartitions): RDD[String] = {
@@ -1616,6 +1616,8 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     * dagScheduler.getPreferredLocs->
     * getPreferredLocsInternal->
     * rdd.preferredLocations
+    *
+    * 可以看出来，最终是调用了RDD的preferredLocations函数
     * */
     private[spark] def getPreferredLocs(rdd: RDD[_], partition: Int): Seq[TaskLocation] = {
         dagScheduler.getPreferredLocs(rdd, partition)
@@ -1659,6 +1661,9 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
     * addJar和spark-submit的--jars是一样的，区别在于一个是通过代码分发，一个是通过spark-submit脚本分发
     *
     * */
+    //////////////////////////////////////////////////////////////////////////////////////////////////
+    //  Question：该函数下载了吗？？？？？？分发到worker了吗？？？？
+    //  没有，只是利用SparkEnv里的HttpFileServer，调用addJar，讲jar文件拷贝到driver端的HttpFileServer服务目录中
     def addJar(path: String) {
         if (path == null) {
             logWarning("null specified as parameter to addJar")

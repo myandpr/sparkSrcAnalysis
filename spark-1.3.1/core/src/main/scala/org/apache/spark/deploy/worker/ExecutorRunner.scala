@@ -139,6 +139,7 @@ private[spark] class ExecutorRunner(
             /*
             * 通过Java执行系统命令，与cmd中或者终端上一样执行shell命令，
             * 最典型的用法就是使用Runtime.getRuntime().exec(command)或者new ProcessBuilder(cmdArray).start()。
+            * 在这个函数里，开始执行applicationDescription的command参数，是启动CoarseGrainedExecutorBackend，至此，才是真正启动了
             * */
             val builder = CommandUtils.buildProcessBuilder(appDesc.command, memory,
                 sparkHome.getAbsolutePath, substituteVariables)
@@ -158,6 +159,7 @@ private[spark] class ExecutorRunner(
             builder.environment.put("SPARK_LOG_URL_STDOUT", s"${baseUrl}stdout")
 
             //此处执行系统命令
+            //  就是执行CoarseGrainedExecutorBackend启动命令
             process = builder.start()
             val header = "Spark Executor Command: %s\n%s\n\n".format(
                 command.mkString("\"", "\" \"", "\""), "=" * 40)

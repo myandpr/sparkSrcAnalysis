@@ -29,6 +29,7 @@ import org.apache.spark.util.ActorLogReceive
   * An actor to take commands from the master to execute options. For example,
   * this is used to remove blocks from the slave's BlockManager.
   */
+//  这是一个actor，目的是从master（也就是BlockManagerMasterActor发送的命令）接收命令去执行，比如删除slave节点上的blocks
 private[storage]
 class BlockManagerSlaveActor(
                                     blockManager: BlockManager,
@@ -38,6 +39,7 @@ class BlockManagerSlaveActor(
     import context.dispatcher
 
     // Operations that involve removing blocks may be slow and should be done asynchronously
+    //  slave节点的BlockManager收到消息后，
     override def receiveWithLogging = {
         case RemoveBlock(blockId) =>
             doAsync[Boolean]("removing block " + blockId, sender) {

@@ -289,21 +289,28 @@ class DAGScheduler(
       * provided jobId if they haven't already been created with a lower jobId.
       */
     private def getParentStages(rdd: RDD[_], jobId: Int): List[Stage] = {
+        //  根据是否是shuffleDependency判断parents stage，放入parents中
         val parents = new HashSet[Stage]
+        //  存储已经被访问的RDD
         val visited = new HashSet[RDD[_]]
         // We are manually maintaining a stack here to prevent StackOverflowError
         // caused by recursively visiting
+        //  这里手动维护一个栈，主要是因为怕递归的话，层数太多栈溢出
+        //  存储需要被访问的RDD
         val waitingForVisit = new Stack[RDD[_]]
 
         def visit(r: RDD[_]) {
+            //  如果没有访问过r这个RDD
             if (!visited(r)) {
                 visited += r
                 // Kind of ugly: need to register RDDs with the cache here since
                 // we can't do it in its constructor because # of partitions is unknown
                 for (dep <- r.dependencies) {
                     dep match {
+                        //  如果是宽依赖
                         case shufDep: ShuffleDependency[_, _, _] =>
                             parents += getShuffleMapStage(shufDep, jobId)
+                        //  如果是窄依赖，说明为同一stage，压入栈顶
                         case _ =>
                             waitingForVisit.push(dep.rdd)
                     }

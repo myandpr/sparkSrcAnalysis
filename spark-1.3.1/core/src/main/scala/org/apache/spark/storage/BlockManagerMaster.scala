@@ -26,6 +26,8 @@ import org.apache.spark.{Logging, SparkConf, SparkException}
 import org.apache.spark.storage.BlockManagerMessages._
 import org.apache.spark.util.AkkaUtils
 
+//  BlockManagerMaster里主要是一些函数，通信的方式就是构造函数的参数有个driverActor
+//  不管driver和executor，只要在实例化SparkEnv时候，都会构造blockManagerMasterActor->blockManagerMaster->BlockManager
 private[spark]
 class BlockManagerMaster(
                                 var driverActor: ActorRef,
@@ -40,6 +42,7 @@ class BlockManagerMaster(
     val timeout = AkkaUtils.askTimeout(conf)
 
     /** Remove a dead executor from the driver actor. This is only called on the driver side. */
+    //  slave到master的消息RemoveExecutor，所谓的master就是BlockManagerMasterActor，这个actor里维护这BlockManager、executor等的数据
     def removeExecutor(execId: String) {
         tell(RemoveExecutor(execId))
         logInfo("Removed " + execId + " successfully in removeExecutor")

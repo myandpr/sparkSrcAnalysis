@@ -698,6 +698,7 @@ private[spark] object Utils extends Logging {
             // configuration to point to a secure directory. So create a subdirectory with restricted
             // permissions under each listed directory.
             Option(conf.getenv("SPARK_LOCAL_DIRS"))
+                    //  spark.local.dir用于存储mapper输出文件和缓存到磁盘的RDD数据，可以用逗号分隔指定多个目录；最好将这个属性设定为访问速度快的本地磁盘SSD什么的更好
                     .getOrElse(conf.get("spark.local.dir", System.getProperty("java.io.tmpdir")))
                     .split(",")
                     .flatMap { root =>

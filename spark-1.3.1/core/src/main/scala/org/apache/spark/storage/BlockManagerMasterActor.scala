@@ -36,18 +36,35 @@ import org.apache.spark.util.{ActorLogReceive, AkkaUtils, Utils}
 /**
   * BlockManagerMasterActor is an actor on the master node to track statuses of
   * all slaves' block managers.
+  *
+  * BlockManagerMasterActor：是一个运行在master节点上的actor
+  * 目的：会通过远程消息通信的方式，跟踪维护所有slaves节点的block managers的状态
   */
+//  每启动一个ExecutorBackend都会实例化BlockManager并通过远程通讯的方式注册给BlockManagerMaster；
+//  实质上是Executor中的BlockManager在启动的时候注册给了Driver上的BlockManagerMasterEndpoint；
 private[spark]
 class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus: LiveListenerBus)
         extends Actor with ActorLogReceive with Logging {
 
     // Mapping from block manager id to the block manager's information.
+    //  BlockManagerInfo包含着着slaveActor，这样可以跟slave的blockmanager通信
+    //  class BlockManagerId private(
+    //          private var executorId_ : String,
+    //          private var host_ : String,
+    //          private var port_ : Int)
+    //  private[spark] class BlockManagerInfo(
+    //          val blockManagerId: BlockManagerId,
+    //          timeMs: Long,
+    //          val maxMem: Long,
+    //          val slaveActor: ActorRef)
     private val blockManagerInfo = new mutable.HashMap[BlockManagerId, BlockManagerInfo]
 
     // Mapping from executor ID to block manager ID.
+    //  executor：BlockManager = 1:1
     private val blockManagerIdByExecutor = new mutable.HashMap[String, BlockManagerId]
 
     // Mapping from block id to the set of block managers that have the block.
+    //  blockId:block manager = 1:N
     private val blockLocations = new JHashMap[BlockId, mutable.HashSet[BlockManagerId]]
 
     private val akkaTimeout = AkkaUtils.askTimeout(conf)
@@ -59,14 +76,22 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
     var timeoutCheckingTask: Cancellable = null
 
     override def preStart() {
+        //  循环发送心跳检测
         import context.dispatcher
         timeoutCheckingTask = context.system.scheduler.schedule(0.seconds,
             checkTimeoutInterval.milliseconds, self, ExpireDeadHosts)
         super.preStart()
     }
 
+    //  这里面一部分的Message应该都是ExecutorBackend启动时实例化BlockManager并通过远程通讯的方式注册给BlockManagerMaster，在此过程中，都是调用自己的构造函数参数BlockManagerMaster的函数，给该BlockManagerMasterActor发送消息
+    //  也就是slave发送给master的消息，当然也有master发送给slave的，包括哪些remove、get类型的
+    //  所谓的BlockManager包含着BlockManagerMaster句柄就是这个意思，BlockManager的构造函数参数就包括了BlockManagerMaster
     override def receiveWithLogging = {
+        //  注册就是在该类BlockManagerMasterActor中维护的数据结构1、blockManagerIdByExecutor；2、blockLocations；3、blockManagerInfo，添加、更新
         case RegisterBlockManager(blockManagerId, maxMemSize, slaveActor) =>
+            //  slave节点的BlockManager.initialize中调用了master.registerBlockManager(blockManagerId, maxMemory, slaveActor)，
+            //  其中master是BlockManager构造函数中默认参数BlockManagerMaster，
+            //  而registerBlockManager函数向BlockManagerMasterActor发送tell(RegisterBlockManager(blockManagerId, maxMemSize, slaveActor))消息
             register(blockManagerId, maxMemSize, slaveActor)
             sender ! true
 
@@ -186,6 +211,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
         )
     }
 
+    //  删除保存BlockManager相关数据结构
     private def removeBlockManager(blockManagerId: BlockManagerId) {
         val info = blockManagerInfo(blockManagerId)
 
@@ -251,6 +277,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
                     // Remove the block from the slave's BlockManager.
                     // Doesn't actually wait for a confirmation and the message might get lost.
                     // If message loss becomes frequent, we should add retry logic here.
+                    //  给slaveActor发送RemoveBlock消息，slave节点上的BlockManager会将该block对应的内存变量、硬盘等删除
                     blockManager.get.slaveActor.ask(RemoveBlock(blockId))(akkaTimeout)
                 }
             }
@@ -333,6 +360,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
         val time = System.currentTimeMillis()
         if (!blockManagerInfo.contains(id)) {
             blockManagerIdByExecutor.get(id.executorId) match {
+                    //  一个executor只能有一个BlockManager，这个oldId指的是oldBlockManager
                 case Some(oldId) =>
                     // A block manager of the same executor already exists, so remove it (assumed dead)
                     logError("Got two different block manager registrations on same executor - "
@@ -398,6 +426,7 @@ class BlockManagerMasterActor(val isLocal: Boolean, conf: SparkConf, listenerBus
         true
     }
 
+    //  一个blockId对应着多个BlockManager（用BlockManagerId标识）
     private def getLocations(blockId: BlockId): Seq[BlockManagerId] = {
         if (blockLocations.containsKey(blockId)) blockLocations.get(blockId).toSeq else Seq.empty
     }
@@ -450,6 +479,7 @@ object BlockStatus {
     def empty: BlockStatus = BlockStatus(StorageLevel.NONE, 0L, 0L, 0L)
 }
 
+//  BlockManagerInfo包含着slaveActor
 private[spark] class BlockManagerInfo(
                                              val blockManagerId: BlockManagerId,
                                              timeMs: Long,

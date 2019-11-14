@@ -382,9 +382,20 @@ object SparkEnv extends Logging {
             }
 
         /*
+        *
+        * a) BlockManagerMaster：对整个集群的Block数据进行管理的；
+        * b) MapOutputTracker:跟踪所有mapper的输出的；
+        *
+        * */
+
+
+        /*
         * 创建BlockManagerMaster这个actor
         * BlockManagerMaster是一个master节点上的actor，用来跟踪所有slave节点的block manager状态
         * */
+        //  每启动一个ExecutorBackend都会实例化BlockManager并通过远程通讯的方式注册给BlockManagerMaster；实质上是Executor中的BlockManager在启动的时候注册给了Driver上的BlockManagerMasterEndpoint；
+        //  registerOrLookup返回的是一个driverActor，其实就是启动一个BlockManagerMasterActor，
+        // 笼统的讲，driverActor和BlockManagerMasterActor是一样的，这一点有待于确认，但八九不离十
         val blockManagerMaster = new BlockManagerMaster(registerOrLookup(
             "BlockManagerMaster",
             new BlockManagerMasterActor(isLocal, conf, listenerBus)), conf, isDriver)
@@ -393,6 +404,7 @@ object SparkEnv extends Logging {
         /*
         * 用到actorSystem、BlockManagerMaster（这是个actor）、mapOutputTracker、shuffleManager、blockTransferService、securityManager参数，创建BlockManager，
         * */
+        //  actorSystem是不同的，executor和driver的SparkEnv，是两个，各是各的
         val blockManager = new BlockManager(executorId, actorSystem, blockManagerMaster,
             serializer, conf, mapOutputTracker, shuffleManager, blockTransferService, securityManager,
             numUsableCores)

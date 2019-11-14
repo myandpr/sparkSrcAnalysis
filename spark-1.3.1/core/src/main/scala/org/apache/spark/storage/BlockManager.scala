@@ -82,7 +82,7 @@ private[spark] class BlockResult(
 private[spark] class BlockManager(
                                          executorId: String,
                                          actorSystem: ActorSystem,
-                                         val master: BlockManagerMaster,
+                                         val master: BlockManagerMaster,    //  这个BlockManagerMaster很重要
                                          defaultSerializer: Serializer,
                                          maxMemory: Long,
                                          val conf: SparkConf,
@@ -190,6 +190,7 @@ private[spark] class BlockManager(
     * 启动BlockManagerSlaveActor通信
     * */
     private val slaveActor = actorSystem.actorOf(
+        //  BlockManager就自带BlockManagerSlaveActor，这俩是一体的
         Props(new BlockManagerSlaveActor(this, mapOutputTracker)),
         name = "BlockManagerActor" + BlockManager.ID_GENERATOR.next)
 
@@ -340,7 +341,7 @@ private[spark] class BlockManager(
       */
     /*
     *
-    *
+    *   这些函数，比如该reregister注册函数，执行都是通过BlockManger的构造函数参数BlockManagerMasterActor
     * */
     def reregister(): Unit = {
         // TODO: We might need to rate limit re-registering.
@@ -1400,7 +1401,7 @@ private[spark] class BlockManager(
         logInfo("BlockManager stopped")
     }
 }
-
+////////////////////////////////////////////////////BlockManager class结束////////////////////////////////////////////////////////////
 
 private[spark] object BlockManager extends Logging {
     private val ID_GENERATOR = new IdGenerator
