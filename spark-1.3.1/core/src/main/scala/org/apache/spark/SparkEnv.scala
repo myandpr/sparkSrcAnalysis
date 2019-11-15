@@ -299,6 +299,7 @@ object SparkEnv extends Logging {
         * 如果是executor端，就发现driver的actor
         * 字面意思理解：registerOrLookup就是注册或寻找
         * */
+        //  返回newActor的引用
         def registerOrLookup(name: String, newActor: => Actor): ActorRef = {
             if (isDriver) {
                 logInfo("Registering " + name)
@@ -396,6 +397,8 @@ object SparkEnv extends Logging {
         //  每启动一个ExecutorBackend都会实例化BlockManager并通过远程通讯的方式注册给BlockManagerMaster；实质上是Executor中的BlockManager在启动的时候注册给了Driver上的BlockManagerMasterEndpoint；
         //  registerOrLookup返回的是一个driverActor，其实就是启动一个BlockManagerMasterActor，
         // 笼统的讲，driverActor和BlockManagerMasterActor是一样的，这一点有待于确认，但八九不离十
+        //  registerOrLookup返回的是BlockManagerMasterActor的引用
+        //  石锤了，BlockManagerMaster的参数driverActor就是BlockManagerMasterActor引用，因为registerOrLookup返回值就是BlockManagerMasterActor引用
         val blockManagerMaster = new BlockManagerMaster(registerOrLookup(
             "BlockManagerMaster",
             new BlockManagerMasterActor(isLocal, conf, listenerBus)), conf, isDriver)

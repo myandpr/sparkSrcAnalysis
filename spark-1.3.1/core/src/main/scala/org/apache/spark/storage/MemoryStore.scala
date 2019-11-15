@@ -87,6 +87,7 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
         * 同步加锁获取，防止其他操作添加entries
         * */
         entries.synchronized {
+            //  这个size是参数size
             entries.get(blockId).size
         }
     }

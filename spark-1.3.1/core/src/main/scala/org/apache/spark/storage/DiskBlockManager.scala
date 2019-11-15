@@ -63,7 +63,9 @@ private[spark] class DiskBlockManager(blockManager: BlockManager, conf: SparkCon
     /** Looks up a file by hashing it into one of our local subdirectories. */
     // This method should be kept in sync with
     // org.apache.spark.network.shuffle.StandaloneShuffleBlockManager#getFile().
-    //  通过文件名，查找到文件File
+    //  通过文件名，查找到文件File对象
+    //  先hash，然后对主目录和子目录求模，然后加上filename，组成了File对象返回
+    //  也就印证了片头指出的“DiskBlockManager主要是映射了逻辑的block和物理的file之间的关系”，即block----File
     def getFile(filename: String): File = {
         // Figure out which local directory it hashes to, and which subdirectory in that
         val hash = Utils.nonNegativeHash(filename)
