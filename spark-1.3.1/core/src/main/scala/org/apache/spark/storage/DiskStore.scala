@@ -28,6 +28,8 @@ import org.apache.spark.util.Utils
 /**
   * Stores BlockManager blocks on disk.
   */
+//  存储BlockManager blocks在磁盘上
+//  参数DiskBlockManager很重要，因为DiskStore所有操作，都是基于DiskBlockManager的，主要操作和DIskBlockManager是一样的，进行get、put操作，传入blockId，根据。
 private[spark] class DiskStore(blockManager: BlockManager, diskManager: DiskBlockManager)
         extends BlockStore(blockManager) with Logging {
 
@@ -44,12 +46,17 @@ private[spark] class DiskStore(blockManager: BlockManager, diskManager: DiskBloc
         val bytes = _bytes.duplicate()
         logDebug(s"Attempting to put block $blockId")
         val startTime = System.currentTimeMillis
+        //  通过DiskBlockManager的getFile函数，给一个blockId，返回一个File类型文件
         val file = diskManager.getFile(blockId)
+        //  创建文件file的文件输出流
         val channel = new FileOutputStream(file).getChannel
+        //  写入file文件输出流
         while (bytes.remaining > 0) {
             channel.write(bytes)
         }
+        //  关闭流
         channel.close()
+        //  到此为止，数据写入block对应文件结束
         val finishTime = System.currentTimeMillis
         logDebug("Block %s stored as %s file on disk in %d ms".format(
             file.getName, Utils.bytesToString(bytes.limit), finishTime - startTime))
@@ -155,6 +162,7 @@ private[spark] class DiskStore(blockManager: BlockManager, diskManager: DiskBloc
         getBytes(blockId).map(bytes => blockManager.dataDeserialize(blockId, bytes, serializer))
     }
 
+    //  根据blockId，删除对应的磁盘上的file
     override def remove(blockId: BlockId): Boolean = {
         val file = diskManager.getFile(blockId.name)
         // If consolidation mode is used With HashShuffleMananger, the physical filename for the block
