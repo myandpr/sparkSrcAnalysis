@@ -92,6 +92,7 @@ private[spark] class Executor(
 
     if (!isLocal) {
         env.metricsSystem.registerSource(executorSource)
+        //  向BlockManagerMasterActor注册该BlockManager
         env.blockManager.initialize(conf.getAppId)
     }
 

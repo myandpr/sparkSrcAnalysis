@@ -41,19 +41,25 @@ private[spark] case class GetMapOutputStatuses(shuffleId: Int)
 private[spark] case object StopMapOutputTracker extends MapOutputTrackerMessage
 
 /** Actor class for MapOutputTrackerMaster */
+//  MapOutputTrackerMasterActor本身就是个actor
 private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster, conf: SparkConf)
         extends Actor with ActorLogReceive with Logging {
     val maxAkkaFrameSize = AkkaUtils.maxFrameSizeBytes(conf)
 
+    //  有个疑问：这两个消息是哪里发送到这里的？？？？？？？？？是MapOutputTrackerWorker发送的吗？？？？？？？？？？？？？
     override def receiveWithLogging = {
+        //  这个shuffleId指的是第几个shuffle算子，比如一个action中，进行了多次的join、reducByKey，则会出现多个shuffle，所以需要一个shuffleId来标记
         case GetMapOutputStatuses(shuffleId: Int) =>
+            //  就是这个端口hostport发送的请求shuffle的map输出位置信息
             val hostPort = sender.path.address.hostPort
             logInfo("Asked to send map output locations for shuffle " + shuffleId + " to " + hostPort)
             /*
-            * 最终是调用了MapOutputTrackerMaster的MapStatus变量保存的数据
+            * 最终是调用了MapOutputTrackerMaster的mapStatuses或cachedSerializedStatuses
+            * 之所以要获得序列化后的数据，是因为要传输给sender，所以最好传输序列化的数据
             * */
             val mapOutputStatuses = tracker.getSerializedMapOutputStatuses(shuffleId)
             val serializedSize = mapOutputStatuses.size
+            //  不太理解这个逻辑，如果数据大小超过了actor传输的最大值，就直接抛出异常不处理了？？？？？？难道不应该是至少保存到BlockManager之类的么？？？
             if (serializedSize > maxAkkaFrameSize) {
                 val msg = s"Map output statuses were $serializedSize bytes which " +
                         s"exceeds spark.akka.frameSize ($maxAkkaFrameSize bytes)."
@@ -66,10 +72,11 @@ private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster
                 throw exception
             }
             /*
-            * 返回给发送方actor
+            * 如果值大小在actor传输范围内，则返回给发送方actor
             * */
             sender ! mapOutputStatuses
 
+            //  停止MapOutputTracker就是停止对应的actor，对于这里，就是停止本身这个actor
         case StopMapOutputTracker =>
             logInfo("MapOutputTrackerActor stopped!")
             sender ! true
@@ -294,6 +301,11 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
   * 使用了TimeStampedHashMap去保存shuffle的输出信息
   * 允许保存咋TTL范围内的旧的输出信息
   */
+//////////////////////////////////////////////////很重要的观念//////////////////////////////////////////////////
+////////////////////    MapOutputTrackerMaster是真正保存相关shuffle信息的地方，     ////////////////////////////
+////////////////////    而之所以有MapOutputTrackerMasterActor这些actor，            ////////////////////////////
+////////////////////    只是为了通信，发送或接受保存的信息                          ////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 private[spark] class MapOutputTrackerMaster(conf: SparkConf)
         extends MapOutputTracker(conf) {
 
@@ -307,6 +319,8 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
       *
       * 旧的mapstatus只有超过TTL才会被删除
       */
+        //  为什么需要两个mapStatus、CacheSerializedStatuses变量呢？？
+        // 因为（1）mapStatus保存的是shuffle中map的位置信息，（2）而CacheSerializedStatuses保存的是map后真正的序列化值，后半句存疑，需要验证
     protected val mapStatuses = new TimeStampedHashMap[Int, Array[MapStatus]]()
     private val cachedSerializedStatuses = new TimeStampedHashMap[Int, Array[Byte]]()
 
@@ -369,6 +383,8 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
         }
     }
 
+    //  该函数逻辑：1、如果有现成的序列化的mapStatus，即cachedSerializedStatuses有，则直接拿出来返回；
+    //  2、如果没现成的序列化的mapStatus，则从mapStatuses变量里拿出来后，序列化后返回。
     def getSerializedMapOutputStatuses(shuffleId: Int): Array[Byte] = {
         var statuses: Array[MapStatus] = null
         var epochGotten: Long = -1
@@ -377,6 +393,8 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
                 cachedSerializedStatuses.clear()
                 cacheEpoch = epoch
             }
+            //  判断MapOutputTrackerMaster里是否缓存了shuffle信息，如果缓存了，直接拿，然后return，函数结束；
+            //  如果没缓存，从MapStatus里重新pull拉数据，然后赋值给statues变量，然后接着执行下面的操作val bytes = MapOutputTracker.serializeMapStatuses(statuses)
             cachedSerializedStatuses.get(shuffleId) match {
                 case Some(bytes) =>
                     return bytes
@@ -387,9 +405,11 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
         }
         // If we got here, we failed to find the serialized locations in the cache, so we pulled
         // out a snapshot of the locations as "statuses"; let's serialize and return that
+        //  序列化并压缩shuffle的output statuses，即mapStatus
         val bytes = MapOutputTracker.serializeMapStatuses(statuses)
         logInfo("Size of output statuses for shuffle %d is %d bytes".format(shuffleId, bytes.length))
         // Add them into the table only if the epoch hasn't changed while we were working
+        //  重新拉了并序列化mapStatus后，将结果缓存在cachedSerializedStatuses中，下次就可以用了
         epochLock.synchronized {
             if (epoch == epochGotten) {
                 cachedSerializedStatuses(shuffleId) = bytes
@@ -443,6 +463,7 @@ private[spark] object MapOutputTracker extends Logging {
     * 把map的output locations序列化成bytes格式，GZIP压缩并发送给reduce tasks，
     * 由于map output很多都在同一个hostname上，所以压缩率很可观
     * */
+    //  序列化并压缩mapoutput信息MapStatus
     def serializeMapStatuses(statuses: Array[MapStatus]): Array[Byte] = {
         val out = new ByteArrayOutputStream
         val objOut = new ObjectOutputStream(new GZIPOutputStream(out))

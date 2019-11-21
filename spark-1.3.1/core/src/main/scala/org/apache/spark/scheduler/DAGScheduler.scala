@@ -1401,6 +1401,8 @@ class DAGScheduler(
     eventProcessLoop.start()
 }
 
+//  DAGScheduler中的消息通知不是actor，而是这个EventLoop
+//  注意：这里有个没弄明白的地方，对比一下消息总线SparkListenerBus，是一种消息传递机制呢还是两种？？？？？？？？？
 private[scheduler] class DAGSchedulerEventProcessLoop(dagScheduler: DAGScheduler)
         extends EventLoop[DAGSchedulerEvent]("dag-scheduler-event-loop") with Logging {
 
