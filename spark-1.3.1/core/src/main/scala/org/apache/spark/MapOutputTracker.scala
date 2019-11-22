@@ -105,6 +105,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     /** Set to the MapOutputTrackerActor living on the driver. */
     /*
     * 设置运行在driver端的MapOutputTrackerActor
+    * //////////////////////////////////       下面这句话非常非常重要       //////////////////////////////////////
     * 不管是MapOutputTrackerMaster还是MapOutputTrackerWorker，都需要用trackerActor保存MapOutputTrackerMasterActor
     *
     * 看不到该trackerActor是如何设置的？？为什么只有使用，没有设置？？？
@@ -327,10 +328,12 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
       * so that statuses are dropped only by explicit de-registering or by TTL-based cleaning (if set).
       * Other than these two scenarios, nothing should be dropped from this HashMap.
       *
+      * mapStatuses和cachedSerializedStatuses实在driver端保存的，因为这是MapOutputTrackerMaster，会在driver端的SparkEnv中初始化的，所以可以理解是driver端的。
       * 旧的mapstatus只有超过TTL才会被删除
       */
         //  为什么需要两个mapStatus、CacheSerializedStatuses变量呢？？
         // 因为（1）mapStatus保存的是shuffle中map的位置信息，（2）而CacheSerializedStatuses保存的是map后真正的序列化值，后半句存疑，需要验证
+        //  保存的是map的位置，不是reduce的位置！！！！！所以Array[MapStatus]是一个个的map信息
     protected val mapStatuses = new TimeStampedHashMap[Int, Array[MapStatus]]()
     private val cachedSerializedStatuses = new TimeStampedHashMap[Int, Array[Byte]]()
 
@@ -344,6 +347,8 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
         }
     }
 
+    //  注册MapOutput就是注册某个shuffle的map的MapStatuses
+    /////////////////////////////      记住这个array(mapId) = status       ////////////////////////////////
     def registerMapOutput(shuffleId: Int, mapId: Int, status: MapStatus) {
         val array = mapStatuses(shuffleId)
         array.synchronized {
@@ -382,6 +387,7 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
     }
 
     /** Check if the given shuffle is being tracked */
+    //  cachedSerializedStatuses和mapStatuses只要有一个有shuffle信息就行了
     def containsShuffle(shuffleId: Int): Boolean = {
         cachedSerializedStatuses.contains(shuffleId) || mapStatuses.contains(shuffleId)
     }
@@ -452,7 +458,9 @@ private[spark] class MapOutputTrackerMaster(conf: SparkConf)
 *
 * 总结就是，
 * 1、MapOutputTrackerMaster保存map的output信息（not output内容），
-* 2、MapOutputTrackerWorker是从MapOutputTrackerMaster拉取信息
+* 2、MapOutputTrackerWorker是从MapOutputTrackerMaster拉取信息，因为mapStatuses变量保存在MapOutputTrackerMaster类中
+*
+* 之所以MapOutputTrackerWorker没有定义函数，是因为它继承于MapOutputTracker，MapOutputTracker中有很多函数，MapOutputTrackerWorker只需要父类这些函数就行了
 * */
 private[spark] class MapOutputTrackerWorker(conf: SparkConf) extends MapOutputTracker(conf) {
     protected val mapStatuses: Map[Int, Array[MapStatus]] =
