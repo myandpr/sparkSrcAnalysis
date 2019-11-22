@@ -32,6 +32,8 @@ import org.apache.spark.util.Utils
 *
 * MapStatus保存每个shuffleId的所有output信息
 * sealed关键字提供了一种约束：不能在类定义的文件之外定义任何新的子类。
+*
+* 所谓的MapStatus的位置，就是BlockManagerId
 * */
 private[spark] sealed trait MapStatus {
     /** Location where this task was run. */

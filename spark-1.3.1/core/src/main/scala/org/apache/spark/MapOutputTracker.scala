@@ -105,12 +105,14 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     /** Set to the MapOutputTrackerActor living on the driver. */
     /*
     * 设置运行在driver端的MapOutputTrackerActor
+    * 不管是MapOutputTrackerMaster还是MapOutputTrackerWorker，都需要用trackerActor保存MapOutputTrackerMasterActor
     *
     * 看不到该trackerActor是如何设置的？？为什么只有使用，没有设置？？？
+    * 回答：具体是在SparkEnv.scala中create函数实现中第一次赋值
     *
     *
     * 该变量是public，意味着可以在外部的类中，对其设置。。。。。。。。。
-    * 具体是在SparkEnv.scala中create函数实现中第一次赋值
+    *
     * */
     var trackerActor: ActorRef = _
 
@@ -127,6 +129,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
       * Note: because mapStatuses is accessed concurrently, subclasses should make sure it's a
       * thread-safe map.
       */
+        //  按住Ctrl + Alt + 鼠标左键，会发现这个变量被MapOutputTrackerMaster和MapOutputTrackerWorker继承了
     protected val mapStatuses: Map[Int, Array[MapStatus]]
 
     /**
@@ -149,6 +152,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
       */
     protected def askTracker(message: Any): Any = {
         try {
+            //  还是研读一下askWithReply的实现原理吧！！！！！！！！
             AkkaUtils.askWithReply(message, trackerActor, retryAttempts, retryIntervalMs, timeout)
         } catch {
             case e: Exception =>
@@ -196,6 +200,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
         * 如果MapStatuses没有shuffleId的数据，则会像driver请求
         * */
         if (statuses == null) {
+            //  如果变量mapStatuses如果没有shuffle信息，就重新拉取
             logInfo("Don't have map outputs for shuffle " + shuffleId + ", fetching them")
             var fetchedStatuses: Array[MapStatus] = null
             /*
@@ -225,9 +230,12 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
                 logInfo("Doing the fetch; tracker actor = " + trackerActor)
                 // This try-finally prevents hangs due to timeouts:
                 try {
+                    //  通过网络向上面的class MapOutputTrackerMasterActor这个actor发送GetMapOutputStatuses消息，拉取shuffle的map信息
                     val fetchedBytes =
                         askTracker(GetMapOutputStatuses(shuffleId)).asInstanceOf[Array[Byte]]
+                    //  反序列化
                     fetchedStatuses = MapOutputTracker.deserializeMapStatuses(fetchedBytes)
+                    //  至此，得到了shuffle的output的location，返回值类型是Array[MapStatus]
                     logInfo("Got the output locations")
                     /*
                     *
@@ -236,6 +244,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
                     mapStatuses.put(shuffleId, fetchedStatuses)
                 } finally {
                     fetching.synchronized {
+                        //  表名该shuffleId拉完了
                         fetching -= shuffleId
                         fetching.notifyAll()
                     }
@@ -284,6 +293,7 @@ private[spark] abstract class MapOutputTracker(conf: SparkConf) extends Logging 
     }
 
     /** Unregister shuffle data. */
+    //  注销shuffle数据，所谓的注销，就是从mapStatuses变量中删除该shuffle的记录
     def unregisterShuffle(shuffleId: Int) {
         mapStatuses.remove(shuffleId)
     }
@@ -487,6 +497,7 @@ private[spark] object MapOutputTracker extends Logging {
     /*
     *
     * 把MapStatuses数组转换成给定reduceId的位置和大小
+    * MapStatus和它的位置 BlockManagerId是一一对应的
     * */
     private def convertMapStatuses(
                                           shuffleId: Int,
