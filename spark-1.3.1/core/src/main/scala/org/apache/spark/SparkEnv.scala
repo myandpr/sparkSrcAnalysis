@@ -335,6 +335,7 @@ object SparkEnv extends Logging {
         *
         * 这个地方才是给trackerActor第一次赋值，赋值的是driver端的actor
         * */
+        //  不管是MapOutputTrackerMaster还是MapOutputTrackerWorker，它的内部变量trackerActor都需要保存MapOutputTrackerMasterActor，以方便通信
         mapOutputTracker.trackerActor = registerOrLookup(
             "MapOutputTracker",
             /*

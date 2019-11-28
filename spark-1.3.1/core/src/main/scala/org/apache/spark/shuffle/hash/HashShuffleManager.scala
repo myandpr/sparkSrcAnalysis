@@ -24,11 +24,13 @@ import org.apache.spark.shuffle._
   * A ShuffleManager using hashing, that creates one output file per reduce partition on each
   * mapper (possibly reusing these across waves of tasks).
   */
+//  使用hash的ShuffleManager： 每个mapper为每个reduce创建了一个输出文件output file。
 private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager {
 
     private val fileShuffleBlockManager = new FileShuffleBlockManager(conf)
 
     /* Register a shuffle with the manager and obtain a handle for it to pass to tasks. */
+    //  还是要研究参数dependency到底是什么！！！！！！！！！！！！！！！！！！！！
     override def registerShuffle[K, V, C](
                                                  shuffleId: Int,
                                                  numMaps: Int,
@@ -50,6 +52,9 @@ private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager 
     }
 
     /** Get a writer for a given partition. Called on executors by map tasks. */
+    //  根据给定的map task的分区，获得一个writer，这个函数是executor上的map tasks调用的
+    //  是不是意味着每个map task都要有一个writer？？？？？
+    //  是的，Ctrl + 鼠标左键，就可以发现ShuffleMapTask.runTask()函数中从ShuffleManager中调用了manager.getWriter，获取了writer句柄
     override def getWriter[K, V](handle: ShuffleHandle, mapId: Int, context: TaskContext)
     : ShuffleWriter[K, V] = {
         new HashShuffleWriter(
