@@ -35,13 +35,13 @@ import org.apache.spark.shuffle.ShuffleWriter
   * @param stageId    id of the stage this task belongs to
   * @param taskBinary broadcast version of of the RDD and the ShuffleDependency. Once deserialized,
   *                   the type should be (RDD[_], ShuffleDependency[_, _, _]).
-  * @param partition  partition of the RDD this task is associated with
+  * @param partition  partition of the RDD this task is associated with       //  这个task对应的该RDD的partition
   * @param locs       preferred task execution locations for locality scheduling
   */
 private[spark] class ShuffleMapTask(
                                            stageId: Int,
                                            taskBinary: Broadcast[Array[Byte]],
-                                           partition: Partition,
+                                           partition: Partition,    //  该task对应的partition，一个task对应一个partition
                                            @transient private var locs: Seq[TaskLocation])
         extends Task[MapStatus](stageId, partition.index) with Logging {
 
@@ -66,7 +66,7 @@ private[spark] class ShuffleMapTask(
     /*
     *
     * ShuffleMapTask主要关注中间结果，主要是把partition操作等待shuffle到别的机器上的数据管理起来。
-    *
+    *   这runTask只是对应一个分区，就是改task对应的那个分区
     * */
     override def runTask(context: TaskContext): MapStatus = {
         // Deserialize the RDD using the broadcast variable.
@@ -78,7 +78,12 @@ private[spark] class ShuffleMapTask(
         var writer: ShuffleWriter[Any, Any] = null
         try {
             val manager = SparkEnv.get.shuffleManager
+            //  很显然，每个map task（也就是每个partition分区）都会获取一个writer句柄去写入文件
             writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)
+            //  调用write函数，对一个分区partition的RDD数据进行写入文件操作
+            //  返回值Iterator为Scala自带类，参数split通过查看Partition不难看出是一个RDD的一个分区的标识，
+            //  也就是说，通过输入参数某个分区的标识就可以获得这个分区的数据集合的迭代器，RDD与实际的某台机器上的数据集合就是这么联系起来的。
+            //  RDD的Iterator方法只有这么一个，但是这个方法只能用来遍历某个Partition的数据，不能遍历整个RDD中的全部数据。
             writer.write(rdd.iterator(partition, context).asInstanceOf[Iterator[_ <: Product2[Any, Any]]])
             return writer.stop(success = true).get
         } catch {

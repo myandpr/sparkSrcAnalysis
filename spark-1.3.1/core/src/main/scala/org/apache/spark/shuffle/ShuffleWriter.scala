@@ -24,6 +24,9 @@ import org.apache.spark.scheduler.MapStatus
   */
 private[spark] trait ShuffleWriter[K, V] {
     /** Write a bunch of records to this task's output */
+    //  返回值Iterator为Scala自带类，参数split通过查看Partition不难看出是一个RDD的一个分区的标识，
+    // 也就是说，通过输入参数某个分区的标识就可以获得这个分区的数据集合的迭代器，RDD与实际的某台机器上的数据集合就是这么联系起来的。
+    //  RDD的Iterator方法只有这么一个，但是这个方法只能用来遍历某个Partition的数据，不能遍历整个RDD中的全部数据。
     def write(records: Iterator[_ <: Product2[K, V]]): Unit
 
     /** Close this writer, passing along whether the map completed */

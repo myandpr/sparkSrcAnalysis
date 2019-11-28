@@ -32,6 +32,7 @@ private[spark] class HashShuffleWriter[K, V](
         extends ShuffleWriter[K, V] with Logging {
 
     private val dep = handle.dependency
+    //  这个应该是reduce端的分区数量？？？？？？？？
     private val numOutputSplits = dep.partitioner.numPartitions
     private val metrics = context.taskMetrics
 
@@ -49,6 +50,11 @@ private[spark] class HashShuffleWriter[K, V](
         writeMetrics)
 
     /** Write a bunch of records to this task's output */
+    //  返回值Iterator为Scala自带类，参数split通过查看Partition不难看出是一个RDD的一个分区的标识，
+    //  也就是说，通过输入参数某个分区的标识就可以获得这个分区的数据集合的迭代器，RDD与实际的某台机器上的数据集合就是这么联系起来的。
+    //  RDD的Iterator方法只有这么一个，但是这个方法只能用来遍历某个Partition的数据，不能遍历整个RDD中的全部数据。
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////参数records是一个分区的迭代器，只能遍历一个分区内的数据/////////////////////////////////////////////
     override def write(records: Iterator[_ <: Product2[K, V]]): Unit = {
         /*
         *
@@ -59,6 +65,7 @@ private[spark] class HashShuffleWriter[K, V](
             * 如果map端要求聚合dep.aggregator.isDefined
             * */
             if (dep.mapSideCombine) {
+                //  返回还是一个分区的迭代器Iterator[(K, C)]，只不过是map聚合后的迭代器，遍历该分区
                 dep.aggregator.get.combineValuesByKey(records, context)
             } else {
                 records
@@ -71,9 +78,11 @@ private[spark] class HashShuffleWriter[K, V](
         /*
         *
         *
-        * 每个分区写入一个bucketId
+        * 该task对应的分区的每个elem元素，hash算法获得对应bucketId；
+        * 每个map都对应的多个bucketId，bucketId编号都是0、1、2、3、4、5、、、numPartition；
         * */
         for (elem <- iter) {
+            //  bucketId的范围是[0, 1, 2, 3, 4, ......, numPartitions - 1]
             val bucketId = dep.partitioner.getPartition(elem._1)
             shuffle.writers(bucketId).write(elem)
         }
