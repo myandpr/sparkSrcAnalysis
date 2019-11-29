@@ -77,6 +77,7 @@ private[spark] class ShuffleMapTask(
         metrics = Some(context.taskMetrics)
         var writer: ShuffleWriter[Any, Any] = null
         try {
+            //  ShuffleManager是一个executor中一个SparkEnv，里面创建一个ShuffleManager
             val manager = SparkEnv.get.shuffleManager
             //  很显然，每个map task（也就是每个partition分区）都会获取一个writer句柄去写入文件
             writer = manager.getWriter[Any, Any](dep.shuffleHandle, partitionId, context)

@@ -22,6 +22,8 @@ import org.apache.spark.scheduler.MapStatus
 /**
   * Obtained inside a map task to write out records to the shuffle system.
   */
+//  ShuffleWriter就一个作用，write()写文件，写某个partition中的数据
+//  Partition : ShuffleMapTask : ShuffleWriter = 1 : 1 : 1
 private[spark] trait ShuffleWriter[K, V] {
     /** Write a bunch of records to this task's output */
     //  返回值Iterator为Scala自带类，参数split通过查看Partition不难看出是一个RDD的一个分区的标识，

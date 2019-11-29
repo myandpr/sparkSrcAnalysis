@@ -23,7 +23,10 @@ import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.serializer.Serializer
 import org.apache.spark.shuffle._
 import org.apache.spark.storage.BlockObjectWriter
-
+//  ShuffleWriter就一个作用，核心函数就一个：write()写文件，写某个partition中的数据
+//  Partition : ShuffleMapTask : ShuffleWriter = 1 : 1 : 1
+//  ShuffleManager是一个executor中一个SparkEnv，里面创建一个ShuffleManager
+//  所以ShuffleMapTask : ShuffleManager = N : 1，一个executor中的所有task都用一个ShuffleManager
 private[spark] class HashShuffleWriter[K, V](
                                                     shuffleBlockManager: FileShuffleBlockManager,
                                                     handle: BaseShuffleHandle[K, V, _],
