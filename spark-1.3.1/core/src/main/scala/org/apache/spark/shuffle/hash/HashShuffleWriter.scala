@@ -55,11 +55,14 @@ private[spark] class HashShuffleWriter[K, V](
     //  RDD的Iterator方法只有这么一个，但是这个方法只能用来遍历某个Partition的数据，不能遍历整个RDD中的全部数据。
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////参数records是一个分区的迭代器，只能遍历一个分区内的数据/////////////////////////////////////////////
+    ////////////////////////////该write函数是一个task作用于一个partition时候，执行的函数////////////////////////////////////////////
     override def write(records: Iterator[_ <: Product2[K, V]]): Unit = {
         /*
         *
-        * 返回的应该是分区迭代器，遍历每个分区
+        * 错误理解： 返回的应该是分区迭代器，遍历每个分区
+        * 正确理解： 上面这一行的理解是错误的！！是分区迭代器，但是是某个分区内的迭代器，遍历的是该分区内的所有数据，而不是所有分区的数据。
         * */
+        //  aggregator参数表示map或reduce端是否需要聚合。
         val iter = if (dep.aggregator.isDefined) {
             /*
             * 如果map端要求聚合dep.aggregator.isDefined
@@ -67,7 +70,7 @@ private[spark] class HashShuffleWriter[K, V](
             if (dep.mapSideCombine) {
                 //  返回还是一个分区的迭代器Iterator[(K, C)]，只不过是map聚合后的迭代器，遍历该分区
                 dep.aggregator.get.combineValuesByKey(records, context)
-            } else {
+            } else {    //  如果是reduce端要求聚合
                 records
             }
         } else {
