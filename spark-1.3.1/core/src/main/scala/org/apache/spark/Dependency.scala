@@ -22,6 +22,12 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.serializer.Serializer
 import org.apache.spark.shuffle.ShuffleHandle
 
+
+//  Dependency继承关系的梳理：
+//  1、NarrowDependency：（1）OneToOneDependency，（2）RangeDependency；
+//  2、ShuffleDependency
+//  参数里面的rdd或_rdd基本都表示父RDD，只是不太懂怎么用这个Dependency class，可以跟一下RDD.scala中Dependency的使用
+
 /**
   * :: DeveloperApi ::
   * Base class for dependencies.
@@ -37,6 +43,7 @@ abstract class Dependency[T] extends Serializable {
   * Base class for dependencies where each partition of the child RDD depends on a small number
   * of partitions of the parent RDD. Narrow dependencies allow for pipelined execution.
   */
+//  一直没搞懂，参数_rdd: RDD[T]到底是指的什么？父RDD吗？？？？？？？？？？？？？？？？
 @DeveloperApi
 abstract class NarrowDependency[T](_rdd: RDD[T]) extends Dependency[T] {
     /**
@@ -56,6 +63,7 @@ abstract class NarrowDependency[T](_rdd: RDD[T]) extends Dependency[T] {
   * Represents a dependency on the output of a shuffle stage. Note that in the case of shuffle,
   * the RDD is transient since we don't need it on the executor side.
   *
+  * _rdd指的是父RDD
   * @param _rdd           the parent RDD
   * @param partitioner    partitioner used to partition the shuffle output
   * @param serializer     [[org.apache.spark.serializer.Serializer Serializer]] to use. If set to None,

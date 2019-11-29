@@ -62,7 +62,7 @@ private[spark] class HashShuffleWriter[K, V](
         * 错误理解： 返回的应该是分区迭代器，遍历每个分区
         * 正确理解： 上面这一行的理解是错误的！！是分区迭代器，但是是某个分区内的迭代器，遍历的是该分区内的所有数据，而不是所有分区的数据。
         * */
-        //  aggregator参数表示map或reduce端是否需要聚合。
+        //  aggregator参数表示map或reduce端是否需要聚合。isDefined表示dep的aggretator参数不为空
         val iter = if (dep.aggregator.isDefined) {
             /*
             * 如果map端要求聚合dep.aggregator.isDefined
