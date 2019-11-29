@@ -27,6 +27,7 @@ import org.apache.spark.shuffle._
 //  使用hash的ShuffleManager： 每个mapper为每个reduce创建了一个输出文件output file。
 private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager {
 
+    //  该类没有梳理，需要梳理一下
     private val fileShuffleBlockManager = new FileShuffleBlockManager(conf)
 
     /* Register a shuffle with the manager and obtain a handle for it to pass to tasks. */
@@ -42,6 +43,9 @@ private[spark] class HashShuffleManager(conf: SparkConf) extends ShuffleManager 
       * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
       * Called on executors by reduce tasks.
       */
+    /////////////////////////////////////////////////////////////////////////////////////////////////
+    //////   注意：HashShuffleManager和SortShuffleManager的getReader()都是HashShuffleReader    //////
+    /////////////////////////////////////////////////////////////////////////////////////////////////
     override def getReader[K, C](
                                         handle: ShuffleHandle,
                                         startPartition: Int,

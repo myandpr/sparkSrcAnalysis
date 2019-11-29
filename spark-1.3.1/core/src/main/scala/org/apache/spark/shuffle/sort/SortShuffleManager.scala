@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap
 import org.apache.spark.{SparkConf, TaskContext, ShuffleDependency}
 import org.apache.spark.shuffle._
 import org.apache.spark.shuffle.hash.HashShuffleReader
-
+//  主要也是几个功能，getWriter、getReader、registerShuffle
 private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager {
 
     private val indexShuffleBlockManager = new IndexShuffleBlockManager(conf)
@@ -35,6 +35,9 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
                                                  shuffleId: Int,
                                                  numMaps: Int,
                                                  dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        //  还是不太明白这样如何能注册shuffle，因为只是返回了一个数据结构类型的class，并没有将shuffle保存在某个变量中   //
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         new BaseShuffleHandle(shuffleId, numMaps, dependency)
     }
 
@@ -42,6 +45,10 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       * Get a reader for a range of reduce partitions (startPartition to endPartition-1, inclusive).
       * Called on executors by reduce tasks.
       */
+    //  被executor上的reduce task调用，去获得一个范围分区的reader
+    //////////////////////////////////////////////////////////////////////////
+    ///     注意：该reader还是HashShuffleReader，是hash的，不是sort的     ////
+    //////////////////////////////////////////////////////////////////////////
     override def getReader[K, C](
                                         handle: ShuffleHandle,
                                         startPartition: Int,
