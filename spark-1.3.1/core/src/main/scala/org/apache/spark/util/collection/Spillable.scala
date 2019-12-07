@@ -57,6 +57,7 @@ private[spark] trait Spillable[C] extends Logging {
     private[this] var myMemoryThreshold = initialMemoryThreshold
 
     // Number of elements read from input since last spill
+    //  自从上一次溢出后，读取的记录数量
     private[this] var _elementsRead = 0L
 
     // Number of bytes spilled in total
@@ -88,8 +89,10 @@ private[spark] trait Spillable[C] extends Logging {
 
                 spill(collection)
 
+                //  溢出磁盘结束后，_elementRead就清零
                 _elementsRead = 0
                 // Keep track of spills, and release memory
+                //  溢出后，释放内存
                 _memoryBytesSpilled += currentMemory
                 releaseMemoryForThisThread()
                 return true

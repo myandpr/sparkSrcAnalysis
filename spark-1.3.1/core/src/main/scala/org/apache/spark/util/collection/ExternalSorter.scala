@@ -119,6 +119,8 @@ private[spark] class ExternalSorter[K, V, C](
     // Data structures to store in-memory objects before we spill. Depending on whether we have an
     // Aggregator set, we either put objects into an AppendOnlyMap where we combine them, or we
     // store them in an array buffer.
+    //  map和buffer是spill到磁盘前，存储在内存的数据结构。
+    //  如果需要聚合，就将object保存在SizeTrackingAppendOnlyMap中；否则，存放在SizeTrackingPairBuffer中。
     private var map = new SizeTrackingAppendOnlyMap[(Int, K), C]
     private var buffer = new SizeTrackingPairBuffer[(Int, K), C]
 
@@ -136,11 +138,12 @@ private[spark] class ExternalSorter[K, V, C](
     private val bypassMergeThreshold = conf.getInt("spark.shuffle.sort.bypassMergeThreshold", 200)
     private val bypassMergeSort =
         /*
-        * 三个条件：小于、不聚合、不排序
+        * 三个条件：reduce的partition数量小于bypassMergeThreshold、不聚合、不排序
         * */
         (numPartitions <= bypassMergeThreshold && aggregator.isEmpty && ordering.isEmpty)
 
     // Array of file writers for each partition, used if bypassMergeSort is true and we've spilled
+    //  每个分区对应的writer，当bypassMergeSort = true时被调用
     private var partitionWriters: Array[BlockObjectWriter] = null
 
     // A comparator for keys K that orders them within a partition to allow aggregation or sorting.
@@ -148,7 +151,9 @@ private[spark] class ExternalSorter[K, V, C](
     // user. (A partial ordering means that equal keys have comparator.compare(k, k) = 0, but some
     // non-equal keys also have this, so we need to do a later pass to find truly equal keys).
     // Note that we ignore this if no aggregator and no ordering are given.
+    //  如果没有aggregator和ordering，就用不着keyComparator
     private val keyComparator: Comparator[K] = ordering.getOrElse(new Comparator[K] {
+        //  比较key的hash值大小
         override def compare(a: K, b: K): Int = {
             val h1 = if (a == null) 0 else a.hashCode()
             val h2 = if (b == null) 0 else b.hashCode()
@@ -157,6 +162,7 @@ private[spark] class ExternalSorter[K, V, C](
     })
 
     // A comparator for (Int, K) pairs that orders them by only their partition ID
+    //  对(parititionId, key)比较，按照partitionId大小比较
     private val partitionComparator: Comparator[(Int, K)] = new Comparator[(Int, K)] {
         override def compare(a: (Int, K), b: (Int, K)): Int = {
             a._1 - b._1
@@ -164,6 +170,7 @@ private[spark] class ExternalSorter[K, V, C](
     }
 
     // A comparator that orders (Int, K) pairs by partition ID and then possibly by key
+    //  对(parititionId, key)比较，按照partitionId和key大小比较
     private val partitionKeyComparator: Comparator[(Int, K)] = {
         if (ordering.isDefined || aggregator.isDefined) {
             // Sort by partition ID then key comparator
@@ -194,8 +201,10 @@ private[spark] class ExternalSorter[K, V, C](
 
     private val spills = new ArrayBuffer[SpilledFile]
 
+    //  传入的是某个分区的迭代器records，可以遍历该分区内的所有数据
     def insertAll(records: Iterator[_ <: Product2[K, V]]): Unit = {
         // TODO: stop combining if we find that the reduction factor isn't high
+        //  如果有确定的聚合器aggregator，则一定是需要聚合的
         val shouldCombine = aggregator.isDefined
 
         if (shouldCombine) {
@@ -209,7 +218,9 @@ private[spark] class ExternalSorter[K, V, C](
             while (records.hasNext) {
                 addElementsRead()
                 kv = records.next()
+                //  ((partitionID, key), value)
                 map.changeValue((getPartition(kv._1), kv._1), update)
+                //  map端需要聚合，则参数usingMap = true
                 maybeSpillCollection(usingMap = true)
             }
         } else if (bypassMergeSort) {
@@ -235,6 +246,7 @@ private[spark] class ExternalSorter[K, V, C](
       *
       * @param usingMap whether we're using a map or buffer as our current in-memory collection
       */
+    //  将当前内存中的集合溢出到磁盘
     private def maybeSpillCollection(usingMap: Boolean): Unit = {
         if (!spillingEnabled) {
             return

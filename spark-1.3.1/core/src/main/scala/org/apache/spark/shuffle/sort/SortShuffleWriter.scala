@@ -48,9 +48,15 @@ private[spark] class SortShuffleWriter[K, V, C](
     context.taskMetrics.shuffleWriteMetrics = Some(writeMetrics)
 
     /** Write a bunch of records to this task's output */
+    //  一个map task对应一个partition，将这个partition中的数据写入文件中
+    //  该records参数表示该map task所在partition的迭代器，用来遍历该partition内的所有数据
     override def write(records: Iterator[_ <: Product2[K, V]]): Unit = {
+        //  mapSideCombine：是否在map端进行Combine操作,默认为true，注意是map端的
         if (dep.mapSideCombine) {
+            //  这里有个疑惑的地方：aggregator和mapSideCombine的关系
+            //  看翻译像是“没有指定具体聚合器的map端合并”，函数require()的意思是“如果!dep.aggregator.isDefined = true，则抛出异常，打印出后面的message”
             require(dep.aggregator.isDefined, "Map-side combine without Aggregator specified!")
+            //  建立一个外部排序器，在这个ExeternalSorter中将该partition中的数据进行排序
             sorter = new ExternalSorter[K, V, C](
                 dep.aggregator, Some(dep.partitioner), dep.keyOrdering, dep.serializer)
             sorter.insertAll(records)
