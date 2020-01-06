@@ -748,6 +748,7 @@ private[spark] class Master(
                     //  之所以判断是否大于零，是因为某些worker上可能没分配core就够了
                     if (assigned(pos) > 0) {
                         //  这个函数好好研究一下，好像对于一个application，每个worker上只启动了一个executor，每个executor核数还不一样？？？？？？？？？
+                        //  该exec中保存着其对应的application，所以才能在launchExecutor函数中，worker收到消息后从参数exec中获取app信息，为该app启动CoarseGrainedExecutorBackend进程
                         val exec = app.addExecutor(usableWorkers(pos), assigned(pos))
                         //  标识了executor和启动的worker位置
                         launchExecutor(usableWorkers(pos), exec)
