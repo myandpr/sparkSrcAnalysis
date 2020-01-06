@@ -212,13 +212,16 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
         }
     }
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // 特别重要(CoarseGrainedExecutorBackend和executor之间关系)：https://www.jianshu.com/p/9a224669097c   ///
-    //  应该是一一对应的，想一想在spark集群里的不同worker节点中，jps一下，就能看到
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 特别重要(CoarseGrainedExecutorBackend和executor之间关系)：https://www.jianshu.com/p/9a224669097c            ///
+    //  应该是一一对应的，想一想在spark集群里的不同worker节点中，jps一下，就能看到                                       ///
+    //  CoarseGrainedSchedulerBackend无main函数，CoarseGrainedExecutorBackend有main函数，是因为它们启动的方式不一样， ///
+    //  scheduler是函数调用启动的，executor的是通过Command直接启动的                                                 ///
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     //  有main方法。通过main启动CoarseGrainedExecutorBackend
     //  这里有个疑问，启动几个executor，则需要启动几个CoarseGrainedExecutorBackend？？？？还是只需要启动一个CoarseGrainedExecutorBackend，它负责所有的executor的启动？？？？？
+    //  不是的，每个CoarseGrainedExecutorBackend有一个executor，这个结论应该没问题
     def main(args: Array[String]) {
         var driverUrl: String = null
         var executorId: String = null
