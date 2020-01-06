@@ -35,6 +35,7 @@ import org.apache.spark.scheduler.TaskDescription
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.util.{ActorLogReceive, AkkaUtils, SignalLogger, Utils}
 
+//  CoarseGrainedExecutorBackend本身就是一个Actor，但是CoarseGrainedSchedulerBackend本身不是Actor，它内部有个DriverActor变量
 private[spark] class CoarseGrainedExecutorBackend(
                                                          driverUrl: String,
                                                          executorId: String,
