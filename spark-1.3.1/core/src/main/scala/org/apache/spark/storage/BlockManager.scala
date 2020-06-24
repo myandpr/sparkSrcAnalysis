@@ -385,6 +385,7 @@ private[spark] class BlockManager(
     *
     * 获取本地数据块数据：local block data
     * 返回的数据都是以ManagerBuffer的形式返回的
+    * BlockId数据结构保存着该blockId的asRDDid,isShuffle,isBroadcast
     * */
     override def getBlockData(blockId: BlockId): ManagedBuffer = {
         /*
@@ -447,7 +448,7 @@ private[spark] class BlockManager(
       * may not know of).
       */
     /*
-    * 过滤块
+    * 过滤块，传入的是一个filter函数，类似map函数中传入的filter操作，参数BlockId满足条件的过滤出来，何种方法自定义
     * */
     def getMatchingBlockIds(filter: BlockId => Boolean): Seq[BlockId] = {
         (blockInfo.keys ++ diskBlockManager.getAllBlocks()).filter(filter).toSeq
@@ -1060,6 +1061,7 @@ private[spark] class BlockManager(
     /**
       * Replicate block to another node. Not that this is a blocking call that returns after
       * the block has been replicated.
+      * 将一个block复制到多份到其他节点，直到其他节点复制完成返回
       */
     private def replicate(blockId: BlockId, data: ByteBuffer, level: StorageLevel): Unit = {
         val maxReplicationFailures = conf.getInt("spark.storage.maxReplicationFailures", 1)
