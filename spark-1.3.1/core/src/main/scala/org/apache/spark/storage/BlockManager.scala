@@ -78,10 +78,12 @@ private[spark] class BlockResult(
   * retrieving blocks both locally and remotely into various stores (memory, disk, and off-heap).
   *
   * Note that #initialize() must be called before the BlockManager is usable.
+  * 运行在每个节点driver和executors上，都有BlockManager，负责Block的本地和远程下载及上传（各种存储位置）
+  *
   */
 private[spark] class BlockManager(
                                          executorId: String,
-                                         actorSystem: ActorSystem,
+                                         actorSystem: ActorSystem,  //  该参数在SparkEnv中创建createDriverEnv/createExecutorEnv中传入的
                                          val master: BlockManagerMaster,    //  这个BlockManagerMaster很重要
                                          defaultSerializer: Serializer,
                                          maxMemory: Long,
@@ -92,9 +94,6 @@ private[spark] class BlockManager(
                                          securityManager: SecurityManager,
                                          numUsableCores: Int)
         extends BlockDataManager with Logging {
-
-    val diskBlockManager = new DiskBlockManager(this, conf)
-
     /*
     *
     *
@@ -111,6 +110,8 @@ private[spark] class BlockManager(
     * 提供了putBytes、getBytes、getSize等方法
     * */
     private[spark] val memoryStore = new MemoryStore(this, maxMemory)
+    //  DiskBlockManager只是辅助DiskStore实现block的磁盘读写
+    val diskBlockManager = new DiskBlockManager(this, conf)
     private[spark] val diskStore = new DiskStore(this, diskBlockManager)
     private[spark] lazy val tachyonStore: TachyonStore = {
         val storeDir = conf.get("spark.tachyonStore.baseDir", "/tmp_spark_tachyon")
@@ -156,7 +157,7 @@ private[spark] class BlockManager(
     // standard BlockTransferService to directly connect to other Executors.
     /*
     *
-    * 连接其他executor的shuffle file的客户端
+    * 读取其他executor的shuffle file的客户端，本质仅仅是一个直接连接其他executor的块传输服务
     * */
     private[spark] val shuffleClient = if (externalShuffleServiceEnabled) {
         val transConf = SparkTransportConf.fromSparkConf(conf, numUsableCores)

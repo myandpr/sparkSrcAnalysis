@@ -409,6 +409,9 @@ object SparkEnv extends Logging {
         * 用到actorSystem、BlockManagerMaster（这是个actor）、mapOutputTracker、shuffleManager、blockTransferService、securityManager参数，创建BlockManager，
         * */
         //  actorSystem是不同的，executor和driver的SparkEnv，是两个，各是各的
+        //  本质上：BlockManager持有BlockManagerMaster参数，而BlockManagerMaster持有BlockManagerMasterActor参数，这样就可以通信了
+        //  而MapOutputTracker本质上：MapOutputTrackerMaster和MapOutputTrackerWorker都持有trackerActor变量，也就是MapOutputTrackerMasterActor，
+        //  而MapOutputTrackerMasterActor持有MapOutputTrackerMaster参数
         val blockManager = new BlockManager(executorId, actorSystem, blockManagerMaster,
             serializer, conf, mapOutputTracker, shuffleManager, blockTransferService, securityManager,
             numUsableCores)
