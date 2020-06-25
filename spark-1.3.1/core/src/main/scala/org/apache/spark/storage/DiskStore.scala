@@ -41,6 +41,8 @@ private[spark] class DiskStore(blockManager: BlockManager, diskManager: DiskBloc
         diskManager.getFile(blockId.name).length
     }
 
+    //  DiskBlockManager不负责block文件的写入，只负责blockId和File的映射关系，写入时只是从DiskBlockManager中查到对应file，
+    //  然后在putBytes函数中具体构造IO流写入
     override def putBytes(blockId: BlockId, _bytes: ByteBuffer, level: StorageLevel): PutResult = {
         // So that we do not modify the input offsets !
         // duplicate does not copy buffer, so inexpensive
