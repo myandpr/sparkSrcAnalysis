@@ -61,7 +61,9 @@ private[spark] case class ArrayValues(buffer: Array[Any]) extends BlockValues
 *       private[spark] val memoryStore = new MemoryStore(this, maxMemory)
 *       private[spark] val diskStore = new DiskStore(this, diskBlockManager)
 * }
-*
+* BlockManger只有几个作用：
+* 1、BlockManagerSlaveActor接收到BlockManagerMasterActor的消息，调用BlockManager的函数执行blockInfo变量保存的block相关信息
+* 2、向BlockManagerMaster发消息请求查询block位置等信息
 *
 *
 * */

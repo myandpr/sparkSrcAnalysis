@@ -226,6 +226,10 @@ private[spark] class MemoryStore(blockManager: BlockManager, maxMemory: Long)
 
     /*
     * 移除blockId，为什么不通知master？
+    * 因为是先通知的各个master BlockManagerMasterActor BlockManagerSlaveActor通信后，才执行的最终的该remove函数
+    * 一般来说，都是BlockRDD发送的删除block的消息，向BlockManagerMaster发消息
+    * 基本上，整个BlockManager存储体系，都是某个组件调用BlockManagerMaster向自己的BlockManagerMasterActor发消息，然后BlockManagerMaster直接处理或发送到
+    * BlockManagerSlaveActor调用BlockManager做最后的处理；接下来的处理在物理层面就是调用BlockManager的MemoryStore或diskStore增删改查了。
     * */
     override def remove(blockId: BlockId): Boolean = {
         entries.synchronized {
