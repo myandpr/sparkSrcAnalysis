@@ -37,6 +37,7 @@ private[spark] class DiskStore(blockManager: BlockManager, diskManager: DiskBloc
         "spark.storage.memoryMapThreshold", 2 * 1024L * 1024L)
 
     override def getSize(blockId: BlockId): Long = {
+        // blockId.name就是DiskBlockManager的filename
         diskManager.getFile(blockId.name).length
     }
 
