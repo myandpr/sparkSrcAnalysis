@@ -392,8 +392,9 @@ object SparkEnv extends Logging {
 
 
         /*
-        * 创建BlockManagerMaster这个actor
-        * BlockManagerMaster是一个master节点上的actor，用来跟踪所有slave节点的block manager状态
+        * Driver端和executor端的SparkEnv都定义了BlockManagerMaster
+        * 参数isDriver仅仅是当SparkContext调用stop()函数关闭driver端所有组件时调用SparkEnv.stop()调用BlockManagerMaster.stop()时判断用的。
+        * 意味着只有driver端的BlockManagerMaster才可以执行操作stop(),executor端的BlockManagerMaster端收到stop信号后不处理。
         * */
         //  每启动一个ExecutorBackend都会实例化BlockManager并通过远程通讯的方式注册给BlockManagerMaster；实质上是Executor中的BlockManager在启动的时候注册给了Driver上的BlockManagerMasterEndpoint；
         //  registerOrLookup返回的是一个driverActor，其实就是启动一个BlockManagerMasterActor，
